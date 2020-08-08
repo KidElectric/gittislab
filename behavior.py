@@ -196,14 +196,14 @@ def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
             if use_move = True:
                 same as above except 
     '''
-    import time
     from gittislab import dataloc
+    from gittislab import mat_file
+    import numpy as np
     use_move=True
     
     #Generate dictionary to store results:
     # if 'out' not in locals():
     out=dict.fromkeys(labels,[])
-    tic = time.perf_counter()
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         h5_paths=dataloc.gen_paths_recurse(basepath,inc,exc,'.h5')
@@ -212,7 +212,7 @@ def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
             matpath=dataloc.rawmat(path.parent)
             if matpath:
                 print('%s:\n\t.h5: %s\n\t.mat: %s' % (labels[i],path,matpath))
-                peak,start,stop,df = behavior.detect_rear(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
+                peak,start,stop,df = detect_rear(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
                         dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1)
                 mat=mat_file.load(matpath)
                 laserOn=mat['laserOn'][:,0]
@@ -243,8 +243,6 @@ def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
                 print('\n\n NO .MAT FILE FOUND IN %s! \n\n' % path.parent)
             
             print('\n\n')
-    toc = time.perf_counter()
-    print('Full analysis took: %2.1f seconds.' % float(toc-tic))
     return out
 
 def prob_rear(is_rear,laserOn,window):

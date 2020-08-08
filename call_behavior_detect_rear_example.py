@@ -65,59 +65,20 @@ basepath,conds_inc,conds_exc,labels=dataloc.common_paths()
 # labels=labels[-1:]
 
 use_move=True
-#Generate dictionary to store results:
-if 'out' not in locals():
-    out=dict.fromkeys(labels,[])
 tic = time.perf_counter()
-for i,inc in enumerate(conds_inc):
-    exc=conds_exc[i]
-    h5_paths=dataloc.gen_paths_recurse(basepath,inc,exc,'.h5')
-    out[labels[i]]=np.zeros((len(h5_paths),2))
-    for ii,path in enumerate(h5_paths):
-        matpath=dataloc.rawmat(path.parent)
-        if matpath:
-            print('%s:\n\t.h5: %s\n\t.mat: %s' % (labels[i],path,matpath))
-            peak,start,stop,df = behavior.detect_rear(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
-                    dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1)
-            mat=mat_file.load(matpath)
-            laserOn=mat['laserOn'][:,0]
-            is_rear=df[df.columns[-1]].values
-            
-            #Take the shorter of the two:
-            min_len=min([len(laserOn),len(is_rear)])
-            
-            if use_move == True:
-                isMove=mat['im'][0:min_len,0]==0
-                
-                #Calculate probability of rearing when laser is off and mouse is moving:
-                denom_ind =( laserOn[0:min_len]==0) & isMove
-                rear_ind = is_rear[0:min_len]==1
-                out[labels[i]][ii][0]=sum(denom_ind & rear_ind) / sum(denom_ind)
-                   
-                #Calculate probability of rearing when laser is on and mouse is moving:
-                denom_ind = (laserOn[0:min_len]==1) & isMove
-                out[labels[i]][ii][1]=sum(denom_ind & rear_ind) / sum(denom_ind)
-            else:
-                #Calculate probability of rearing when laser is off:
-                out[labels[i]][ii][0]=sum((laserOn[0:min_len]==0) & (is_rear[0:min_len]==1))\
-                    / sum(laserOn[0:min_len]==0)
-                #Calculate probability of rearing when laser is on:
-                out[labels[i]][ii][1]=sum((laserOn[0:min_len]==1) & (is_rear[0:min_len]==1))\
-                    / sum(laserOn[0:min_len]==1)
-        else:
-            print('\n\n NO .MAT FILE FOUND IN %s! \n\n' % path.parent)
-        
-    print('\n\n')
+out = behavior.prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move)
 toc = time.perf_counter()
 print('Full analysis took: %2.1f seconds.' % float(toc-tic))
 
-# %% Save 'out'
+# Save 'out'
 savefn='~/Dropbox/Gittis Lab Data/Brian/DLC_Analysis/processed_output/rear_probability_laseroff_v_on.pickle'
 pd.to_pickle(out,savefn)
+print('File saved to %s' % savefn)
 
 # %% Load 'out' from above analysis:
 savefn='~/Dropbox/Gittis Lab Data/Brian/DLC_Analysis/processed_output/rear_probability_laseroff_v_on.pickle'
 out=pd.read_pickle(savefn)
+
 # %% Plot probability of rearing under all conditions:
     
 fig,ax=plt.subplots(2,6,figsize=(11,5))
