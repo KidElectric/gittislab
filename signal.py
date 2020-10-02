@@ -1,7 +1,10 @@
+import math
+import numpy as np
+from scipy.signal import find_peaks 
+
 def thresh(y,thresh, sign='Pos'):
-    import numpy as np
     if len(y.shape) == 1:
-        y=y[...,None]
+        y=y[:,None]
     if sign =='Neg':
         y *=-1
         thresh *=-1
@@ -13,11 +16,33 @@ def thresh(y,thresh, sign='Pos'):
     offsets=ind_list[np.argwhere(d > 1)+1 ]
     onsets=onsets[:,0]
     offsets=offsets[:,0]
+    if onsets.size > offsets.size:
+        onsets=onsets[0:offsets.size]
+    elif offsets.size > onsets.size:
+        dif= offsets.size - onsets.size
+        offsets=offsets[dif:offsets.size]
+        print('test')
     return onsets, offsets
-
-
+def boxcar_smooth(y,samps):
+    '''
+    boxcar_smooth(y,samps)     
+    Perform a padded 1d sliding average smooth via convolution.
+    
+    Inputs: y, array - data to smooth
+            samps, int - window for convolution in samples
+    
+    Output: y_smooth, array - smoothed y data
+    
+    '''
+    pad=np.ones(samps)
+    pad0=pad*y[0]
+    padN=pad*y[-1]
+    y_smooth=np.concatenate((pad0,y,padN))
+    
+    box = np.ones(samps)/samps
+    y_smooth = np.convolve(y_smooth, box, mode='same')
+    return y_smooth[samps:-samps]
 def join_crossings(on,off,min_samp):
-    import numpy as np
     on=np.concatenate(([0],on))
     off=np.concatenate(([0],off))
     keep_on = []
@@ -35,8 +60,6 @@ def join_crossings(on,off,min_samp):
     return on[keep_on],off[keep_off]
 
 def peak_start_stop(y,distance=30,height=0.6,width=10, min_thresh=0.2):
-    from scipy.signal import find_peaks 
-    import numpy as np
     peaks=find_peaks(y,distance=distance,height=height,width=width)[0] #Will return np.array
     start_peak=[]
     stop_peak=[]
@@ -63,7 +86,6 @@ def peak_start_stop(y,distance=30,height=0.6,width=10, min_thresh=0.2):
     return peaks,np.array(start_peak),np.array(stop_peak)
 
 def calculateDistance(x1,y1,x2,y2): 
-    import math
     dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)  
     return dist 
 
@@ -72,8 +94,6 @@ def max_correct(x,y,step,poly_order=2):
     # Correct local maximum values of y as a (polynomial) function of x.
     # Take max value of each bin of x, fit a polynomial, and divide y by the fitted max
     # This is useful to correct object size as a function of distance from a camera, for example.
-    import math
-    import numpy as np
     max_val=math.ceil(max(x))
     out=[]
     xtemp=np.array([i for i in range(0,max_val,step)])+step/2

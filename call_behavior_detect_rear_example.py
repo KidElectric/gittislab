@@ -55,6 +55,54 @@ print('%2.1f seconds.' % float(toc-tic))
 if xl['Trial time'][0] =='(s)':
     xl=xl.drop([0],axis=0)
     
+# %% Compare rearing vs. light stim in one or a few conditions
+conds_inc=[['Str','D1','ChR2','10x'],
+           ['Str','A2A','ChR2','10x30'],
+           ['Str','D1','Arch','10x10_30mW']]
+conds_exc=[['Caspase','exclude','hSyn','EYFP','D2_D1'],
+           ['Caspase','exclude','hSyn','EYFP','D2_D1'],
+           ['Caspase','exclude','hSyn','EYFP','D2_D1']]
+labels=['Str-D1-ChR2','Str-D2-ChR2','Str-D1-Arch']
+use_move=True
+# out = behavior.prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move)
+ylab='P(Rearing)'
+out = behavior.rear_rate_stim_dict(basepath,conds_inc,conds_exc,labels,use_move)
+ylab='Rears / s'
+# %%
+fig,ax=plt.subplots(2,2,figsize=(11,5))
+plot_order=labels
+normalized = False
+if normalized==True:
+    ymax=2.5
+else:
+    ymax=0.5
+for axi,key in enumerate(plot_order):
+    dat=out[key]
+    i=np.unravel_index(axi,ax.shape,'F')
+    for row in dat:
+        x=[1,2]
+        y=row
+        if normalized==True:
+            y=y/row[0]
+        ax[i].plot(x,y,'-ok')
+    ax[i].xaxis.set_ticks(x)
+    t,p=stats.ttest_rel(dat[:,0],dat[:,1])
+    plots.sig_star(x,p,ax[i])
+    # if (axi+1) % (ax.shape[0]) == 0:
+    ax[i].xaxis.set_ticklabels(['Off','On'],rotation=0)
+    # else:
+    #     ax[i].xaxis.set_ticklabels(['',''])
+    
+    ax[i].set_title(key)
+    ax[i].set_xlim([0,3])
+    ax[i].set_ylim([0,ymax])
+    if (axi+1) / ax.shape[0] <= 1:
+        ax[i].set_ylabel(ylab)
+    else:
+        ax[i].tick_params(axis='y',label1On=False)
+
+plots.cleanup(ax)
+mngr = plt.get_current_fig_manager()
 # %% Compare rearing vs. light stimulation in many conditions:
     
 basepath,conds_inc,conds_exc,labels=dataloc.common_paths()
@@ -66,12 +114,18 @@ basepath,conds_inc,conds_exc,labels=dataloc.common_paths()
 
 use_move=True
 tic = time.perf_counter()
-out = behavior.prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move)
+out = behavior.rear_rate_stim_dict(basepath,conds_inc,conds_exc,labels,use_move)
+ylab='Rears / s'
+# Save 'out'
+savefn='~/Dropbox/Gittis Lab Data/Brian/DLC_Analysis/processed_output/rear_rate_laseroff_v_on.pickle'
+
+# out = behavior.prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move)
+# ylab='P(Rearing)'
+# savefn='~/Dropbox/Gittis Lab Data/Brian/DLC_Analysis/processed_output/rear_probability_laseroff_v_on.pickle'
+
 toc = time.perf_counter()
 print('Full analysis took: %2.1f seconds.' % float(toc-tic))
 
-# Save 'out'
-savefn='~/Dropbox/Gittis Lab Data/Brian/DLC_Analysis/processed_output/rear_probability_laseroff_v_on.pickle'
 pd.to_pickle(out,savefn)
 print('File saved to %s' % savefn)
 
@@ -79,6 +133,9 @@ print('File saved to %s' % savefn)
 savefn='~/Dropbox/Gittis Lab Data/Brian/DLC_Analysis/processed_output/rear_probability_laseroff_v_on.pickle'
 out=pd.read_pickle(savefn)
 
+# %%
+savefn='~/Dropbox/Gittis Lab Data/Brian/DLC_Analysis/processed_output/rear_rate_laseroff_v_on.pickle'
+out=pd.read_pickle(savefn)
 # %% Plot probability of rearing under all conditions:
     
 fig,ax=plt.subplots(2,6,figsize=(11,5))
@@ -110,7 +167,7 @@ for axi,key in enumerate(plot_order):
     ax[i].set_xlim([0,3])
     ax[i].set_ylim([0,ymax])
     if (axi+1) / ax.shape[0] <= 1:
-        ax[i].set_ylabel('P(Rear)')
+        ax[i].set_ylabel(ylab)
     else:
         ax[i].tick_params(axis='y',label1On=False)
 

@@ -1,13 +1,100 @@
+from gittislab import dataloc
+from gittislab import mat_file
+from gittislab import signal # sys.path.append('/home/brian/Dropbox/Python')
+from gittislab import dataloc
+from gittislab import ethovision_tools
+import numpy as np
+import os
+from matplotlib import pyplot as plt
+import pandas as pd
+import cv2
+from scipy.interpolate import interp1d
+
+def smooth_vel(raw,params,win=10):
+    '''
+    smooth_vel(raw,params,win=10)
+    Calculate mouse velocity by smoothing (x,y) position coordinates with boxcar convolution
+    of a length set by "win".
+    Parameters
+    ----------
+    raw : ethovision dataframe
+        raw ethovision experiment dataframe created by ethovision_tools
+    params : dict
+        parameters of ethovision experiment created by ethovision_tools
+    win : int, optional
+        Length of smoothing window in samples. The default is 10. (333ms at 29.97 fps)
+
+    Returns
+    -------
+    vel : array
+        Instantaneous velocity recalculated from smooth (x,y).
+
+    '''
+    vel=[]
+    fs=params['fs']
+    x_s=signal.boxcar_smooth(raw['x'].values,win)
+    y_s=signal.boxcar_smooth(raw['y'].values,win)
+    for i,x in enumerate(x_s):
+        x2=x
+        x1=x_s[i-1]
+        y1=y_s[i-1]
+        y2=y_s[i]
+        dist=signal.calculateDistance(x1,y1,x2,y2)
+        vel.append(dist / (1/fs))
+    return np.array(vel)
+
+def measure_bearing(raw_df):
+    # Measurement revolves around direction of travel when crossing midline of open field
+    # and subsequent continuation along same route or rebounding
+    return raw_df['time'].values[0]
+
 def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,
                 dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1):    
-    import os
-    from gittislab import signal # sys.path.append('/home/brian/Dropbox/Python')
-    from gittislab import dataloc
-    from matplotlib import pyplot as plt
-    import numpy as np
-    import pandas as pd
-    import cv2
-    from scipy.interpolate import interp1d
+    '''
+    
+
+    Parameters
+    ----------
+    dlc_h5_path : String
+        DESCRIPTION. Path to the .h5 file containing deeplabcut video analysis 
+        with the following body parts tracked from Ethovision side camera:
+            'snout','side_head','side_left_fore','side_right_fore',
+            'side_tail_base','side_left_hind','side_right_hind'
+    rear_thresh : Integer, optional
+        DESCRIPTION. Threshold distance of mouse front over mouse hind 
+            used to detect rearing events in mice via gittislab.signal.peak_start_stop() 
+            The default is 0.65.
+    min_thresh : Integer, optional
+        DESCRIPTION. Threshold distance of mouse front over mouse hind
+            used to detect when rearing starts/stops via gittislab.signal.peak_start_stop() 
+            The default is 0.25.
+    save_figs : Boolean, optional
+        DESCRIPTION. Save a figure of rear detection. The default is False.
+    dlc_outlier_thresh_sd : Inteer, optional
+        DESCRIPTION. Threshold (in standard deviations) used to detect when instantaneous changes in 
+            deeplabcut position tracking outputs are too large and likely due 
+            to mistracking. The default is 4.
+    dlc_likelihood_thresh : Int. value between 0 and 1, optional
+        DESCRIPTION. Threshold for deeplabcut position probability estimate to be included
+            for further analysis. The default is 0.1.
+
+    Returns
+    -------
+    peaks : array
+        index of peak rear times in video samples
+    start_peak : array
+        index of rear start times in video samples
+    stop_peak : array
+        index of rear stop times in video samples
+    df : dataframe
+        full dataframe of deeplabcut analysis with rearing columns added:
+            head_centroid = mean of snout and side-head points
+            front_centroid = mean of  'snout','side_head','side_left_fore','side_right_fore'
+            rear_centroid = mean of 'side_tail_base','side_left_hind','side_right_hind'
+            front_over_rear = distance between front and rear centroids, smoothed and used for rearing calc
+            is_rearing = logical index of when mouse is rearing given rear_thresh and min_thresh input criteria
+
+    '''
     # from scipy.ndimage import gaussian_filter
     
     df = pd.read_hdf(dlc_h5_path)
@@ -194,11 +281,9 @@ def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
             columns =  [0] is P(Rear) with no stimulation
                        [1] is P(Rear) with light stimulation 
             if use_move = True:
-                same as above except 
+                same as above except also require immobility ==0 (not immobile)
     '''
-    from gittislab import dataloc
-    from gittislab import mat_file
-    import numpy as np
+
     use_move=True
     
     #Generate dictionary to store results:
@@ -245,5 +330,89 @@ def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
             print('\n\n')
     return out
 
+def rear_rate_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
+    ''' 
+    rear_rate_stim_dict() uses behavior.detect_rear() to calculate the rate
+                     of rearing during light stimulation compared to no light stimulation
+    Inputs: 
+        basepath = str path to top-level data directory, e.g. '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior'
+        conds_inc = list of lists of string identifiers used to identify each desired condition for analysis
+                e.g. [['GPe', 'Arch', 'CAG', '10x30', 'Bilateral', 'AG'],  # <- one experimental condition with several mice
+                     ['Str', '10x30', 'A2A', 'ChR2', 'Bilateral', 'AG']] #<- a second experimental condition with several mice
+                see: gittislab.dataloc.common_paths() for more detailed examples
+        conds_exc = same as conds_inc but for strings that shape included experiments via exclusion (see gittislab.dataloc for more info)
+        labels = list of strings matching conds_inc that describe condition succinctly:
+                e.g. labels = ['GPe-CAG-Arch',
+                               'Str-A2a-ChR2'] # for conds_inc described above
+    # NOTE: an example set of inputs can be generated with:
+        basepath,conds_inc,conds_exc,labels=gittislab.dataloc.common_paths() 
+
+    Output:
+        
+        out = a dictionary of 2-column arrays where key is 'labels' input
+            and each entry contains a nx2 array of rearing rates.
+            
+            if use_move = False:
+            rows = individual mice
+            columns =  [0] is P(Rear) with no stimulation
+                       [1] is P(Rear) with light stimulation 
+            if use_move = True:
+                same as above except also require immobility ==0 (not immobile)
+    '''
+
+    use_move=True
+    
+    #Generate dictionary to store results:
+    out=dict.fromkeys(labels,[])
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        h5_paths=dataloc.gen_paths_recurse(basepath,inc,exc,'.h5')
+        out[labels[i]]=np.zeros((len(h5_paths),2))
+        for ii,path in enumerate(h5_paths):
+            matpath=dataloc.rawmat(path.parent)
+            if matpath:
+                print('%s:\n\t.h5: %s\n\t.mat: %s' % (labels[i],path,matpath))
+                peak_array,start,stop,df = detect_rear(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
+                        dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1)
+                mat=mat_file.load(matpath)
+                laserOn=mat['laserOn'][:,0]
+                is_rear=df[df.columns[-1]].values
+                # has_fs=[key for key in mat.keys() if 'fs' in key]
+                if 'fs' not in mat:# len(has_fs)==0:
+                    fs=29.97
+                else:
+                    fs=mat['fs'][0][0]
+                
+                #Take the shorter of the two:
+                min_len=min([len(laserOn),len(is_rear)])
+                peak=[]
+                for p in peak_array:
+                    if p < min_len:
+                        peak.append(p)
+                if use_move == True:
+                    isMove=mat['im'][0:min_len,0]==0 #'im' = immobile. This selects all periods where mouse is NOT immobile.
+                    
+                    #Calculate rate of rearing when laser is off and mouse is moving:
+                    denom_ind =(laserOn[0:min_len]==0) & isMove
+                    nostim_rear=denom_ind[peak]
+                    out[labels[i]][ii][0]=sum(nostim_rear) / (sum(denom_ind)/fs)
+                       
+                    #Calculate rate of rearing when laser is on and mouse is moving:
+                    denom_ind = (laserOn[0:min_len]==1) & isMove
+                    stim_rear=denom_ind[peak]
+                    out[labels[i]][ii][1]=sum(stim_rear) / (sum(denom_ind)/fs)
+                else:
+                    #Calculate rate of rearing when laser is off:
+                    denom_ind=laserOn[0:min_len]==0
+                    out[labels[i]][ii][0]= sum(denom_ind[peak]) / (sum(denom_ind)/fs)
+                    
+                    #Calculate rate of rearing when laser is on:
+                    denom_ind=laserOn[0:min_len]==1
+                    out[labels[i]][ii][1]= sum(denom_ind[peak]) / (sum(denom_ind)/fs)
+            else:
+                print('\n\n NO .MAT FILE FOUND IN %s! \n\n' % path.parent)
+            
+            print('\n\n')
+    return out
 def prob_rear(is_rear,laserOn,window):
     print('Empty')
