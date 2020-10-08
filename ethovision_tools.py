@@ -1,9 +1,6 @@
 import pandas as pd
-from gittislab import dataloc
-from gittislab import signal
-from gittislab import behavior
+from gittislab import dataloc, signal, behavior, mat_file
 import os #To help us check if a file exists
-from gittislab import mat_file
 from pathlib import Path
 import numpy as np
 import math
@@ -12,7 +9,7 @@ if os.name == 'posix':
     sep='/'
 else:
     sep='\\'
-def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False):
+def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
     '''
     unify_to_h5(basepath,conds_inc=[],conds_exc=[]):
             makes a fully integrated .h5 file containing:
@@ -61,13 +58,13 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False):
                 raw=raw.astype({'im':bool,'m':bool,'laserOn':bool,'iz1':bool,'iz2':bool})
                 
                 #Improved velocity measure:
-                win=10
+                
                 raw['vel']=behavior.smooth_vel(raw,params,win)
                 params['vel_smooth_win_ms']=win/params['fs'] * 1000 # ~333ms
                 
                 thresh=2; #cm/s; Kravitz & Kreitzer 2010
                 dur=0.5; #s; Kravitz & Kreitzer 2010
-                raw=add_amb_to_raw(raw,params,thresh,dur) #Thresh and dur
+                raw=add_amb_to_raw(raw,params,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
                 params['amb_vel_thresh']=thresh
                 params['amb_dur_criterion_ms']=dur
                 
@@ -132,7 +129,7 @@ def analyze_df(fun,basepath,conds_inc=[],conds_exc=[]):
             h5_paths=[h5_paths]
         for ii,path in enumerate(h5_paths):
             data,par=h5_load(path)
-            out=fun(data)
+            out=fun(data,par)
             outs.append(out)
         all_out[field]=outs
     return all_out
@@ -336,6 +333,7 @@ def raw_from_mat(pn):
     return df
 
 def raw_params_from_xlsx(pn):
+    
     # Next, we will read in the data using the imported function, read_excel()
     path_str=dataloc.path_to_description(pn)
     print('\tLoading ~%s_Raw.xlsx...' % path_str)
@@ -578,16 +576,29 @@ def rename_xlsx_columns(df):
         df=df.drop('Result 1',axis=1)
     return df.rename(rename_dict,axis=1)
 
-def add_amb_to_raw(raw,params,thresh=2,dur=0.5):
+def add_amb_to_raw(raw,params,amb_thresh=2,amb_dur=0.5,im_thresh=1,im_dur=0.5):
     fs=params['fs']
     
-    on,off=signal.thresh(raw['vel'],thresh,sign='Pos')
+    on,off=signal.thresh(raw['vel'],amb_thresh,sign='Pos')
     bouts=(off-on)/fs    
     amb=np.zeros(raw['vel'].shape,dtype=bool)
-    
+    im = amb
+    m = np.ones(raw['vel'].shape,dtype=bool)
     for i,bout in enumerate(bouts):
-        if bout > dur:
+        if bout > amb_dur:
             amb[on[i]:off[i]]=True
+    
+    im=raw['vel'] < im_thresh
+    on,off=signal.thresh(im,0.5,sign='Pos')
+    im = amb
+    bouts=(off-on)/fs  
+    for i,bout in enumerate(bouts):
+        if bout > im_dur:
+            im[on[i]:off[i]]=True
+        
+    m[im]=False  #Mobile = not immobile
+    raw['im2']=im # 'im' is the immobility measure calculated in ethovision itself
+    raw['m2']=m #m is the mobility measure
     raw['ambulation']=amb
     raw['fine_move']= (raw['ambulation']==False) & (raw['im']==False)
     return raw

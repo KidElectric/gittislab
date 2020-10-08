@@ -5,18 +5,34 @@ Created on Tue Sep 15 16:25:12 2020
 
 @author: brian
 """
-from gittislab import dataloc
-from gittislab import ethovision_tools 
-from gittislab import signal, behavior
+from gittislab import signal, behavior, dataloc, ethovision_tools 
 import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 
 # inc=['GPi','CAG','Arch','10x30','AG6151_3_CS090720']
-inc=[['GPe','CAG','Arch','10x30',]]
+inc=['AG','Str','CAG','Arch','10x10_30mW',]
+exc=['exclude','_and_Str','Left','Right']
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+pns=dataloc.rawh5(basepath,inc,exc)
+df_raw,par_raw=ethovision_tools.h5_load(pns[0])
+
+# %% unify_h5
+inc=[['AG','Str','CAG','Arch','10x10_30mW',]]
 exc=[['exclude','_and_Str','Left','Right']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+pns=dataloc.rawh5(basepath,inc[0],exc[0])
+ethovision_tools.unify_to_h5(basepath,inc,exc,force_replace=True,win=100)
+
+# %% Load a file and plot some vel:
+df_raw,par_raw=ethovision_tools.h5_load(pns[0])
+out=behavior.mouse_stim_vel(df_raw,par_raw)
+out2=behavior.stim_clip_grab(df_raw,par_raw,raw_col='im2')
+trial=1
+plt.plot(out['cont'][:,trial])
+plt.plot(out2['cont'][:,trial])
 
 # %%
 pathfn=dataloc.path_to_fn('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPi/Naive/CAG/Arch/',
@@ -125,3 +141,6 @@ temp=temp.rename({col:temp[col][37] for col in temp.columns},axis='columns')
 temp=temp.drop(37)
 # %% 
 ethovision_tools.unify_to_h5(basepath,inc,exc)
+
+# %% Test generalized dataframe analysis function:
+a=ethovision_tools.analyze_df(behavior.measure_bearing,basepath,inc,exc)

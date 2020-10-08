@@ -1,14 +1,12 @@
-from gittislab import dataloc
-from gittislab import mat_file
-from gittislab import signal # sys.path.append('/home/brian/Dropbox/Python')
-from gittislab import dataloc
-from gittislab import ethovision_tools
+from gittislab import dataloc, mat_file, signal, ethovision_tools
 import numpy as np
 import os
+import math
 from matplotlib import pyplot as plt
 import pandas as pd
 import cv2
 from scipy.interpolate import interp1d
+from scipy.signal import butter, filtfilt
 
 def smooth_vel(raw,params,win=10):
     '''
@@ -32,8 +30,23 @@ def smooth_vel(raw,params,win=10):
     '''
     vel=[]
     fs=params['fs']
-    x_s=signal.boxcar_smooth(raw['x'].values,win)
-    y_s=signal.boxcar_smooth(raw['y'].values,win)
+    cutoff=3 #Hz
+    
+    #Low-pass filter method:
+    x=raw['x'].values
+    y=raw['y'].values
+    pad=round(fs*2)
+    x=np.pad(x,pad_width=(pad,),mode='linear_ramp')
+    y=np.pad(y,pad_width=(pad,),mode='linear_ramp')
+    
+    x_s=signal.butter_lowpass_filtfilt(x, cutoff, fs, order=5)
+    x_s=x_s[pad:-pad]
+    y_s=signal.butter_lowpass_filtfilt(y, cutoff, fs, order=5)
+    y_s=y_s[pad:-pad]
+    
+    #Boxcar method: (doesn't remove stimulation artifacts very well)
+    # x_s=signal.boxcar_smooth(raw['x'].values,win)
+    # y_s=signal.boxcar_smooth(raw['y'].values,win)
     for i,x in enumerate(x_s):
         x2=x
         x1=x_s[i-1]
@@ -43,11 +56,62 @@ def smooth_vel(raw,params,win=10):
         vel.append(dist / (1/fs))
     return np.array(vel)
 
-def measure_bearing(raw_df):
+def measure_bearing(raw_df,raw_par):
     # Measurement revolves around direction of travel when crossing midline of open field
     # and subsequent continuation along same route or rebounding
     return raw_df['time'].values[0]
 
+def stim_clip_grab(raw_df,raw_par,raw_col,baseline=10,stim_time=10,summarization_fun=np.nanmean):
+    
+    fs=raw_par['fs']
+    nsamps=math.ceil(((baseline*2) + stim_time) * fs)
+    ntrials=len(raw_par['stim_on'])
+    cont_array=np.empty((nsamps,ntrials))
+    cont_array[:]=np.nan
+    data=raw_df[raw_col].values
+
+    disc_array=np.empty((ntrials,3)) #Pre Dur Post
+    for i,on in enumerate(raw_par['stim_on']):
+        # Array containing continuous part of analysis:
+        off=raw_par['stim_off'][i]
+        base_samp= round((on-baseline) * fs)
+        on_samp = round(on * fs)
+        stim_time_samp= round((on+stim_time) * fs)
+        off_samp = round(off * fs)
+        post_samp = round((off+baseline) * fs)
+        intervals=[[base_samp,on_samp],
+                   [on_samp,stim_time_samp],
+                   [off_samp,post_samp]]
+        
+        cont_array[:,i]=data[base_samp:(base_samp + nsamps)]
+        
+        # (1,3) Array containing Pre, Dur, Post discretized analysis:
+        for ii,interval in enumerate(intervals):
+            disc_array[i][ii]=summarization_fun(data[interval[0]:interval[1]])
+
+    out_struct={'cont':cont_array,'disc':disc_array,'samp_int':intervals}
+    return out_struct
+    
+def mouse_stim_vel(raw_df,raw_par,baseline=10,stim_time=10):
+    '''
+        mouse_stim_vel(raw_df,params)
+            Create average velocity trace from one mouse across stimulations.
+    Parameters
+    ----------
+    raw_df : TYPE
+        DESCRIPTION.
+    params : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    '''
+    raw_col='vel'
+    out_struct=stim_clip_grab(raw_df,raw_par,raw_col,baseline=10,stim_time=10,summarization_fun=np.nanmedian)
+    return out_struct
+        
 def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,
                 dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1):    
     '''

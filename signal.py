@@ -1,6 +1,19 @@
 import math
 import numpy as np
 from scipy.signal import find_peaks 
+from scipy.signal import butter, filtfilt
+
+def butter_lowpass(cutoff, fs, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = filtfilt(b, a, data)
+    return y
+
 
 def thresh(y,thresh, sign='Pos'):
     if len(y.shape) == 1:
@@ -22,7 +35,10 @@ def thresh(y,thresh, sign='Pos'):
         dif= offsets.size - onsets.size
         offsets=offsets[dif:offsets.size]
         print('test')
+    if sign == 'Neg':
+        y *= -1
     return onsets, offsets
+
 def boxcar_smooth(y,samps):
     '''
     boxcar_smooth(y,samps)     
@@ -42,6 +58,7 @@ def boxcar_smooth(y,samps):
     box = np.ones(samps)/samps
     y_smooth = np.convolve(y_smooth, box, mode='same')
     return y_smooth[samps:-samps]
+
 def join_crossings(on,off,min_samp):
     on=np.concatenate(([0],on))
     off=np.concatenate(([0],off))

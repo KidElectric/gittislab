@@ -1,3 +1,17 @@
+"""
+    dataloc contains functions for quickly navigating a formatted file strcture
+    
+    gen_paths_recurse(basepath,inc=[],exc = [],filetype = None):
+        gen_paths_recurse takes a file path name to search for directories that
+        include the strings in list "inc," and exclude strings in the list "exc" -> (optional).
+             
+    path_to_fn(basepath,inc=[],exc= [],filetype = None, include_fn=True):
+       Using the input methods of gen_paths_recurse(),
+       return a new file name that replaces file separation ('/') with underscore '_',
+       and existing underscores '_' with hyphens '-' to allow a reversable process (fn_to_path)
+             
+             
+"""
 import os
 from pathlib import Path
 if os.name == 'posix':
