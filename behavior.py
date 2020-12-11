@@ -7,6 +7,7 @@ import pandas as pd
 import cv2
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
+from scipy.stats import t
 
 def smooth_vel(raw,params,win=10):
     '''
@@ -61,38 +62,80 @@ def measure_bearing(raw_df,raw_par):
     # and subsequent continuation along same route or rebounding
     return raw_df['time'].values[0]
 
-def stim_clip_grab(raw_df,raw_par,raw_col,baseline=10,stim_time=10,summarization_fun=np.nanmean):
+def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',baseline=10,stim_dur=10,summarization_fun=np.nanmean):
     
     fs=raw_par['fs']
-    nsamps=math.ceil(((baseline*2) + stim_time) * fs)
+    nsamps=math.ceil(((baseline*2) + stim_dur) * fs)
     ntrials=len(raw_par['stim_on'])
-    cont_array=np.empty((nsamps,ntrials))
-    cont_array[:]=np.nan
-    data=raw_df[raw_col].values
-
-    disc_array=np.empty((ntrials,3)) #Pre Dur Post
-    for i,on in enumerate(raw_par['stim_on']):
+    cont_y_array=np.empty((nsamps,ntrials))
+    cont_y_array[:]=np.nan
+    y=raw_df[y_col].values
+    x=raw_df[x_col].values
+    disc_y_array=np.empty((ntrials,3)) #Pre Dur Post
+    for i,on_time in enumerate(raw_par['stim_on']):
         # Array containing continuous part of analysis:
-        off=raw_par['stim_off'][i]
-        base_samp= round((on-baseline) * fs)
-        on_samp = round(on * fs)
-        stim_time_samp= round((on+stim_time) * fs)
-        off_samp = round(off * fs)
-        post_samp = round((off+baseline) * fs)
+        off_time=raw_par['stim_off'][i]
+        base_samp= round((on_time - baseline) * fs)
+        on_samp = round(on_time * fs)
+        on_time_samp= round((on_time + stim_dur) * fs)
+        off_samp = round(off_time * fs)
+        post_samp = round((off_time + baseline) * fs)
         intervals=[[base_samp,on_samp],
-                   [on_samp,stim_time_samp],
+                   [on_samp,on_time_samp],
                    [off_samp,post_samp]]
         
-        cont_array[:,i]=data[base_samp:(base_samp + nsamps)]
-        
+        cont_y_array[:,i]=y[base_samp:(base_samp + nsamps)]
+        if i==0:
+            cont_x_array=x[base_samp:(base_samp + nsamps)] - on_time
         # (1,3) Array containing Pre, Dur, Post discretized analysis:
         for ii,interval in enumerate(intervals):
-            disc_array[i][ii]=summarization_fun(data[interval[0]:interval[1]])
+            disc_y_array[i][ii]=summarization_fun(y[interval[0]:interval[1]])
 
-    out_struct={'cont':cont_array,'disc':disc_array,'samp_int':intervals}
+    out_struct={'cont_x':cont_x_array,'cont_y':cont_y_array,'disc':disc_y_array,
+                'samp_int':intervals}
     return out_struct
+
+def stim_clip_average(clip):
+    '''
+    stim_clip_average(out_struct) Returns an average +/- 95% conf of continuous
+           and discrete fields of this structure
+
+    Parameters
+    ----------
+    out_struct : Struct.
+        Output structure from stim_clip_grab with a continous field ('cont') and discrete field ('disc')
+
+    Returns
+    -------
+    out_struct_averaged : TYPE
+        DESCRIPTION.
+
+    '''
+    confidence = 0.95
+    out_ave={'disc_m':np.empty((3,1)),
+             'disc_conf':np.empty((3,1)),
+             'cont_y':np.empty(clip['cont_y'][:,0].shape),
+             'cont_x':np.empty(clip['cont_x'].shape),
+             'cont_y_conf':np.empty(clip['cont_y'][:,0].shape)}
+    n=clip['cont_y'].shape[1]
+    for i,data in enumerate(clip['disc'].T):
+        m = np.mean(data)
+        std_err = np.nanstd(data)/np.sqrt(n)
+        h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+        out_ave['disc_m'][i]=m
+        out_ave['disc_conf'][i]=h
     
-def mouse_stim_vel(raw_df,raw_par,baseline=10,stim_time=10):
+    ym=np.mean(clip['cont_y'],axis=1)
+    out_ave['cont_y']=ym
+   
+    std_err = np.nanstd(clip['cont_y'],axis=1)/np.sqrt(n)
+    h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+    out_ave['cont_y_conf']=np.array([ym-h, ym+h]).T
+    out_ave['cont_x']=clip['cont_x']
+    
+    return out_ave
+    
+def mouse_stim_vel(raw_df,raw_par,baseline=10,stim_dur=10):
     '''
         mouse_stim_vel(raw_df,params)
             Create average velocity trace from one mouse across stimulations.
@@ -109,9 +152,9 @@ def mouse_stim_vel(raw_df,raw_par,baseline=10,stim_time=10):
 
     '''
     raw_col='vel'
-    out_struct=stim_clip_grab(raw_df,raw_par,raw_col,baseline=10,stim_time=10,summarization_fun=np.nanmedian)
+    out_struct=stim_clip_grab(raw_df,raw_par,raw_col,baseline,stim_dur,summarization_fun=np.nanmedian)
     return out_struct
-        
+
 def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,
                 dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1):    
     '''

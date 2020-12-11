@@ -5,9 +5,18 @@ Created on Thu May 28 11:37:06 2020
 
 @author: brian
 """
-
+import cv2
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.pyplot import gca 
+from matplotlib.collections import PatchCollection
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
+                               AutoMinorLocator)
+import matplotlib.patches as mpatches
+from gittislab import behavior
+from scipy.stats import ttest_rel
 def get_subs(axes):
-    import numpy as np
     dd=1
     for d in axes.shape:
         d = dd*d
@@ -36,7 +45,7 @@ def p_to_star(p):
     return star
 
 def sig_star(x,p,ax=None,):
-    from matplotlib.pyplot import gca 
+
     if ax == None:
         ax= gca()
     y=[]  
@@ -50,7 +59,97 @@ def sig_star(x,p,ax=None,):
     star=p_to_star(p)
     ax.text(mid,max_y,star,horizontalalignment='center')
     
+def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=None):
+    '''
+    Parameters
+    ----------
+    clip_ave : DICT with fields:
+        'cont_y' Array of continous data (rows=samples,cols=trials) 
+        'cont_x' Array of x-values matching rows in 'cont_y'
+        'cont_y_conf' Array of y +/- confidence interval for 'cont_y', 
+            col 0 = upper bound (y + conf)
+            col 1 = lower bound (y - conf)
+        See: Output from gittislab.behavior.stim_clip_average() for example 
+            generation of this dict.
+    xlim : LIST, optional
+        x axis bounds to plot, in seconds. The default is [-45,60].
+    highlight : LIST, optional
+        3-value list describing rectangular patch to highlight on plot.
+            [start x, stop x, height y]. The default is None. (No patch)
+            E.g. [0,30,15] -- plot a rectangle from 0 to 30s, 15 high
+    hl_color  : STR, optional
+        string specifying color, default = 'b' (blue)
+    ax : matplotlib.pyplot.subplot axis handle if plotting in subplot
+    Returns
+    -------
+    fig : matplotlib.pyplot.subplot figure handle
+        DESCRIPTION.
+    ax : matplotlib.pyplot.subplot axis handle
+        DESCRIPTION.
+
+    '''
+    y=clip_ave['cont_y']
+    x=clip_ave['cont_x']
+    if ax == None: #If no axis provided, create a new plot
+        fig,ax=plt.subplots()
     
+    plt.ylabel('Speed (cm/s)')
+    plt.xlabel('Time from stim (s)')
+    
+    #If highlight patch box specified, plot it first:
+    if highlight:
+        ax.fill_between(highlight[0:2],[highlight[2],highlight[2]],[0,0],
+                        hl_color, alpha=0.3,edgecolor='none')
+        
+    # Plot confidence interval:
+    conf_int=clip_ave['cont_y_conf']
+    ub = conf_int[:,0]  #Positive confidence interval
+    lb = conf_int[:,1]  #Negative confidence interval
+    ax.fill_between(x, ub, lb, color='k', alpha=0.3, edgecolor='none',
+                    zorder=5)
+    
+    #Plot mean on top:
+    ax.plot(x,y,'k')
+    plt.xticks(np.arange(-60,90,10))
+    plt.yticks(np.arange(-0,20,5))
+    plt.xlim(xlim)
+    
+    #Set major and minor tick labels
+    ax.yaxis.set_major_locator(MultipleLocator(5))
+    ax.yaxis.set_minor_locator(MultipleLocator(1))
+    ax.xaxis.set_major_locator(MultipleLocator(10))
+    ax.xaxis.set_minor_locator(MultipleLocator(2.5))
+    plt.ylim([0, 20])
+    
+    if ax == None:
+        return fig,ax
+    else:
+        return ax
+
+def mean_disc_plus_conf(clip,xlabels,ax=None):
+    #Barplot +/- conf
+    clip_ave=behavior.stim_clip_average(clip)
+    if ax == None:
+        fig,ax = plt.subplots()
+        axflag=False
+    values= [d[0] for d in clip_ave['disc_m']]
+    conf= [d[0] for d in clip_ave['disc_conf']]
+    #bar plot with errorbars:
+    ax.bar(xlabels, values, yerr=conf)
+    
+    #Perform paired t-test:
+    t,p = ttest_rel(clip['disc'][:,0],clip['disc'][:,1])
+    # sig_star([0,1],p,ax)
+    print(str(p))
+    #Axis labels (here or outside of this to be more generalized)
+    plt.ylabel('Speed (cm/s)')
+    plt.xlabel('Time from stim (s)')
+    if axflag == False:
+        return fig, ax
+    else:
+        return ax
+    
+# Below 2 functions might be better in ethovision_tools ?
 def etho_check_sidecamera(vid_path,frame_array,plot_points=None):
     """
     Save sets of selected frames as a .pngs for closer inspection
@@ -78,10 +177,6 @@ def etho_check_sidecamera(vid_path,frame_array,plot_points=None):
         DESCRIPTION.
 
     """
-    import cv2
-    import os
-    import matplotlib.pyplot as plt
-    import numpy as np
     
     frame_dir=str(vid_path.parent) + '/Frame_output'
     if os.path.exists(frame_dir)==False:
@@ -141,7 +236,7 @@ def gen_sidecam_plot_points(df,parts,framesets):
             see: plots.etho_check_sidecamera() for useage
 
     """
-    import numpy as np
+   
     valid_parts=np.unique([col[1] for col in df.columns])
     dims=['x','y']
     plot_points=[]

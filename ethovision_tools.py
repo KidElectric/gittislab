@@ -54,8 +54,11 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                     raw,params=raw_params_from_xlsx(xlsxpath)
 
                 
-                #Set boolean columns:
-                raw=raw.astype({'im':bool,'m':bool,'laserOn':bool,'iz1':bool,'iz2':bool})
+                #Set common boolean columns (but don't force it if these columns are not present):
+                common_bool=['im', 'm', 'laserOn','iz1','iz2']
+                for cb in common_bool:
+                    if cb in raw.columns:
+                        raw[cb]=raw[cb].astype('bool')
                 
                 #Improved velocity measure:
                 
@@ -83,7 +86,94 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
     print('Finished')
     
-def param_summary(basepath,conds_inc=[],conds_exc=[]):
+def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
+    '''
+    unify_to_csv(basepath,conds_inc=[],conds_exc=[]):
+            makes 
+            a) Raw*.csv - file containing EthoVision raw data:
+                - columns of samples for various measurements like mouse position (x,y)
+            b) metadata.csv - dictionary with key experiment information (animal id, condition, etc).
+
+            c) deeplabcut.csv - dataframe of body tracking if available
+
+    Parameters
+    ----------
+    basepath : TYPE
+        DESCRIPTION.
+    conds_inc : TYPE, optional
+        DESCRIPTION. The default is [].
+    conds_exc : TYPE, optional
+        DESCRIPTION. The default is [].
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        xlsx_paths=dataloc.rawxlsx(basepath,inc,exc)
+        if isinstance(xlsx_paths,Path):
+            xlsx_paths=[xlsx_paths]
+        for ii,path in enumerate(xlsx_paths):
+            # First, let's check if there is already a .h5 file in this folder:    
+            new_file_name=dataloc.path_to_rawfn(path) + '.csv'
+            file_exists=os.path.exists(path.parent.joinpath(new_file_name))
+            print('Inc[%d], file %d) %s generation...' % (i,ii,new_file_name))
+            if (file_exists == False) or ((file_exists == True) and (force_replace == True)): 
+                matpath=dataloc.rawmat(path.parent)
+                xlsxpath=path
+                if matpath: #If .mat file exists, create raw .csv file from this file
+                    raw=raw_from_mat(matpath) #Will add 'raw', 'params', and 'stim' to .h5
+                    params=params_from_mat(matpath)
+                else: #If no .mat file exists, generate raw .csv from xlsx (slow)
+                    print('\tNo .mat file found! Generating from .xlsx...')
+                    raw,params=raw_params_from_xlsx(xlsxpath)
+
+                
+                #Set common boolean columns (but don't force it if these columns are not present):
+                common_bool=['im', 'm', 'laserOn','iz1','iz2']
+                for cb in common_bool:
+                    if cb in raw.columns:
+                        raw[cb]=raw[cb].astype('bool')
+                
+                #Improved velocity measure:
+                
+                raw['vel']=behavior.smooth_vel(raw,params,win)
+                params['vel_smooth_win_ms']=win/params['fs'] * 1000 # ~333ms
+                
+                thresh=2; #cm/s; Kravitz & Kreitzer 2010
+                dur=0.5; #s; Kravitz & Kreitzer 2010
+                raw=add_amb_to_raw(raw,params,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
+                params['amb_vel_thresh']=thresh
+                params['amb_dur_criterion_ms']=dur
+                
+                #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:
+                dlcpath=dataloc.dlc_h5(path.parent) 
+                
+                #add_deeplabcut(path) # still need to write this function -> integrated into raw? something else?
+                
+                #Write raw and params to .csv files:
+                pnfn=path.parent.joinpath(new_file_name)
+                print('Saving %s\n' % pnfn)
+                raw.to_csv(pnfn)
+                
+                metadata=pd.DataFrame().from_dict(params)
+                # for key in params.keys():
+                #     metadata.loc[key,0]=params[key]
+                meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
+                print('Saving %s\n' % meta_pnfn)
+                metadata.to_csv(meta_pnfn)
+            else:
+                # path_str=dataloc.path_to_description(path)
+                print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
+    print('Finished')   
+def meta_sum_h5(basepath,conds_inc=[],conds_exc=[]):
+    '''
+        Generate a summary dataframe of metadata from .h5 files specified by
+        inclusion criteria.
+    '''
     df=pd.DataFrame
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
@@ -116,6 +206,47 @@ def param_summary(basepath,conds_inc=[],conds_exc=[]):
                'etho_trial_control_settings',]
     return df[cols_keep]
 
+def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
+    '''
+        Generate a summary dataframe of metadata from .csv files specified by
+        inclusion criteria.
+    '''
+    df=pd.DataFrame
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        paths=dataloc.meta_csv(basepath,inc,exc)
+        if isinstance(paths,Path):
+            paths=[paths]
+        for ii,path in enumerate(paths):
+            pardf=meta_csv_load(path).loc[[0]]
+            if ii==0:
+                df=pardf
+            else:
+                df=pd.concat([df,pardf],axis=0)
+                
+    cols_keep=['folder_anid',
+               'stim_area',
+               'cell_type',
+               'opsin_type',
+               'side',
+               'protocol',
+               'da_state',
+               'etho_sex',
+               'etho_arena',
+               'etho_stim_info',
+               'animal_id_mismatch',
+               'possible_retrack',
+               'experimenter',
+               'exp_room_number',
+               'etho_trial_number',
+               'etho_trial_control_settings',]
+    df=df[cols_keep]
+    df=df.reset_index().drop(['index'],axis=1)
+    cols_rename=['anid','area','cell','opsin','side','proto','da','sex','arena',
+                 'stim','id_err','retrack','exper','room','trial','settings']
+    rename_dict={cols_keep[i] : cols_rename[i] for i in range(len(cols_rename))} 
+    
+    return df.rename(rename_dict,axis=1)
     
 def analyze_df(fun,basepath,conds_inc=[],conds_exc=[]):
     
@@ -137,7 +268,7 @@ def analyze_df(fun,basepath,conds_inc=[],conds_exc=[]):
 def h5_store(filename, df, **kwargs):
     store = pd.HDFStore(filename)
     store.put('mydata', df)
-    store.get_storer('mydata').attrs.metadata = kwargs
+    #store.get_storer('mydata').attrs.metadata = kwargs
     store.close()
 
 def h5_load(filename):
@@ -146,6 +277,19 @@ def h5_load(filename):
     metadata = store.get_storer('mydata').attrs.metadata
     store.close()
     return data, metadata
+
+def csv_load(exp_path):
+    rawfn=dataloc.path_to_rawfn(exp_path) + '.csv'
+    pnfn=exp_path.parent.joinpath(rawfn)
+    print('Loading %s\n' % pnfn)
+    raw=pd.read_csv(pnfn)
+    meta_pnfn=exp_path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(exp_path)[4:])
+    metadata=meta_csv_load(meta_pnfn)
+    return raw, metadata
+
+def meta_csv_load(filename):
+    metadata=pd.read_csv(filename,index_col='Unnamed: 0')
+    return metadata
 
 def h5_load_par(filename):
     store = pd.HDFStore(filename)
@@ -337,7 +481,7 @@ def raw_params_from_xlsx(pn):
     # Next, we will read in the data using the imported function, read_excel()
     path_str=dataloc.path_to_description(pn)
     print('\tLoading ~%s_Raw.xlsx...' % path_str)
-    df=pd.read_excel(pn,sheet_name=None)
+    df=pd.read_excel(pn,sheet_name=None,na_values='-')
     raw=raw_from_xlsx(df)
     params=params_from_xlsx(df,pn)
     stim=stim_from_xlsx(df,pn)
@@ -346,8 +490,13 @@ def raw_params_from_xlsx(pn):
         params['stim_' + key]=value
     
     #Also add in: exp_end, task_start, task_stop
-    params['task_start']=params['stim_on'][0]-30
+    if len(params['stim_on'])>0:
+        params['task_start']=params['stim_on'][0]-30
+    else:
+        params['task_start']=0
     params['exp_end']=raw['time'].values[-1]
+    if len(params['stim_on']) > len(params['stim_off']):
+        params['stim_off']=np.hstack((params['stim_off'],params['exp_end']))
     params['task_stop']='multi' # see convert_raw_xlsx.m for notes
     return raw,params
 
@@ -362,6 +511,7 @@ def stim_from_xlsx(df,pn):
     stim={'on': data['Recording time'][stim_on].values,
           'off':data['Recording time'][stim_off].values,
           }
+
     proto=str(pn).split(sep)[-3]
     stim['proto']=proto
     stim_dur=[]
@@ -375,7 +525,10 @@ def stim_from_xlsx(df,pn):
     stim['n']=len(stim['on'])
     if ('mw' in proto) or ('mW' in proto):
         stim['amp_mw']=int(proto.split('_')[-1].split('m')[0])
-    stim['mean_dur']=stim['dur'].mean()
+    if len(stim['dur']) > 0:        
+        stim['mean_dur']=np.nanmean(stim['dur'])
+    else:
+        stim['mean_dur']=0
     return stim
 
 def params_from_xlsx(df,pn):
@@ -407,7 +560,7 @@ def params_from_xlsx(df,pn):
     anid=dataloc.path_to_animal_id(str_pn)
     
     #Check if there is any ambiguity about which mouse is in the file:
-    if not math.isnan(nold['Mouse ID']):
+    if isinstance(nold['Mouse ID'],str):
         if (nold['Mouse ID'] != anid):
             anid_mismatch=1
         else:
@@ -416,14 +569,16 @@ def params_from_xlsx(df,pn):
         anid_mismatch=np.nan
         
     #Examine tracking source to determine if video is retracked or which room is was likely filmed in:
-    if isinstance(nold['Tracking source'],str):
-        track_source=nold['Tracking source']
+    possible_retrack=0
+    if isinstance(nold['Tracking source'].values[0],str):
+        track_source=nold['Tracking source'].values[0]
         if 'Basler GenICam' in track_source:
             room_num=216
         elif 'Euresys PICOLO' in track_source:
             room_num=228
         else:
             room_num=np.nan
+            possible_retrack=1
     else:
         room_num=np.nan
         possible_retrack=1
@@ -439,22 +594,28 @@ def params_from_xlsx(df,pn):
     if 'Sex' in nold:
         sex=nold['Sex']
     elif 'Gender' in nold:
-        sex=nold['Gender'] # sex='Gender' #Older version
+        sex=nold['Gender'].values[0] # sex='Gender' #Older version
     else:
         sex=np.nan
         
     # Look for mouse depletion status if available:
     if 'Days after Depletion' in nold:
-        dep_status=nold['Days after Depletion']
+        dep_status=nold['Days after Depletion'].values[0]
     elif 'Days after' in nold:
-        dep_status = nold['Days after']
+        dep_status = nold['Days after'].values[0]
     elif 'Depletion Status' in nold:
-        dep_status = nold['Depletion Status']
+        dep_status = nold['Depletion Status'].values[0]
     elif '# Days after Depletion' in nold:
-        dep_status = nold['# Days after Depletion']
-    
+        dep_status = nold['# Days after Depletion'].values[0]
+    else:
+        dep_status='N/A'
+    if 'Stim #' in nold:
+        stim_details=nold['Stim #'].values[0]
+    elif 'LED Dial' in nold:
+        stim_details=nold['LED Dial'].values[0]
+        
     if 'Test' in nold:
-        etho_exp=nold['Test']
+        etho_exp=nold['Test'].values[0]
     else:
         etho_exp=np.nan
     params={
@@ -468,8 +629,8 @@ def params_from_xlsx(df,pn):
         'etho_trial_number': int(nold['Trial name'].values[0].rsplit()[1]),
         'etho_experiment_file': nold['Experiment'].values[0],
         'etho_arena': nold['Arena settings'].values[0], #Two zone arena
-        'etho_stim_info' : nold['Stim #'].values[0], #Green = Dial 768, etc.
-        'etho_exp_type' : nold['Test'].values[0], # 10x30 etc.   
+        'etho_stim_info' : stim_details, #Green = Dial 768, etc.
+        'etho_exp_type' : etho_exp, # 10x30 etc.   
         'etho_tracking_source' : nold['Tracking source'].values[0],
         'experimenter':str_pn.split(sep)[-2].split('_')[-1][0:2],
         'exp_room_number':room_num,
@@ -530,7 +691,7 @@ def raw_from_xlsx(df):
         data.drop(axis=0, index=[38], inplace=True)
     data=rename_xlsx_columns(data)
     data.drop(columns=['rec_time','m_cont'],inplace=True)
-    
+    data.reset_index(inplace=True)
     
     # Either way, return the path/filename of the .csv file:
     return data
@@ -557,7 +718,7 @@ def rename_xlsx_columns(df):
                      'Direction':'dir','Direction (deg)' : 'dir',
                      'Distance moved':'dist', 'Distance moved (cm)':'dist',
                      'Velocity':'vel', 'Velocity (cm/s)':'vel',
-                     'Mobility state(Immobile)':'im',
+                     'Mobility state(Immobile)':'im','Mobility state(Immobile)':'im',
                      'Mobility state(Mobile)':'m',
                      'Mobility continuous':'m_cont',
                      'Rotation':'quarter_rot_cw',

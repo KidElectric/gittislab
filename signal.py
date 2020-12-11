@@ -108,9 +108,11 @@ def calculateDistance(x1,y1,x2,y2):
 
 
 def max_correct(x,y,step,poly_order=2):
-    # Correct local maximum values of y as a (polynomial) function of x.
-    # Take max value of each bin of x, fit a polynomial, and divide y by the fitted max
-    # This is useful to correct object size as a function of distance from a camera, for example.
+    '''
+    Normalize local maximum values of y as a (polynomial) function of x.
+    Take max value of each bin of x, fit a polynomial, and divide y by the fitted max
+    This is useful to correct object size as a function of distance from a camera, for example.
+    ''' 
     max_val=math.ceil(max(x))
     out=[]
     xtemp=np.array([i for i in range(0,max_val,step)])+step/2

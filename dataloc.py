@@ -35,9 +35,9 @@ def gen_paths_recurse(basepath,inc=[],exc = [],filetype = None):
    """
     basepath=Path(basepath)
     str_to_contain=inc
-    str_to_contain.append("AG") #Required for all mouse-level folders in the project.
+    #str_to_contain.append("AG") #Required for all mouse-level folders in the project.
     str_to_exclude=exc
-    str_to_exclude.append("exclude")
+    #str_to_exclude.append("exclude")
     exc_allf=['~lock','._']
     output=[]
     for dirpath, dirnames, files in os.walk(basepath):
@@ -288,6 +288,19 @@ def rawh5(basepath,inc=[],exc = []):
     >>>
     """
     keep_path=gen_paths_recurse(basepath,inc,exc,filetype = 'Raw*.h5')
+    return keep_path
+
+def meta_csv(basepath,inc=[],exc = []):
+    """ Using the input file path "basepath,"
+    return the metadata .csv locations for all mice that
+    match the criteria of "inc" list of strings and "exc" string list (optional)
+    
+    NOTE: simplest use case is to only include a specific directory in 'basepath'
+        and rawh5 will return the path to .h5 file in that directory if present
+    See: gen_paths_recurse() for further help.
+    >>>
+    """
+    keep_path=gen_paths_recurse(basepath,inc,exc,filetype = 'metadata*.csv')
     return keep_path
 
 def dlc_h5(basepath,inc=[],exc = []):

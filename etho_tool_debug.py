@@ -20,20 +20,24 @@ pns=dataloc.rawh5(basepath,inc,exc)
 df_raw,par_raw=ethovision_tools.h5_load(pns[0])
 
 # %% unify_h5
-inc=[['AG','Str','CAG','Arch','10x10_30mW',]]
+inc=[['AG','GPe','FoxP2','ChR2','10x10_20mW',]]
 exc=[['exclude','_and_Str','Left','Right']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_to_h5(basepath,inc,exc,force_replace=False,win=10)
+
+# Load a file and plot some vel:
 pns=dataloc.rawh5(basepath,inc[0],exc[0])
-ethovision_tools.unify_to_h5(basepath,inc,exc,force_replace=True,win=100)
-
-# %% Load a file and plot some vel:
-df_raw,par_raw=ethovision_tools.h5_load(pns[0])
+df_raw,par_raw=ethovision_tools.h5_load(pns[1])
 out=behavior.mouse_stim_vel(df_raw,par_raw)
-out2=behavior.stim_clip_grab(df_raw,par_raw,raw_col='im2')
-trial=1
-plt.plot(out['cont'][:,trial])
-plt.plot(out2['cont'][:,trial])
+out2=behavior.stim_clip_grab(df_raw,par_raw,raw_col='im')
+out3=behavior.stim_clip_grab(df_raw,par_raw,raw_col='im2')
+out4=behavior.stim_clip_grab(df_raw,par_raw,raw_col='m2')
 
+trial=3
+plt.plot(out['cont'][:,trial],'k')
+plt.plot(out2['cont'][:,trial],'r')
+plt.plot(out3['cont'][:,trial],'--g')
+# plt.plot(out4['cont'][:,trial],'--b')
 # %%
 pathfn=dataloc.path_to_fn('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPi/Naive/CAG/Arch/',
                           inc=['GPi','zone_1'],exc=['exclude'],filetype='.xlsx')
