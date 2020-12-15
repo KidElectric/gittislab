@@ -139,7 +139,6 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                         raw[cb]=raw[cb].astype('bool')
                 
                 #Improved velocity measure:
-                
                 raw['vel']=behavior.smooth_vel(raw,params,win)
                 params['vel_smooth_win_ms']=win/params['fs'] * 1000 # ~333ms
                 
@@ -217,12 +216,16 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
         paths=dataloc.meta_csv(basepath,inc,exc)
         if isinstance(paths,Path):
             paths=[paths]
-        for ii,path in enumerate(paths):
-            pardf=meta_csv_load(path).loc[[0]]
-            if ii==0:
-                df=pardf
-            else:
-                df=pd.concat([df,pardf],axis=0)
+        if len(paths) > 0:
+            for ii,path in enumerate(paths):
+                pardf=meta_csv_load(path).loc[[0]]
+                if ii==0:
+                    df=pardf
+                else:
+                    df=pd.concat([df,pardf],axis=0)
+        else:
+            df=pd.DataFrame()
+            print('Warning, no paths found.')
                 
     cols_keep=['folder_anid',
                'stim_area',
@@ -511,7 +514,9 @@ def stim_from_xlsx(df,pn):
     stim={'on': data['Recording time'][stim_on].values,
           'off':data['Recording time'][stim_off].values,
           }
-
+    if len(stim['on']) == 0:
+        stim['on']=[np.nan]
+        stim['off']=[np.nan]
     proto=str(pn).split(sep)[-3]
     stim['proto']=proto
     stim_dur=[]
@@ -529,6 +534,7 @@ def stim_from_xlsx(df,pn):
         stim['mean_dur']=np.nanmean(stim['dur'])
     else:
         stim['mean_dur']=0
+        # stim['dur']=[np.nan]
     return stim
 
 def params_from_xlsx(df,pn):

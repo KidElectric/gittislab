@@ -33,9 +33,11 @@ def smooth_vel(raw,params,win=10):
     fs=params['fs']
     cutoff=3 #Hz
     
-    #Low-pass filter method:
-    x=raw['x'].values
-    y=raw['y'].values
+    #Interpolate NaNs with nearyby values and convert to floats:
+    x=raw['x'].interpolate(method='pad').astype(np.float)
+    y=raw['y'].interpolate(method='pad').astype(np.float)
+    
+    #Low-pass filter method:     
     pad=round(fs*2)
     x=np.pad(x,pad_width=(pad,),mode='linear_ramp')
     y=np.pad(y,pad_width=(pad,),mode='linear_ramp')
@@ -44,18 +46,75 @@ def smooth_vel(raw,params,win=10):
     x_s=x_s[pad:-pad]
     y_s=signal.butter_lowpass_filtfilt(y, cutoff, fs, order=5)
     y_s=y_s[pad:-pad]
-    
+
     #Boxcar method: (doesn't remove stimulation artifacts very well)
     # x_s=signal.boxcar_smooth(raw['x'].values,win)
     # y_s=signal.boxcar_smooth(raw['y'].values,win)
-    for i,x in enumerate(x_s):
-        x2=x
+    for i,x2 in enumerate(x_s):
         x1=x_s[i-1]
         y1=y_s[i-1]
         y2=y_s[i]
         dist=signal.calculateDistance(x1,y1,x2,y2)
         vel.append(dist / (1/fs))
     return np.array(vel)
+
+def norm_position(raw_df):
+    '''
+    Normalize mouse running coordinates so that the center of (x,y) position is
+    (0,0). Use method of binning observed (x,y) in cm and finding center bin.
+    
+    Returns:
+        xn - np.array, normalized x center coordinate of mouse
+        yn - np.array, normalized y center coordinate of mouse
+    '''
+    cx,cy = find_arena_center(raw_df)        
+    x=raw_df['x'].values
+    y=raw_df['y'].values
+    y=y-cy
+    x=x-cx
+    #Potentially improve this cleaning process with 
+    exc= (abs(x) > 25) | (abs(y) > 25)  #Exclude
+    x[exc] = np.nan
+    y[exc] = np.nan
+    xn = x - np.nanmin(x) - (np.nanmax(x) - np.nanmin(x))/2
+    yn = y - np.nanmin(y) - (np.nanmax(y) - np.nanmin(y))/2
+    return xn,yn
+
+def find_arena_center(raw_df):
+    '''
+    Approximate the (x,y) center of the arena based off where the mouse has traveled.
+    
+    Uses a binning method to estimage endpoints of mouse travel.
+    
+    Takes ethovision raw dataframe as input.
+    
+    Output: x_center, y_center -> coordinate of center
+    '''
+    
+    # matlab code:
+    # function [cx,cy]=find_arena_center(x,y)
+
+    use = ['x','y']
+    for a in use:
+        x=raw_df[a].values
+        mm=math.floor(np.nanmin(x))
+        mmx=math.ceil(np.nanmax(x))
+        bin=[i for i in range(mm,mmx,1)]
+        c,_=np.histogram(x,bin)
+        c=np.log10(c)
+        c[np.isnan(c) | np.isinf(c)]=0
+        
+        # Find first and last bin > 0 and center on this value:
+        ind=[i for i,v in enumerate(c) if v > 0]
+        min=np.float(bin[ind[0]])
+        mx= np.float(bin[ind[-1]])
+        cx=(mx-min)/2 + min
+        if a=='x':
+            x_center = cx
+        elif a == 'y':
+            y_center= cx
+            
+    return x_center,y_center
 
 def measure_bearing(raw_df,raw_par):
     # Measurement revolves around direction of travel when crossing midline of open field

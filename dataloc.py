@@ -61,6 +61,8 @@ def gen_paths_recurse(basepath,inc=[],exc = [],filetype = None):
                 output.append(Path(dirpath))
     if len(output)==1:
         output=output[0]
+    if len(output)==0:
+        print('Warning no paths found with those criteria!')
     return output
 
 def common_paths(use_labels=[]):
@@ -290,6 +292,18 @@ def rawh5(basepath,inc=[],exc = []):
     keep_path=gen_paths_recurse(basepath,inc,exc,filetype = 'Raw*.h5')
     return keep_path
 
+def raw_csv(basepath,inc=[],exc = []):
+    """ Using the input file path "basepath,"
+    return the paths for raw .csv locations for all mice that
+    match the criteria of "inc" list of strings and "exc" string list (optional)
+    
+    NOTE: simplest use case is to only include a specific directory in 'basepath'
+        and .h5 file in that directory if present
+    See: gen_paths_recurse() for further help.
+    >>>
+    """
+    keep_path=gen_paths_recurse(basepath,inc,exc,filetype = 'Raw*.csv')
+    return keep_path
 def meta_csv(basepath,inc=[],exc = []):
     """ Using the input file path "basepath,"
     return the metadata .csv locations for all mice that

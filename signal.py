@@ -38,7 +38,48 @@ def thresh(y,thresh, sign='Pos'):
     if sign == 'Neg':
         y *= -1
     return onsets, offsets
+def chunk_by_x(x,y,x_points,x_range):
+    '''
+        Take x y arrays and make a matrix of data clips from y, centered on x_points, 
+        and extending x_range [-xx +xx]. 
+        number of clips = len(x_points) = rows of output
+        length of clips = x_range[1]-xrange[0] = columns of output (based on sampling rate)
+    Parameters
+    ----------
+    x : TYPE
+        DESCRIPTION.
+    y : TYPE
+        DESCRIPTION.
+    x_points : TYPE
+        DESCRIPTION.
+    chunk_range : TYPE
+        DESCRIPTION.
 
+    Returns
+    -------
+    None.
+
+    '''
+    output=[]
+    fs=1/np.nanmean(np.diff(x))
+    
+    if x_range[0] > 0:
+        x_range[0] = -1*x_range[0]
+    for p in x_points:
+        if (p + x_range[0]) < np.min(x):
+            #ideally nan pad the beginning of clip, for now exclude
+            #output.append(np.nan)
+            print('Missing beginning of a clip... skipping')
+        elif (p + x_range[1]) > np.max(x):
+            #nan pad the end of clip, for now exclude
+            #output.append(np.nan)
+            print('Missing end of a clip... skipping')
+        else:
+            #take the clip
+            use_x= (x >= (p +x_range[0] )) & (x < (p +x_range[1] ))
+            clip=y[use_x]
+            output.append(clip)
+    return output
 def boxcar_smooth(y,samps):
     '''
     boxcar_smooth(y,samps)     
