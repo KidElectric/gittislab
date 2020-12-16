@@ -479,7 +479,7 @@ def raw_params_from_xlsx(pn):
     # Next, we will read in the data using the imported function, read_excel()
     path_str=dataloc.path_to_description(pn)
     print('\tLoading ~%s_Raw.xlsx...' % path_str)
-    df=pd.read_excel(pn,sheet_name=None,na_values='-',header='none') #Key addition
+    df=pd.read_excel(pn,sheet_name=None,na_values='-',header=None) #Key addition
     raw=raw_from_xlsx(df)
     params=params_from_xlsx(df,pn)
     stim=stim_from_xlsx(df,pn)
