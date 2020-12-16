@@ -122,15 +122,10 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
             file_exists=os.path.exists(path.parent.joinpath(new_file_name))
             print('Inc[%d], file %d) %s generation...' % (i,ii,new_file_name))
             if (file_exists == False) or ((file_exists == True) and (force_replace == True)): 
-                matpath=dataloc.rawmat(path.parent)
                 xlsxpath=path
-                if matpath: #If .mat file exists, create raw .csv file from this file
-                    raw=raw_from_mat(matpath) #Will add 'raw', 'params', and 'stim' to .h5
-                    params=params_from_mat(matpath)
-                else: #If no .mat file exists, generate raw .csv from xlsx (slow)
-                    print('\tNo .mat file found! Generating from .xlsx...')
-                    raw,params=raw_params_from_xlsx(xlsxpath)
-
+                #If no .mat file exists, generate raw .csv from xlsx (slow)
+                print('\tNo .csv file found! Generating from .xlsx...')
+                raw,params=raw_params_from_xlsx(xlsxpath)
                 
                 #Set common boolean columns (but don't force it if these columns are not present):
                 common_bool=['im', 'm', 'laserOn','iz1','iz2']
@@ -484,7 +479,7 @@ def raw_params_from_xlsx(pn):
     # Next, we will read in the data using the imported function, read_excel()
     path_str=dataloc.path_to_description(pn)
     print('\tLoading ~%s_Raw.xlsx...' % path_str)
-    df=pd.read_excel(pn,sheet_name=None,na_values='-')
+    df=pd.read_excel(pn,sheet_name=None,na_values='-',header='none') #Key addition
     raw=raw_from_xlsx(df)
     params=params_from_xlsx(df,pn)
     stim=stim_from_xlsx(df,pn)
@@ -493,6 +488,34 @@ def raw_params_from_xlsx(pn):
         params['stim_' + key]=value
     
     #Also add in: exp_end, task_start, task_stop
+   
+
+    return raw,params
+def trialinfo_from_xlsx(df,params):
+    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    header_amount=int(df[sheets[0]].columns[1])
+    temp=df[sheets[2]]
+    header=temp.iloc[0:(header_amount-4),0:2]
+    header=pd.from_dict({'index':, })
+    header.set_index('Number of header lines:',inplace=True)
+    # .reset_index()
+    temp=temp.drop([i for i in range(0,(header_amount-3))])
+    temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
+    data=temp.drop(header_amount-3)
+    
+    rule_time=data['Trial time'].values
+    rule_order=[3, 5, 4, 6]
+    rule=[]
+    for j,rn in enumerate(rule_order):
+        temp=data.iloc[:,rn]
+        temp[pd.isna(temp)]='-'
+        rule.append(temp)
+    iszone=[('zone' in a) or ('Zone' in a) for a in rule[2]]
+    if any(iszone) and ('stripe' not in data.columns):
+        params['task']='avoidance'
+        zone_name=rule[2][iszone].iloc[0][0:6]
+        if zone_name == 'zone_s':
+            params['zone']=
     if len(params['stim_on'])>0:
         params['task_start']=params['stim_on'][0]-30
     else:
@@ -501,13 +524,51 @@ def raw_params_from_xlsx(pn):
     if len(params['stim_on']) > len(params['stim_off']):
         params['stim_off']=np.hstack((params['stim_off'],params['exp_end']))
     params['task_stop']='multi' # see convert_raw_xlsx.m for notes
-    return raw,params
-
+#   keep.task_stop=rule_time(find(contains(rule{2},{'Time (1)','post_period'}),1,'first'));
+#                     if isempty(keep.task_stop)
+    
+    params['task_stop']=
+    if params['task'] == 'trigger':
+        if len(params['stim_off']) > 0:
+                params(['task_stop'])=params['stim_off'][-1]
+#                         if strcmp(keep.task,'trigger')
+# %                             if any(keep.laserOn)
+# %                                 keep.task_stop=keep.time(find(keep.laserOn,1,'last'));
+# %                             else
+#                                 warning('No task_stop time found! Defaulting to 20 minutes')
+#                                 keep.task_stop=keep.task_start + 20 * 60; %Approximate
+# %                             end
+#                         elseif strcmp(keep.task,'10x30')
+# %                             if any(keep.laserOn)
+# %                                 keep.task_stop=keep.time(find(keep.laserOn,1,'last'));
+# %                             else
+#                                 warning('No task_stop time found! Defaulting to 30 minutes')
+#                                 keep.task_stop=keep.task_start + 30 * 60; %Approximate 
+# %                             end
+#                         elseif strcmp(keep.task,'aversion')
+# %                             if any(keep.laserOn)
+# %                                 keep.task_stop=keep.time(find(keep.laserOn,1,'last'));
+# %                             else
+#                                 warning('No task_stop time found! Defaulting to 30 minutes')
+#                                 keep.task_stop=keep.task_start + 30 * 60; %Approximate 
+# %                             end.
+#                         elseif strcmp(keep.task,'30min')
+#                             keep.task_stop=30*60;
+#                         elseif strcmp(keep.task,'60min') || strcmp(keep.task,'60min_psem') || strcmp(keep.task,'60min_saline')
+#                             keep.task_stop=60*60;
+#                         end
+#                     end
+#                     if strcmp(keep.zone,'zone_switch')
+#                        %Task_start will have 4 times and task_stop will
+#                        %have 4 times:
+    
 def stim_from_xlsx(df,pn):
-    temp=df[[key for key in df.keys()][1]]
-    temp=temp.drop([i for i in range(0,37)])
-    temp=temp.rename({col:temp[col][37] for col in temp.columns},axis='columns')
-    data=temp.drop(37)
+    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    header_amount=int(df[sheets[0]].columns[1])
+    temp=df[sheets[1]]
+    temp=temp.drop([i for i in range(0,(header_amount-3))])
+    temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
+    data=temp.drop(header_amount-3)
     
     stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1)
     stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0)
@@ -557,8 +618,10 @@ def params_from_xlsx(df,pn):
     '''
 
     # nold=pd.read_excel(pn, sheet_name=0, index_col=0, na_values='-', usecols=[0,1], nrows=36)
-    temp=df[[key for key in df.keys()][0]]
-    header=temp.loc[0:36]
+    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    header_amount=int(df[sheets[0]].columns[1])
+    temp=df[sheets[0]]
+    header=temp.loc[0:(header_amount-4)]
     header=header.drop(columns=header.columns[2:]).T
     nold=header.rename({col:header[col][0] for col in header.columns},axis='columns')
     nold=nold.drop('Number of header lines:')
@@ -682,11 +745,13 @@ def raw_from_xlsx(df):
     """
         
     # data=pd.read_excel(pn,sheet_name=0,header = 38, na_values='-',engine='xlrd') #Assumes that header is always 38 lines--> is this true? can this be checked also?
-    temp=df[[key for key in df.keys()][0]]
-    header=temp.loc[0:36]
-    temp=temp.drop([i for i in range(0,37)])
-    temp=temp.rename({col:temp[col][37] for col in temp.columns},axis='columns')
-    data=temp.drop(37)
+    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    header_amount=int(df[sheets[0]].columns[1])
+    temp=df[sheets[0]]
+    header=temp.loc[0:(header_amount-4)]
+    temp=temp.drop([i for i in range(0,header_amount-3)])
+    temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
+    data=temp.drop(header_amount-3)
         
   
     #Check if first row has strings showing the units instead of data:
@@ -694,9 +759,12 @@ def raw_from_xlsx(df):
   
     if isinstance(first_val, str):
         print('\tDetected unnecessary row 0, dropping..')
-        data.drop(axis=0, index=[38], inplace=True)
+        data.drop(axis=0, index=[header_amount-2], inplace=True)
     data=rename_xlsx_columns(data)
-    data.drop(columns=['rec_time','m_cont'],inplace=True)
+    drop_cols=['rec_time','m_cont']
+    for dc in drop_cols:
+        if dc in data.columns:
+            data.drop(columns=dc,inplace=True)
     data.reset_index(inplace=True)
     
     # Either way, return the path/filename of the .csv file:
@@ -726,13 +794,13 @@ def rename_xlsx_columns(df):
                      'Velocity':'vel', 'Velocity (cm/s)':'vel',
                      'Mobility state(Immobile)':'im','Mobility state(Immobile)':'im',
                      'Mobility state(Mobile)':'m',
-                     'Mobility continuous':'m_cont',
+                     'Mobility continuous':'m_cont','Mobility':'m_cont',
                      'Rotation':'quarter_rot_cw',
                      'Rotation 2':'quarter_rot_ccw',
                      'Full CW Rotation':'full_rot_cw',
                      'Full CCW Rotation':'full_rot_ccw',
-                     'In zone(Zone 1 / Center-point)':'iz1',
-                     'In zone(Zone 2 / Center-point)': 'iz2',
+                     'In zone(Zone 1 / Center-point)':'iz1','In zone(Zone 1 / center-point)':'iz1',
+                     'In zone(Zone 2 / Center-point)': 'iz2','In zone(Zone 2 / center-point)':'iz2',
                      'In zone(dot_side / Center-point)':'dot_side',
                      'In zone(stripe_side / Center-point)':'stripe_side',
                      'Hardware state':'laserOn',

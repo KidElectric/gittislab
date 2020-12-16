@@ -192,8 +192,8 @@ mice=['AG4700_5','AG4486_1','AG4486_3']
 usedays=['stim','nostim']
 stimx=-14.3 #Normalized max x boundary of stim area (for no-stim days)
 stimy=-0.23 #Normalized max y boundary of stim area (for no-stim days)
-xedges=np.linspace(-25,25,51)
-yedges=np.linspace(-11,11,23)
+xedges=np.linspace(-25,25,101)
+yedges=np.linspace(-11,11,45)
 plt.close('all')
 dx = (xedges[1]-xedges[0])/2.
 dy = (yedges[1]-yedges[0])/2.
@@ -213,8 +213,9 @@ for mouse in mice:
         basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
         pns=dataloc.raw_csv(basepath,inc[0],exc[0])
         summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)  
+        
         #Better way: create 2D histogram
-        keep_hist=np.zeros((50,22))
+        keep_hist=np.zeros((100,44))
         # fig,axes = plt.subplots(figsize=(15, 5))
         for i,pn in enumerate(pns):               
             raw,meta=ethovision_tools.csv_load(pn)
@@ -240,10 +241,17 @@ for mouse in mice:
         hist_norm=np.log10(((100*keep_hist)/(i+1))+1)
         hist_norm[hist_norm==-np.inf]=0
         hist_norm=hist_norm/np.max(hist_norm)
-        axes[ax].imshow(hist_norm.transpose(),vmax=0.4,
-                    interpolation='gaussian',cmap='binary',extent=extent)
-        axes[ax].add_patch(Rectangle((-24,abs(stimy)),width=25+stimx,height=11+stimy,
-                          fill=False,color='r',lw=3))
+        axes[ax].imshow(hist_norm.transpose(),
+                    vmax=0.05,
+                    interpolation='none',
+                    cmap='binary',
+                    extent=extent)
+        axes[ax].add_patch(Rectangle((-24,abs(stimy)),
+                                     width=25+stimx,
+                                     height=11+stimy,
+                                     fill=False,
+                                     color='r',
+                                     lw=3))
         axes[ax].set_title('%s %s' % (anid,useday))
-        plt.xlabel('cm')
-        plt.ylabel('cm')
+        axes[ax].set_xlabel('cm')
+        axes[ax].set_ylabel('cm')

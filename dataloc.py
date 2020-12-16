@@ -59,10 +59,12 @@ def gen_paths_recurse(basepath,inc=[],exc = [],filetype = None):
                         output.append(Path(dirpath,f))
             else:
                 output.append(Path(dirpath))
-    if len(output)==1:
-        output=output[0]
     if len(output)==0:
         print('Warning no paths found with those criteria!')
+    else:
+        if len(output)==1:
+            output=output[0]
+
     return output
 
 def common_paths(use_labels=[]):

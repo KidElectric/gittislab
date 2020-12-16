@@ -10,7 +10,9 @@ import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import math
 from matplotlib import pyplot as plt
+import pdb
 
 # inc=['GPi','CAG','Arch','10x30','AG6151_3_CS090720']
 inc=['AG','Str','CAG','Arch','10x10_30mW',]
@@ -143,8 +145,19 @@ header=temp.loc[0:36]
 temp=temp.drop([i for i in range(0,37)])
 temp=temp.rename({col:temp[col][37] for col in temp.columns},axis='columns')
 temp=temp.drop(37)
+# %% Start debugging ZONE task processing
+# ethovision_tools.unify_to_h5(basepath,inc,exc)
+inc=[['AG','GPe','CAG','Arch','zone_1',]]
+exc=[['exclude','_and_Str','Left','Right']]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_to_csv(basepath,inc,exc)
+summary=ethovision_tools.meta_sum_csv(basepath,inc,exc) 
+
 # %% 
-ethovision_tools.unify_to_h5(basepath,inc,exc)
+xlsx_path=Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/CAG/'
+               + 'Arch/Bilateral/zone_1/AG4766_8_UZ021220/'
+               + 'Raw data-bi_two_zone_rm216_v2-Trial     5.xlsx')
+raw,params=ethovision_tools.raw_params_from_xlsx(xlsx_path)
 
 # %% Test generalized dataframe analysis function:
 a=ethovision_tools.analyze_df(behavior.measure_bearing,basepath,inc,exc)
