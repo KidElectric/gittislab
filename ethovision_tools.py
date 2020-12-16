@@ -493,10 +493,10 @@ def raw_params_from_xlsx(pn):
     return raw,params
 def trialinfo_from_xlsx(df,params):
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]].columns[1])
+    header_amount=int(df[sheets[0]][1][0])
     temp=df[sheets[2]]
     header=temp.iloc[0:(header_amount-4),0:2]
-    header=pd.from_dict({'index':, })
+    # header=pd.from_dict({'index':, })
     header.set_index('Number of header lines:',inplace=True)
     # .reset_index()
     temp=temp.drop([i for i in range(0,(header_amount-3))])
@@ -515,7 +515,7 @@ def trialinfo_from_xlsx(df,params):
         params['task']='avoidance'
         zone_name=rule[2][iszone].iloc[0][0:6]
         if zone_name == 'zone_s':
-            params['zone']=
+            # params['zone']=
     if len(params['stim_on'])>0:
         params['task_start']=params['stim_on'][0]-30
     else:
@@ -564,7 +564,7 @@ def trialinfo_from_xlsx(df,params):
     
 def stim_from_xlsx(df,pn):
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]].columns[1])
+    header_amount=int(df[sheets[0]][1][0])
     temp=df[sheets[1]]
     temp=temp.drop([i for i in range(0,(header_amount-3))])
     temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
@@ -619,18 +619,19 @@ def params_from_xlsx(df,pn):
 
     # nold=pd.read_excel(pn, sheet_name=0, index_col=0, na_values='-', usecols=[0,1], nrows=36)
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]].columns[1])
+    header_amount=int(df[sheets[0]][1][0])
     temp=df[sheets[0]]
     header=temp.loc[0:(header_amount-4)]
     header=header.drop(columns=header.columns[2:]).T
     nold=header.rename({col:header[col][0] for col in header.columns},axis='columns')
-    nold=nold.drop('Number of header lines:')
+    nold=nold.drop(0).reset_index(drop = True)
     str_pn=str(pn)
     anid=dataloc.path_to_animal_id(str_pn)
     
     #Check if there is any ambiguity about which mouse is in the file:
-    if isinstance(nold['Mouse ID'],str):
-        if (nold['Mouse ID'] != anid):
+    nold_an=nold['Mouse ID'].values[0]
+    if isinstance(nold_an,str):
+        if (nold_an != anid):
             anid_mismatch=1
         else:
             anid_mismatch=0
@@ -661,7 +662,7 @@ def params_from_xlsx(df,pn):
     
     # Look for mouse sex information if available:
     if 'Sex' in nold:
-        sex=nold['Sex']
+        sex=nold['Sex'].values[0]
     elif 'Gender' in nold:
         sex=nold['Gender'].values[0] # sex='Gender' #Older version
     else:
