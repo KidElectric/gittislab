@@ -502,21 +502,17 @@ def get_header_from_rawdf(df):
     '''
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
     header_amount=int(df[sheets[0]][1][0])
-    temp=df[sheets[2]]
+    temp=df[sheets[0]]
     header=temp.iloc[0:(header_amount-4),0:2]
-    # header=pd.from_dict({'index':, })
     header= header.set_index(0).transpose()
     return header
 
 def trialinfo_from_xlsx(df,params):
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]][1][0])
+    header=get_header_from_rawdf(df)
+    header_amount=int(header['Number of header lines:'])
     temp=df[sheets[2]]
-    header=temp.iloc[0:(header_amount-4),0:2]
-    # header=pd.from_dict({'index':, })
-    header.set_index('Number of header lines:',inplace=True)
-    # .reset_index()
-    temp=temp.drop([i for i in range(0,(header_amount-3))])
+    temp=temp.drop([i for i in range(0,header_amount-3)])
     temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
     data=temp.drop(header_amount-3)
     
@@ -581,7 +577,8 @@ def trialinfo_from_xlsx(df,params):
     
 def stim_from_xlsx(df,pn):
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]][1][0])
+    header=get_header_from_rawdf(df)
+    header_amount=int(header['Number of header lines:'])
     temp=df[sheets[1]]
     temp=temp.drop([i for i in range(0,(header_amount-3))])
     temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
@@ -634,14 +631,10 @@ def params_from_xlsx(df,pn):
 
     '''
 
-    # nold=pd.read_excel(pn, sheet_name=0, index_col=0, na_values='-', usecols=[0,1], nrows=36)
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]][1][0])
+    nold=get_header_from_rawdf(df) #Header
+    header_amount=int(nold['Number of header lines:'])
     temp=df[sheets[0]]
-    header=temp.loc[0:(header_amount-4)]
-    header=header.drop(columns=header.columns[2:]).T
-    nold=header.rename({col:header[col][0] for col in header.columns},axis='columns')
-    nold=nold.drop(0).reset_index(drop = True)
     str_pn=str(pn)
     anid=dataloc.path_to_animal_id(str_pn)
     
@@ -764,9 +757,9 @@ def raw_from_xlsx(df):
         
     # data=pd.read_excel(pn,sheet_name=0,header = 38, na_values='-',engine='xlrd') #Assumes that header is always 38 lines--> is this true? can this be checked also?
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]].columns[1])
+    header=get_header_from_rawdf(df)
+    header_amount=int(header['Number of header lines:'])
     temp=df[sheets[0]]
-    header=temp.loc[0:(header_amount-4)]
     temp=temp.drop([i for i in range(0,header_amount-3)])
     temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
     data=temp.drop(header_amount-3)
@@ -783,7 +776,7 @@ def raw_from_xlsx(df):
     for dc in drop_cols:
         if dc in data.columns:
             data.drop(columns=dc,inplace=True)
-    data.reset_index(inplace=True)
+    data.reset_index(inplace=True,drop=True)
     
     # Either way, return the path/filename of the .csv file:
     return data
