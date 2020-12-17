@@ -491,6 +491,23 @@ def raw_params_from_xlsx(pn):
    
 
     return raw,params
+
+def get_header_from_rawdf(df):
+    '''
+        Take in dictionary of dataframes made from Raw*.xlsx ethovision file 
+        and return header.
+            
+        INPUT: dictionary of 3 panadas.DataFrame sheets imported from Raw*.xlsx
+        OUTPUT: pandas.DataFrame, 1-row, columns w/ names of header entries
+    '''
+    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    header_amount=int(df[sheets[0]][1][0])
+    temp=df[sheets[2]]
+    header=temp.iloc[0:(header_amount-4),0:2]
+    # header=pd.from_dict({'index':, })
+    header= header.set_index(0).transpose()
+    return header
+
 def trialinfo_from_xlsx(df,params):
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
     header_amount=int(df[sheets[0]][1][0])
