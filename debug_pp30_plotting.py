@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import pdb
 from matplotlib import pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
@@ -20,6 +21,7 @@ inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim',]]
 exc=[['exclude','_and_Str','Left','Right']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 xlsx_paths=dataloc.rawxlsx(basepath,inc[0],exc[0])
+# df=pd.read_excel(xlsx_paths[1],sheet_name=None,na_values='-',header=None) #Key addition
 raw,params=ethovision_tools.raw_params_from_xlsx(xlsx_paths[1])
 
 # v=behavior.smooth_vel(raw,params,win=10)

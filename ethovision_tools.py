@@ -492,7 +492,7 @@ def raw_params_from_xlsx(pn):
 
     return raw,params
 
-def get_header_from_rawdf(df):
+def get_header_from_rawdf(df,sheet=0):
     '''
         Take in dictionary of dataframes made from Raw*.xlsx ethovision file 
         and return header.
@@ -501,7 +501,7 @@ def get_header_from_rawdf(df):
         OUTPUT: pandas.DataFrame, 1-row, columns w/ names of header entries
     '''
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[0]][1][0])
+    header_amount=int(df[sheets[sheet]][1][0])
     temp=df[sheets[0]]
     header=temp.iloc[0:(header_amount-4),0:2]
     header= header.set_index(0).transpose()
@@ -520,9 +520,10 @@ def get_header_and_sheet_rawdf(df,sheet=0):
             data - pandas.DataFrame of requested sheet from df
     '''
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header=get_header_from_rawdf(df)
+    header=get_header_from_rawdf(df,sheet)
     header_amount=int(header['Number of header lines:'])
     temp=df[sheets[sheet]]
+    
     temp=temp.drop([i for i in range(0,header_amount-2)])
     temp=temp.reset_index(drop=True)
     temp.columns = temp.iloc[0]
@@ -537,25 +538,20 @@ def get_header_and_sheet_rawdf(df,sheet=0):
     return header, data
 
 def trialinfo_from_xlsx(df,params):
-    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header=get_header_from_rawdf(df)
-    header_amount=int(header['Number of header lines:'])
-    temp=df[sheets[2]]
-    temp=temp.drop([i for i in range(0,header_amount-3)])
-    temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
-    data=temp.drop(header_amount-3)
+    header,data=get_header_and_sheet_rawdf(df,2)
     
     rule_time=data['Trial time'].values
     rule_order=[3, 5, 4, 6]
-    rule=[]
+    rule=[] #List of columns
     for j,rn in enumerate(rule_order):
         temp=data.iloc[:,rn]
         temp[pd.isna(temp)]='-'
         rule.append(temp)
-    iszone=[('zone' in a) or ('Zone' in a) for a in rule[2]]
+    iszone=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
     if any(iszone) and ('stripe' not in data.columns):
         params['task']='avoidance'
-        zone_name=rule[2][iszone].iloc[0][0:6]
+        zone_names=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
+        zone_name=rule[2][zone_names].iloc[0][0:6]
         if zone_name == 'zone_s':
             print('Test')
     if len(params['stim_on'])>0:
@@ -604,14 +600,7 @@ def trialinfo_from_xlsx(df,params):
 #                        %have 4 times:
     
 def stim_from_xlsx(df,pn):
-    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header=get_header_from_rawdf(df)
-    header_amount=int(header['Number of header lines:'])
-    temp=df[sheets[1]]
-    temp=temp.drop([i for i in range(0,(header_amount-3))])
-    temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
-    data=temp.drop(header_amount-3)
-    
+    header,data=get_header_and_sheet_rawdf(df,1)    
     stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1)
     stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0)
     stim={'on': data['Recording time'][stim_on].values,
@@ -659,10 +648,9 @@ def params_from_xlsx(df,pn):
 
     '''
 
-    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
     nold=get_header_from_rawdf(df) #Header
     header_amount=int(nold['Number of header lines:'])
-    temp=df[sheets[0]]
+
     str_pn=str(pn)
     anid=dataloc.path_to_animal_id(str_pn)
     
@@ -783,24 +771,7 @@ def raw_from_xlsx(df):
       
     """
         
-    # data=pd.read_excel(pn,sheet_name=0,header = 38, na_values='-',engine='xlrd') #Assumes that header is always 38 lines--> is this true? can this be checked also?
-    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header=ethovision_tools.get_header_from_rawdf(df)
-    header_amount=int(header['Number of header lines:'])
-    temp=df[sheets[0]]
-    temp=temp.drop([i for i in range(0,header_amount-2)])
-    temp=temp.reset_index(drop=True)
-    # temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
-    # data=temp.drop(header_amount-3)
-    temp.columns = temp.iloc[0]
-    data = temp.drop(0) 
-  
-    #Check if first row has strings showing the units instead of data:
-    first_val=data['Trial time'].values[0]
-  
-    if isinstance(first_val, str):
-        print('\tDetected unnecessary row 0, dropping..')
-        data=data.drop(1).reset_index(drop=True)
+    header,data=get_header_and_sheet_rawdf(df,0)
     data=rename_xlsx_columns(data)
     drop_cols=['rec_time','m_cont']
     for dc in drop_cols:
