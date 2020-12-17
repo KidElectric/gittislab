@@ -486,7 +486,7 @@ def raw_params_from_xlsx(pn):
     params['fs']=1/np.mean(np.diff(raw['time'][0:]))
     for key,value in stim.items():
         params['stim_' + key]=value
-    
+    params['exp_end']=raw['time'].values[-1]
     #Also add in: exp_end, task_start, task_stop
    
 
@@ -506,6 +506,35 @@ def get_header_from_rawdf(df):
     header=temp.iloc[0:(header_amount-4),0:2]
     header= header.set_index(0).transpose()
     return header
+
+def get_header_and_sheet_rawdf(df,sheet=0):
+    '''
+        Take in dictionary of dataframes made from Raw*.xlsx ethovision file and
+        desired sheet number, return header and sheet as clean dataframes.
+            
+        INPUTs:
+            df - dictionary of 3 panadas.DataFrame sheets imported from Raw*.xlsx
+            sheet - sheet number to use, by default sheet = 0
+        OUTPUTs:
+            header -pandas.DataFrame, 1-row, columns w/ names of header entries
+            data - pandas.DataFrame of requested sheet from df
+    '''
+    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    header=get_header_from_rawdf(df)
+    header_amount=int(header['Number of header lines:'])
+    temp=df[sheets[sheet]]
+    temp=temp.drop([i for i in range(0,header_amount-2)])
+    temp=temp.reset_index(drop=True)
+    temp.columns = temp.iloc[0]
+    data = temp.drop(0) 
+  
+    #Check if first row has strings showing the units instead of data:
+    first_val=data.iloc[0,0]
+  
+    if isinstance(first_val, str):
+        print('\tDetected unnecessary row 0, dropping..')
+        data=data.drop(1).reset_index(drop=True)
+    return header, data
 
 def trialinfo_from_xlsx(df,params):
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
@@ -528,22 +557,21 @@ def trialinfo_from_xlsx(df,params):
         params['task']='avoidance'
         zone_name=rule[2][iszone].iloc[0][0:6]
         if zone_name == 'zone_s':
-            # params['zone']=
+            print('Test')
     if len(params['stim_on'])>0:
         params['task_start']=params['stim_on'][0]-30
     else:
         params['task_start']=0
-    params['exp_end']=raw['time'].values[-1]
+    
     if len(params['stim_on']) > len(params['stim_off']):
         params['stim_off']=np.hstack((params['stim_off'],params['exp_end']))
     params['task_stop']='multi' # see convert_raw_xlsx.m for notes
 #   keep.task_stop=rule_time(find(contains(rule{2},{'Time (1)','post_period'}),1,'first'));
 #                     if isempty(keep.task_stop)
     
-    params['task_stop']=
     if params['task'] == 'trigger':
         if len(params['stim_off']) > 0:
-                params(['task_stop'])=params['stim_off'][-1]
+                params['task_stop']=params['stim_off'][-1]
 #                         if strcmp(keep.task,'trigger')
 # %                             if any(keep.laserOn)
 # %                                 keep.task_stop=keep.time(find(keep.laserOn,1,'last'));
@@ -757,20 +785,22 @@ def raw_from_xlsx(df):
         
     # data=pd.read_excel(pn,sheet_name=0,header = 38, na_values='-',engine='xlrd') #Assumes that header is always 38 lines--> is this true? can this be checked also?
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header=get_header_from_rawdf(df)
+    header=ethovision_tools.get_header_from_rawdf(df)
     header_amount=int(header['Number of header lines:'])
     temp=df[sheets[0]]
-    temp=temp.drop([i for i in range(0,header_amount-3)])
-    temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
-    data=temp.drop(header_amount-3)
-        
+    temp=temp.drop([i for i in range(0,header_amount-2)])
+    temp=temp.reset_index(drop=True)
+    # temp=temp.rename({col:temp[col][header_amount-3] for col in temp.columns},axis='columns')
+    # data=temp.drop(header_amount-3)
+    temp.columns = temp.iloc[0]
+    data = temp.drop(0) 
   
     #Check if first row has strings showing the units instead of data:
     first_val=data['Trial time'].values[0]
   
     if isinstance(first_val, str):
         print('\tDetected unnecessary row 0, dropping..')
-        data.drop(axis=0, index=[header_amount-2], inplace=True)
+        data=data.drop(1).reset_index(drop=True)
     data=rename_xlsx_columns(data)
     drop_cols=['rec_time','m_cont']
     for dc in drop_cols:
