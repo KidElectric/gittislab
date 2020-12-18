@@ -486,9 +486,9 @@ def raw_params_from_xlsx(pn):
     params['fs']=1/np.mean(np.diff(raw['time'][0:]))
     for key,value in stim.items():
         params['stim_' + key]=value
-    params['exp_end']=raw['time'].values[-1]
+    
     #Also add in: exp_end, task_start, task_stop
-   
+    params=check_params(df,raw,params)
 
     return raw,params
 
@@ -533,76 +533,135 @@ def get_header_and_sheet_rawdf(df,sheet=0):
     first_val=data.iloc[0,0]
   
     if isinstance(first_val, str):
-        print('\tDetected unnecessary row 0, dropping..')
+        # print('\tDetected unnecessary row 0, dropping..')
         data=data.drop(1).reset_index(drop=True)
     return header, data
 
-def trialinfo_from_xlsx(df,params):
-    header,data=get_header_and_sheet_rawdf(df,2)
+def check_params(df,raw,params):
+    '''
+        Take existing params and use raw .xlsx (in df) to verify / clarify correct
+        task type and start/stop times.
+    '''
+    _,data=get_header_and_sheet_rawdf(df,2)
+    data.iloc[data.isna()]='-' # Return to '-' in this case
     
-    rule_time=data['Trial time'].values
-    rule_order=[3, 5, 4, 6]
-    rule=[] #List of columns
+    # Attempt to check the Raw*.xlsx file
+    rule_time = data['Trial time'].values
+    rule_order = [3, 5, 4, 6] 
+    rule = [] #List of columns
     for j,rn in enumerate(rule_order):
         temp=data.iloc[:,rn]
-        temp[pd.isna(temp)]='-'
+        temp[pd.isna(temp)] = '-'
         rule.append(temp)
+        
+   
+    # 1) Unify experiment descriptions to "avoidance", "trigger", "10x30" 
+    # 2) Determine if there's any reason to think the file is in the wrong folder (i.e. task mis-classified)
     iszone=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
-    if any(iszone) and ('stripe' not in data.columns):
-        params['task']='avoidance'
-        zone_names=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
-        zone_name=rule[2][zone_names].iloc[0][0:6]
-        if zone_name == 'zone_s':
-            print('Test')
-    if len(params['stim_on'])>0:
-        params['task_start']=params['stim_on'][0]-30
+    # params['zone'] = ''
+    # if any(iszone) and ('stripe' not in data.columns):
+    #     params['task'] = 'avoidance'
+    #     zone_names=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
+    #     zone_name=rule[2][zone_names].iloc[0][0:6]
+    #     if zone_name == 'zone_s':
+    #         params['zone'] = data['Test'][0]
+    #     else:
+    #         params['zone'] = zone_name
+    if any(iszone):
+        params['task'] = 'avoidance' 
+    elif 'Left trigger' in raw.columns:
+        params['task'] = 'trigger'
+    elif ('rescue' in params['protocol']) or ('10x30' in params['protocol']):
+        params['task'] = '10x30'
     else:
-        params['task_start']=0
+        params['task'] = params['protocol']
+        
+
+    # Clarify best way to describe experiment vs. task onset (i.e. is there a 
+    # 'pre-' / 'baseline' period?)
+    params['exp_start'] = raw['time'].values[0]    
+    params['exp_end']=raw['time'].values[-1]
+
+    event_ends =np.array(['becomes inactive' in i for i in data['Event']])
+    event_starts =np.array(['becomes active' in i for i in data['Event']])
+    baseline = np.array([any([x in y for x in ['Baseline','base','Habituation']]) for y in rule[2]])
+    if any (event_ends & baseline):
+        params['task_start'] = rule_time[event_ends & baseline][0]
+    else:
+        print('\tNo baseline period found, available events:')
+        for val in pd.unique(rule[2]):
+            print(val)
+        params['task_start'] = ''
+    
+    task_stop=np.array([any([x in y for x in ['Time (1)','post_period']]) for y in rule[2]])
+    if any(event_starts & task_stop):
+        params['task_stop'] = rule_time[task_stop & event_starts][0]
+    else:
+        print('\tNo task stop time found, will attempt to estimate...')
+        for val in pd.unique(rule[2]):
+            print(val)
+        params['task_stop'] = ''
+        
+        
+    if params['task_stop'] == '':
+        #Trial recording might have ended prematurely, estimate task_stop:
+        if params['task'] == 'trigger':
+            #Task ends when last stim turns off, or 20 minutes after start, whichever is possible
+            # stop=params['stim_off'][-1]
+            # if np.isnan(stop):
+            print('\tNo task_stop found, estimating 20min after task_start.')
+            stop=params['task_start'] + (20 * 60) #20 min in seconds
+            params['task_stop'] = stop
+        elif params['task'] == '10x30':
+            print('\tNo task_stop found, estimating 30min after task_start.')
+            params['task_stop']=params['task_start'] + (30 * 60) #30 min in seconds
+        elif params['task'] == 'aversion':
+            print('\tNo task_stop found, estimating 30min after task_start.')
+            params['task_stop']=params['task_start'] + (30 * 60) #30 min in seconds
+        elif params['task'] == '30min':
+            params['task_stop'] = 30 * 60 #30 min in seconds
+        elif any(i in params['task'] for i in ['60min','60min_psem','60min_saline']):
+            params['task_stop'] = 60 * 60 #60 min in seconds
+    params['no_trial_structure']=False   
+    if params['task_start'] == '':
+        if len(params['stim_on'])>0:
+            #If there is evidence of stim but task start still empty, set task start to 30s before first stim
+            params['task_start']=params['stim_on'][0] - 30 
+            print('\tNo trial start detected but stim detected, task start set to 30s before first stim: %4.1fs' % params['task_start'])
+        else:
+            #Assume this is a free-running recording without structure and task starts at 0:
+            params['task_start']=raw['time'].values[0]
+            params['no_trial_structure']=True
+            print('\tFree running trial detected. Setting task start time to time 0.')
     
     if len(params['stim_on']) > len(params['stim_off']):
         params['stim_off']=np.hstack((params['stim_off'],params['exp_end']))
-    params['task_stop']='multi' # see convert_raw_xlsx.m for notes
-#   keep.task_stop=rule_time(find(contains(rule{2},{'Time (1)','post_period'}),1,'first'));
-#                     if isempty(keep.task_stop)
     
-    if params['task'] == 'trigger':
-        if len(params['stim_off']) > 0:
-                params['task_stop']=params['stim_off'][-1]
-#                         if strcmp(keep.task,'trigger')
-# %                             if any(keep.laserOn)
-# %                                 keep.task_stop=keep.time(find(keep.laserOn,1,'last'));
-# %                             else
-#                                 warning('No task_stop time found! Defaulting to 20 minutes')
-#                                 keep.task_stop=keep.task_start + 20 * 60; %Approximate
-# %                             end
-#                         elseif strcmp(keep.task,'10x30')
-# %                             if any(keep.laserOn)
-# %                                 keep.task_stop=keep.time(find(keep.laserOn,1,'last'));
-# %                             else
-#                                 warning('No task_stop time found! Defaulting to 30 minutes')
-#                                 keep.task_stop=keep.task_start + 30 * 60; %Approximate 
-# %                             end
-#                         elseif strcmp(keep.task,'aversion')
-# %                             if any(keep.laserOn)
-# %                                 keep.task_stop=keep.time(find(keep.laserOn,1,'last'));
-# %                             else
-#                                 warning('No task_stop time found! Defaulting to 30 minutes')
-#                                 keep.task_stop=keep.task_start + 30 * 60; %Approximate 
-# %                             end.
-#                         elseif strcmp(keep.task,'30min')
-#                             keep.task_stop=30*60;
-#                         elseif strcmp(keep.task,'60min') || strcmp(keep.task,'60min_psem') || strcmp(keep.task,'60min_saline')
-#                             keep.task_stop=60*60;
-#                         end
-#                     end
-#                     if strcmp(keep.zone,'zone_switch')
-#                        %Task_start will have 4 times and task_stop will
-#                        %have 4 times:
+    params['task_prestart_warning']=False
+    if params['stim_on'][0] < params['task_start']:
+        params['task_prestart_warning']=True
+        params['task_start'] = params['stim_on'][0]
+        print('\tWarning, first stim occurred before "task_start" time! Setting task start to %4.1fs' % params['task_start'])
+    params['task_overrun_warning']=False
+    if (params['task'] == 'aversion') and (params['task_stop'] > (41*60)):
+        params['task_overrun_warning']=True
+    elif (params['task'] == 'trigger') and (params['task_stop'] > (31*60)):
+        params['task_overrun_warning']=True
+    elif (params['task'] == '10x30') and (params['task_stop'] > (46 * 60)):
+        params['task_overrun_warning']=True
+    elif (params['task_stop'] == params['exp_end']) and (not params['no_trial_structure']):
+        params['task_overrun_warning']=True
+    
+    if params['task_overrun_warning']:
+        print('\tTask stop time appears too long, trial flagged as overruning.')
+    
+    return params
     
 def stim_from_xlsx(df,pn):
     header,data=get_header_and_sheet_rawdf(df,1)    
-    stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1)
-    stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0)
+    command=data['Command/Signal']=='command'
+    stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1) & command
+    stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0) & command
     stim={'on': data['Recording time'][stim_on].values,
           'off':data['Recording time'][stim_off].values,
           }
@@ -687,9 +746,9 @@ def params_from_xlsx(df,pn):
         light_method='Dial'
     
     # Look for mouse sex information if available:
-    if 'Sex' in nold:
+    if 'Sex' in nold.columns:
         sex=nold['Sex'].values[0]
-    elif 'Gender' in nold:
+    elif 'Gender' in nold.columns:
         sex=nold['Gender'].values[0] # sex='Gender' #Older version
     else:
         sex=np.nan
@@ -715,6 +774,21 @@ def params_from_xlsx(df,pn):
     else:
         etho_exp=np.nan
     params={
+        'anid':anid,
+        'protocol':str_pn.split(sep)[-3], 
+        'side': str_pn.split(sep)[-4],
+        'opsin_type':str_pn.split(sep)[-5],
+        'cell_type':str_pn.split(sep)[-6],
+        'da_state':str_pn.split(sep)[-7],
+        'stim_area':str_pn.split(sep)[-8],
+        'task': str_pn.split(sep)[-3], #will be changed in check_params()
+        'experimenter':str_pn.split(sep)[-2].split('_')[-1][0:2],
+        'exp_room_number':room_num,
+        'fs':29.97, # placeholder default frames / second but should confirm in each video if possible
+        'exp_start': 0, #will be updated in check_params()
+        'exp_end':[], #will be updated in check_params()
+        'task_start':[], #will be updated in check_params()
+        'task_stop':[], #will be updated in check_params()
         'etho_animal_id': nold['Mouse ID'].values[0],
         'etho_da_state': dep_status,
         'etho_sex':sex,
@@ -728,30 +802,15 @@ def params_from_xlsx(df,pn):
         'etho_stim_info' : stim_details, #Green = Dial 768, etc.
         'etho_exp_type' : etho_exp, # 10x30 etc.   
         'etho_tracking_source' : nold['Tracking source'].values[0],
-        'experimenter':str_pn.split(sep)[-2].split('_')[-1][0:2],
-        'exp_room_number':room_num,
-        'anid':anid,
-        'folder_date':str_pn.split(sep)[-2].split('_')[-1][2:],
         'folder_anid':anid,
-        'protocol':str_pn.split(sep)[-3],
-        'side': str_pn.split(sep)[-4],
-        'opsin_type':str_pn.split(sep)[-5],
-        'cell_type':str_pn.split(sep)[-6],
-        'da_state':str_pn.split(sep)[-7],
-        'stim_area':str_pn.split(sep)[-8],
+        'folder_date':str_pn.split(sep)[-2].split('_')[-1][2:],
         'animal_id_mismatch':anid_mismatch,
         'possible_retrack':possible_retrack,
-        'fs':29.97, # placeholder default frames / second but should confirm in each video if possible
-        'task': str_pn.split(sep)[-3],
-        'exp_start': 0,
-        'exp_end':[],
-        'task_start':[],
-        'task_stop':[],
         }
     if 'zone' in params['protocol']:
         params['zone']='%s %s' % (params['protocol'].split('_')[0].capitalize(),
-                                params['protocol'].split('_')[1])
-    
+                        params['protocol'].split('_')[1])
+
     
     return params
 
