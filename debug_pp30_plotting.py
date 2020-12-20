@@ -17,8 +17,9 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
 # %% Fix bugs 1 by 1..... and repeat
 # Make .h5
-inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim',]]
-exc=[['exclude','_and_Str','Left','Right']]
+# inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim',]]
+inc = [['AG','GPe','CAG','Arch','trig_r',]]
+exc = [['exclude','_and_Str','Right','30mW']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 xlsx_paths=dataloc.rawxlsx(basepath,inc[0],exc[0])
 # df=pd.read_excel(xlsx_paths[1],sheet_name=None,na_values='-',header=None) #Key addition

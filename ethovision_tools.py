@@ -433,7 +433,7 @@ def params_from_mat(pn):
             stim_dur.append(np.nan)
     params['stim_dur']=np.array(stim_dur)
     
-    params['stim_n']=len(params['stim_on'])
+    params['stim_n']=np.nansum(not np.isnan(params['stim_on']))
     params['stim_mean_dur']=params['stim_dur'].mean()
     return params
 
@@ -503,7 +503,7 @@ def get_header_from_rawdf(df,sheet=0):
     sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
     header_amount=int(df[sheets[sheet]][1][0])
     temp=df[sheets[0]]
-    header=temp.iloc[0:(header_amount-4),0:2]
+    header=temp.iloc[0:(header_amount-3),0:2]
     header= header.set_index(0).transpose()
     return header
 
@@ -558,24 +558,22 @@ def check_params(df,raw,params):
     # 1) Unify experiment descriptions to "avoidance", "trigger", "10x30" 
     # 2) Determine if there's any reason to think the file is in the wrong folder (i.e. task mis-classified)
     iszone=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
-    # params['zone'] = ''
-    # if any(iszone) and ('stripe' not in data.columns):
-    #     params['task'] = 'avoidance'
-    #     zone_names=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
-    #     zone_name=rule[2][zone_names].iloc[0][0:6]
-    #     if zone_name == 'zone_s':
-    #         params['zone'] = data['Test'][0]
-    #     else:
-    #         params['zone'] = zone_name
     if any(iszone):
         params['task'] = 'avoidance' 
-    elif 'Left trigger' in raw.columns:
+    elif 'right_trig' in raw.columns:
         params['task'] = 'trigger'
-    elif ('rescue' in params['protocol']) or ('10x30' in params['protocol']):
-        params['task'] = '10x30'
+    elif ('rescue' in params['protocol']) or ('10x' in params['protocol']):
+        params['task'] = '10x_stim'
     else:
         params['task'] = params['protocol']
-        
+    
+    params['active_trigger']=''
+    if params['task'] == 'trigger':
+        trig=params['protocol'].split('_')[1]
+        if trig == 'l':
+            params['active_trigger']='Left'
+        elif trig=='r':
+            params['active_trigger']='Right'
 
     # Clarify best way to describe experiment vs. task onset (i.e. is there a 
     # 'pre-' / 'baseline' period?)
@@ -592,14 +590,17 @@ def check_params(df,raw,params):
         for val in pd.unique(rule[2]):
             print(val)
         params['task_start'] = ''
-    
+    if params['task_start'] == params['exp_end']:
+        #Entire trial likely 'free-running' and treated as baseline:
+        params['task_start']=''
+        
     task_stop=np.array([any([x in y for x in ['Time (1)','post_period']]) for y in rule[2]])
     if any(event_starts & task_stop):
         params['task_stop'] = rule_time[task_stop & event_starts][0]
     else:
-        print('\tNo task stop time found, will attempt to estimate...')
+        print('\tNo task stop time found, fields available:')
         for val in pd.unique(rule[2]):
-            print(val)
+            print('\t' + val)
         params['task_stop'] = ''
         
         
@@ -624,7 +625,7 @@ def check_params(df,raw,params):
             params['task_stop'] = 60 * 60 #60 min in seconds
     params['no_trial_structure']=False   
     if params['task_start'] == '':
-        if len(params['stim_on'])>0:
+        if params['stim_n']>0:
             #If there is evidence of stim but task start still empty, set task start to 30s before first stim
             params['task_start']=params['stim_on'][0] - 30 
             print('\tNo trial start detected but stim detected, task start set to 30s before first stim: %4.1fs' % params['task_start'])
@@ -632,6 +633,7 @@ def check_params(df,raw,params):
             #Assume this is a free-running recording without structure and task starts at 0:
             params['task_start']=raw['time'].values[0]
             params['no_trial_structure']=True
+            params['task_stop']=raw['time'].values[-1]
             print('\tFree running trial detected. Setting task start time to time 0.')
     
     if len(params['stim_on']) > len(params['stim_off']):
@@ -643,9 +645,9 @@ def check_params(df,raw,params):
         params['task_start'] = params['stim_on'][0]
         print('\tWarning, first stim occurred before "task_start" time! Setting task start to %4.1fs' % params['task_start'])
     params['task_overrun_warning']=False
-    if (params['task'] == 'aversion') and (params['task_stop'] > (41*60)):
+    if (params['task'] == 'aversion') and (params['task_stop'] > (41*60)): # All of these should be titrated appropriately
         params['task_overrun_warning']=True
-    elif (params['task'] == 'trigger') and (params['task_stop'] > (31*60)):
+    elif (params['task'] == 'trigger') and (params['task_stop'] > (36*60)):
         params['task_overrun_warning']=True
     elif (params['task'] == '10x30') and (params['task_stop'] > (46 * 60)):
         params['task_overrun_warning']=True
@@ -660,8 +662,10 @@ def check_params(df,raw,params):
 def stim_from_xlsx(df,pn):
     header,data=get_header_and_sheet_rawdf(df,1)    
     command=data['Command/Signal']=='command'
-    stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1) & command
-    stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0) & command
+    stim_on=(data['Name']=='Output 1 High') & command
+    stim_off=(data['Name']=='Output 1 Low') & command
+    # stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1) 
+    # stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0) 
     stim={'on': data['Recording time'][stim_on].values,
           'off':data['Recording time'][stim_off].values,
           }
@@ -678,7 +682,7 @@ def stim_from_xlsx(df,pn):
             stim_dur.append(np.nan)
     stim['dur']=np.array(stim_dur)
     stim['amp_mw']=1 #By default, 1 mW
-    stim['n']=len(stim['on'])
+    stim['n']=np.nansum(not np.isnan(stim['on']))
     if ('mw' in proto) or ('mW' in proto):
         stim['amp_mw']=int(proto.split('_')[-1].split('m')[0])
     if len(stim['dur']) > 0:        
@@ -707,7 +711,7 @@ def params_from_xlsx(df,pn):
 
     '''
 
-    nold=get_header_from_rawdf(df) #Header
+    nold=get_header_from_rawdf(df) #Header info, largely added by experimenter during trial
     header_amount=int(nold['Number of header lines:'])
 
     str_pn=str(pn)
@@ -739,11 +743,13 @@ def params_from_xlsx(df,pn):
         possible_retrack=1
     
     # Look for light information if available:
-    light_method='Stim '
-    if 'LED Dial' in nold:
+    light_method=''
+    if 'LED Dial' in nold.columns:
         light_method='LED Dial'
-    elif 'Dial' in nold:
+    elif 'Dial' in nold.columns:
         light_method='Dial'
+    elif 'Stim #' in nold.columns:
+        light_method='Stim #'
     
     # Look for mouse sex information if available:
     if 'Sex' in nold.columns:
@@ -764,10 +770,10 @@ def params_from_xlsx(df,pn):
         dep_status = nold['# Days after Depletion'].values[0]
     else:
         dep_status='N/A'
-    if 'Stim #' in nold:
-        stim_details=nold['Stim #'].values[0]
-    elif 'LED Dial' in nold:
-        stim_details=nold['LED Dial'].values[0]
+        
+    stim_details=''
+    if light_method != '':
+        stim_details=nold[light_method].values[0]
         
     if 'Test' in nold:
         etho_exp=nold['Test'].values[0]
