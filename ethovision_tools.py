@@ -588,8 +588,9 @@ def check_params(df,raw,params):
     else:
         print('\tNo baseline period found, available events:')
         for val in pd.unique(rule[2]):
-            print(val)
+            print('\t' + val)
         params['task_start'] = ''
+        print('\n')
     if params['task_start'] == params['exp_end']:
         #Entire trial likely 'free-running' and treated as baseline:
         params['task_start']=''
@@ -602,8 +603,16 @@ def check_params(df,raw,params):
         for val in pd.unique(rule[2]):
             print('\t' + val)
         params['task_stop'] = ''
+        print('\n')
         
-        
+    #Check if zone or other task has blink state.
+    #(This is often used if mouse stays in stimulated zone > certain time)
+    params['has_blink_state']=False
+    blink_present=np.array([any([x in y for x in ['Blink On','blink']]) for y in rule[2]])
+    if any(blink_present):
+        params['has_blink_state'] = True
+    #
+    
     if params['task_stop'] == '':
         #Trial recording might have ended prematurely, estimate task_stop:
         if params['task'] == 'trigger':
@@ -627,8 +636,8 @@ def check_params(df,raw,params):
     if params['task_start'] == '':
         if params['stim_n']>0:
             #If there is evidence of stim but task start still empty, set task start to 30s before first stim
-            params['task_start']=params['stim_on'][0] - 30 
-            print('\tNo trial start detected but stim detected, task start set to 30s before first stim: %4.1fs' % params['task_start'])
+            params['task_start']=params['stim_on'][0]
+            print('\tNo trial start detected but stim detected, task start set to time of 1st stim: %4.1fs' % params['task_start'])
         else:
             #Assume this is a free-running recording without structure and task starts at 0:
             params['task_start']=raw['time'].values[0]
@@ -666,8 +675,8 @@ def stim_from_xlsx(df,pn):
     stim_off=(data['Name']=='Output 1 Low') & command
     # stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1) 
     # stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0) 
-    stim={'on': data['Recording time'][stim_on].values,
-          'off':data['Recording time'][stim_off].values,
+    stim={'on': data['Recording time'][stim_on].values.astype('float'),
+          'off':data['Recording time'][stim_off].values.astype('float'),
           }
     if len(stim['on']) == 0:
         stim['on']=[np.nan]
@@ -682,7 +691,10 @@ def stim_from_xlsx(df,pn):
             stim_dur.append(np.nan)
     stim['dur']=np.array(stim_dur)
     stim['amp_mw']=1 #By default, 1 mW
-    stim['n']=np.nansum(not np.isnan(stim['on']))
+    if not any(np.isnan(stim['on'])):
+        stim['n']=len(stim['on'])
+    else:
+        stim['n']=0
     if ('mw' in proto) or ('mW' in proto):
         stim['amp_mw']=int(proto.split('_')[-1].split('m')[0])
     if len(stim['dur']) > 0:        
