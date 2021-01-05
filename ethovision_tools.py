@@ -124,7 +124,10 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
             if (file_exists == False) or ((file_exists == True) and (force_replace == True)): 
                 xlsxpath=path
                 #If no .mat file exists, generate raw .csv from xlsx (slow)
-                print('\tNo .csv file found! Generating from .xlsx...')
+                if ((file_exists == True) and (force_replace == True)):
+                    print('\t .csv found but force_replace == True so file will be updated.')
+                else:
+                    print('\tNo .csv file found! Generating from .xlsx...')
                 raw,params=raw_params_from_xlsx(xlsxpath)
                 
                 #Set common boolean columns (but don't force it if these columns are not present):
@@ -228,6 +231,8 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
                'opsin_type',
                'side',
                'protocol',
+               'stim_n', 
+               'stim_mean_dur',
                'da_state',
                'etho_sex',
                'etho_arena',
@@ -240,7 +245,8 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
                'etho_trial_control_settings',]
     df=df[cols_keep]
     df=df.reset_index().drop(['index'],axis=1)
-    cols_rename=['anid','area','cell','opsin','side','proto','da','sex','arena',
+    cols_rename=['anid','area','cell','opsin','side','proto','stim_n','stim_dur',
+                 'da','sex','arena',
                  'stim','id_err','retrack','exper','room','trial','settings']
     rename_dict={cols_keep[i] : cols_rename[i] for i in range(len(cols_rename))} 
     
@@ -500,9 +506,15 @@ def get_header_from_rawdf(df,sheet=0):
         INPUT: dictionary of 3 panadas.DataFrame sheets imported from Raw*.xlsx
         OUTPUT: pandas.DataFrame, 1-row, columns w/ names of header entries
     '''
-    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
-    header_amount=int(df[sheets[sheet]][1][0])
-    temp=df[sheets[0]]
+    
+    sheets=np.array([key for key in df.keys()]) #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    if isinstance(sheet,int):
+        use_sheet=sheets[sheet]
+    else:
+        use_sheet=sheets[sheet][0]
+        
+    header_amount=int(df[use_sheet][1][0])
+    temp=df[use_sheet]
     header=temp.iloc[0:(header_amount-3),0:2]
     header= header.set_index(0).transpose()
     return header
@@ -519,10 +531,15 @@ def get_header_and_sheet_rawdf(df,sheet=0):
             header -pandas.DataFrame, 1-row, columns w/ names of header entries
             data - pandas.DataFrame of requested sheet from df
     '''
-    sheets=[key for key in df.keys()] #First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
+    sheets=np.array([key for key in df.keys()])#First sheet has tracking data, 2nd is hardware, 3rd is trial control signals 
     header=get_header_from_rawdf(df,sheet)
     header_amount=int(header['Number of header lines:'])
-    temp=df[sheets[sheet]]
+    if isinstance(sheet,int):
+        use_sheet=sheets[sheet]
+    else:
+        use_sheet=sheets[sheet][0]
+        
+    temp=df[use_sheet]
     
     temp=temp.drop([i for i in range(0,header_amount-2)])
     temp=temp.reset_index(drop=True)
@@ -535,6 +552,8 @@ def get_header_and_sheet_rawdf(df,sheet=0):
     if isinstance(first_val, str):
         # print('\tDetected unnecessary row 0, dropping..')
         data=data.drop(1).reset_index(drop=True)
+    #Remove any columns with nan labels
+    data = data.loc[:, data.columns.notnull()]
     return header, data
 
 def check_params(df,raw,params):
@@ -542,8 +561,10 @@ def check_params(df,raw,params):
         Take existing params and use raw .xlsx (in df) to verify / clarify correct
         task type and start/stop times.
     '''
-    _,data=get_header_and_sheet_rawdf(df,2)
+    keys=['Trial' in key for key in df.keys()]
+    _,data=get_header_and_sheet_rawdf(df,keys)
     data.iloc[data.isna()]='-' # Return to '-' in this case
+    
     
     # Attempt to check the Raw*.xlsx file
     rule_time = data['Trial time'].values
@@ -632,6 +653,8 @@ def check_params(df,raw,params):
             params['task_stop'] = 30 * 60 #30 min in seconds
         elif any(i in params['task'] for i in ['60min','60min_psem','60min_saline']):
             params['task_stop'] = 60 * 60 #60 min in seconds
+        else:
+            params['task_stop']=params['exp_end']
     params['no_trial_structure']=False   
     if params['task_start'] == '':
         if params['stim_n']>0:
@@ -647,7 +670,12 @@ def check_params(df,raw,params):
     
     if len(params['stim_on']) > len(params['stim_off']):
         params['stim_off']=np.hstack((params['stim_off'],params['exp_end']))
+        
+    if len(params['stim_off']) > len(params['stim_on']):
+        params['stim_off']=params['stim_off'][0:len(params['stim_on'])]
     
+    if any(params['stim_dur'] < 0):
+        print('\t Likely problem with stim time alignment as negative stim durations detected.')
     params['task_prestart_warning']=False
     if params['stim_on'][0] < params['task_start']:
         params['task_prestart_warning']=True
@@ -669,15 +697,23 @@ def check_params(df,raw,params):
     return params
     
 def stim_from_xlsx(df,pn):
-    header,data=get_header_and_sheet_rawdf(df,1)    
-    command=data['Command/Signal']=='command'
-    stim_on=(data['Name']=='Output 1 High') & command
-    stim_off=(data['Name']=='Output 1 Low') & command
-    # stim_on=(data['Name']=='Is output 1 High') & ( data['Value']==1) 
-    # stim_off=(data['Name']=='Is output 1 High') & ( data['Value']==0) 
-    stim={'on': data['Recording time'][stim_on].values.astype('float'),
-          'off':data['Recording time'][stim_off].values.astype('float'),
-          }
+    keys=['Hardware' in key for key in df.keys()]
+    
+    if any(keys):
+        header,data=get_header_and_sheet_rawdf(df,keys)  
+        command=data['Command/Signal']=='signal'
+        name = data['Name']=='Is output 1 High'
+        val_on = data['Value'] == 1
+        val_off = data['Value'] == 0
+        dev= [[x in ['Custom Hardware 1','Laser']] for x in data['Device']]
+        stim_on = command & name & val_on & dev
+        stim_off = command & name & val_off & dev
+        stim={'on': data['Recording time'][stim_on].values.astype('float'),
+              'off': data['Recording time'][stim_off].values.astype('float'),
+              }
+    else:
+        stim={'on':'','off':''}
+        
     if len(stim['on']) == 0:
         stim['on']=[np.nan]
         stim['off']=[np.nan]
@@ -696,7 +732,12 @@ def stim_from_xlsx(df,pn):
     else:
         stim['n']=0
     if ('mw' in proto) or ('mW' in proto):
-        stim['amp_mw']=int(proto.split('_')[-1].split('m')[0])
+        temp_amp=proto.split('_')[-1].split('m')[0]
+        if 'p' in temp_amp:
+            use_amp = int(temp_amp.split('p')[1])/10
+        else:
+            use_amp = int(temp_amp)
+        stim['amp_mw']=use_amp
     if len(stim['dur']) > 0:        
         stim['mean_dur']=np.nanmean(stim['dur'])
     else:
@@ -730,7 +771,14 @@ def params_from_xlsx(df,pn):
     anid=dataloc.path_to_animal_id(str_pn)
     
     #Check if there is any ambiguity about which mouse is in the file:
-    nold_an=nold['Mouse ID'].values[0]
+    if 'Animal ID' in nold.columns:
+        nold_an=nold['Animal ID'].values[0]
+    elif 'Mouse ID' in nold.columns:
+        nold_an=nold['Mouse ID'].values[0]
+    elif 'Subject ID' in nold.columns:
+        nold_an=nold['Subject ID'].values[0]
+    else:
+        nold_an=np.nan
     if isinstance(nold_an,str):
         if (nold_an != anid):
             anid_mismatch=1
@@ -807,7 +855,7 @@ def params_from_xlsx(df,pn):
         'exp_end':[], #will be updated in check_params()
         'task_start':[], #will be updated in check_params()
         'task_stop':[], #will be updated in check_params()
-        'etho_animal_id': nold['Mouse ID'].values[0],
+        'etho_animal_id': nold_an,
         'etho_da_state': dep_status,
         'etho_sex':sex,
         'etho_video_file':nold['Video file'].values[0],

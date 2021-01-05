@@ -18,8 +18,8 @@ from matplotlib.patches import Rectangle
 # %% Fix bugs 1 by 1..... and repeat
 # Make .h5
 # inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim',]]
-inc = [['AG','GPe','CAG','Arch','trig_r',]]
-exc = [['exclude','_and_Str','Right','30mW']]
+inc = [['AG','GPe','CAG','Arch','Bilateral','AG4700_5','pp30_cond_dish_fc_stim']] # 'zone_1_30mW'
+exc = [['exclude','Str','_and_SNr','_and_Str','Right','grooming',]]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 xlsx_paths=dataloc.rawxlsx(basepath,inc[0],exc[0])
 # df=pd.read_excel(xlsx_paths[1],sheet_name=None,na_values='-',header=None) #Key addition
@@ -36,25 +36,29 @@ ethovision_tools.h5_store(pn,raw)
 # %% Load
 store = pd.HDFStore(pn)
 data = store['mydata']
-# %% Finally this should work (pp30-> WORKS!)
-inc=[['AG','GPe','CAG','Arch','pp30_cond_dish',]]
-exc=[['exclude','_and_Str','Left','Right','pp30_cond_dish_fc_stim']]
+# %% Test on all cag arch bilateral trials:
+# inc = [['AG','GPe','CAG','Arch']] # 'zone_1_30mW'
+inc = [['AG','A2A','ChR2','Str']] # 'zone_1_30mW'
+exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
+        'grooming','20min_4Hz','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_to_csv(basepath,inc,exc,force_replace=True)
 
 # %% Print summary of metadata retrieved by query:
-inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim']]
-exc=[['exclude','_and_Str','Left','Right']]
+inc = [['AG','A2a','ChR2','Str']] # 'zone_1_30mW'
+exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
+        'grooming','20min_4Hz','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
 print(summary)
-
+plt.hist(summary.stim_n)
 # %% Load example data
-inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim','AG4486_3_KA062119']]
-exc=[['exclude','_and_Str','Left','Right']]
+# inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim','AG4486_3_KA062119']]
+# exc=[['exclude','_and_Str','Left','Right']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.raw_csv(basepath,inc[0],exc[0])
-raw,meta=ethovision_tools.csv_load(pns)
+raw,meta=ethovision_tools.csv_load(pns[1])
 
 # %% Attempt to chunk velocity by stim start times:
 useday='stim'
