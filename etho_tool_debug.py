@@ -40,6 +40,26 @@ plt.plot(out['cont'][:,trial],'k')
 plt.plot(out2['cont'][:,trial],'r')
 plt.plot(out3['cont'][:,trial],'--g')
 # plt.plot(out4['cont'][:,trial],'--b')
+
+# %% Unify to CSV is better for a number of reasons, but creates separate metadata and raw .csv files
+inc = [['AG','PV','GPe',]] # 'zone_1_30mW' , 'AG4971_4','Right'
+exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
+        'grooming','20min_4Hz','Exclude','Other XLS']]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_to_csv(basepath,inc,exc,force_replace=False)
+summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
+print(summary.stim_dur)
+print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
+print('negative stim durs: %d' % sum((summary.stim_dur<0)))
+# %% Print summary of metadata retrieved by query:
+# inc = [['AG','A2a','ChR2','Str']] # 'zone_1_30mW'
+# exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
+#         'grooming','20min_4Hz','Exclude']]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+
+summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
+print(summary)
+plt.hist(summary.stim_n)
 # %%
 pathfn=dataloc.path_to_fn('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPi/Naive/CAG/Arch/',
                           inc=['GPi','zone_1'],exc=['exclude'],filetype='.xlsx')

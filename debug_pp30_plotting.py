@@ -40,22 +40,22 @@ data = store['mydata']
 # inc = [['AG','GPe','CAG','Arch']] # 'zone_1_30mW'
 inc = [['AG','A2A','ChR2','Str']] # 'zone_1_30mW'
 exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
-        'grooming','20min_4Hz','Exclude']]
+        'grooming','20min_4Hz','Exclude','Other XLS']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-ethovision_tools.unify_to_csv(basepath,inc,exc,force_replace=True)
+ethovision_tools.unify_to_csv(basepath,inc,exc,force_replace=False)
 
 # %% Print summary of metadata retrieved by query:
-inc = [['AG','A2a','ChR2','Str']] # 'zone_1_30mW'
-exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
-        'grooming','20min_4Hz','Exclude']]
+# inc = [['AG','A2a','ChR2','Str']] # 'zone_1_30mW'
+# exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
+#         'grooming','20min_4Hz','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
 print(summary)
 plt.hist(summary.stim_n)
 # %% Load example data
-# inc=[['AG','GPe','CAG','Arch','pp30_cond_dish_fc_stim','AG4486_3_KA062119']]
-# exc=[['exclude','_and_Str','Left','Right']]
+inc=[['AG','GPe','CAG','Arch','10x30']]
+exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.raw_csv(basepath,inc[0],exc[0])
 raw,meta=ethovision_tools.csv_load(pns[1])

@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import math
 import yaml
+# import colorama 
+
 if os.name == 'posix':
     sep='/'
 else:
@@ -78,7 +80,7 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 
                 #Write raw and params to .h5 file:
                 pnfn=path.parent.joinpath(new_file_name)
-                print('Saving %s\n' % pnfn)
+                print('\tSaving %s\n' % pnfn)
                 h5_store(pnfn,raw,**params)
                 
             else:
@@ -153,14 +155,14 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 
                 #Write raw and params to .csv files:
                 pnfn=path.parent.joinpath(new_file_name)
-                print('Saving %s\n' % pnfn)
+                print('\tSaving %s\n' % pnfn)
                 raw.to_csv(pnfn)
                 
                 metadata=pd.DataFrame().from_dict(params)
                 # for key in params.keys():
                 #     metadata.loc[key,0]=params[key]
                 meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
-                print('Saving %s\n' % meta_pnfn)
+                print('\tSaving %s\n' % meta_pnfn)
                 metadata.to_csv(meta_pnfn)
             else:
                 # path_str=dataloc.path_to_description(path)
@@ -675,7 +677,9 @@ def check_params(df,raw,params):
         params['stim_off']=params['stim_off'][0:len(params['stim_on'])]
     
     if any(params['stim_dur'] < 0):
-        print('\t Likely problem with stim time alignment as negative stim durations detected.')
+        stim_dur_negative_detected
+        print('\tProblem with stim time alignment as negative stim durations detected.')
+        stim_dur_negative_detected
     params['task_prestart_warning']=False
     if params['stim_on'][0] < params['task_start']:
         params['task_prestart_warning']=True
@@ -702,12 +706,13 @@ def stim_from_xlsx(df,pn):
     if any(keys):
         header,data=get_header_and_sheet_rawdf(df,keys)  
         command=data['Command/Signal']=='signal'
+        trial_start = data['Trial time'] > 0
         name = data['Name']=='Is output 1 High'
         val_on = data['Value'] == 1
         val_off = data['Value'] == 0
-        dev= [[x in ['Custom Hardware 1','Laser']] for x in data['Device']]
-        stim_on = command & name & val_on & dev
-        stim_off = command & name & val_off & dev
+        dev= [[x in ['Custom Hardware 1','Laser','Laser control']] for x in data['Device']]
+        stim_on = command & name & val_on & dev & trial_start
+        stim_off = command & name & val_off & dev & trial_start
         stim={'on': data['Recording time'][stim_on].values.astype('float'),
               'off': data['Recording time'][stim_off].values.astype('float'),
               }
@@ -725,6 +730,7 @@ def stim_from_xlsx(df,pn):
             stim_dur.append(stim['off'][i]-onset)
         else: #If recording ended before stimulus shut off for some reason
             stim_dur.append(np.nan)
+    # debug_error
     stim['dur']=np.array(stim_dur)
     stim['amp_mw']=1 #By default, 1 mW
     if not any(np.isnan(stim['on'])):

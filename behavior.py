@@ -123,7 +123,10 @@ def measure_bearing(raw_df,raw_par):
 
 def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',baseline=10,stim_dur=10,summarization_fun=np.nanmean):
     
-    fs=raw_par['fs']
+    if isinstance(raw_par['fs'],float):
+        fs=raw_par['fs']
+    else:
+        fs=raw_par['fs'][0]
     nsamps=math.ceil(((baseline*2) + stim_dur) * fs)
     ntrials=len(raw_par['stim_on'])
     cont_y_array=np.empty((nsamps,ntrials))

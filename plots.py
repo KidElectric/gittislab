@@ -16,6 +16,7 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
 import matplotlib.patches as mpatches
 from gittislab import behavior
 from scipy.stats import ttest_rel
+
 def get_subs(axes):
     dd=1
     for d in axes.shape:
@@ -58,7 +59,7 @@ def sig_star(x,p,ax=None,):
     max_y *= 1.1
     star=p_to_star(p)
     ax.text(mid,max_y,star,horizontalalignment='center')
-    
+
 def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=None):
     '''
     Parameters
@@ -92,7 +93,7 @@ def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=No
     x=clip_ave['cont_x']
     if ax == None: #If no axis provided, create a new plot
         fig,ax=plt.subplots()
-    
+    plt.sca(ax)
     plt.ylabel('Speed (cm/s)')
     plt.xlabel('Time from stim (s)')
     
@@ -129,9 +130,11 @@ def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=No
 def mean_disc_plus_conf(clip,xlabels,ax=None):
     #Barplot +/- conf
     clip_ave=behavior.stim_clip_average(clip)
+    axflag = True
     if ax == None:
         fig,ax = plt.subplots()
         axflag=False
+    plt.sca(ax)
     values= [d[0] for d in clip_ave['disc_m']]
     conf= [d[0] for d in clip_ave['disc_conf']]
     #bar plot with errorbars:
