@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import math
 import yaml
-# import colorama 
+
 
 if os.name == 'posix':
     sep='/'
@@ -935,8 +935,8 @@ def rename_xlsx_columns(df):
                      'Direction':'dir','Direction (deg)' : 'dir',
                      'Distance moved':'dist', 'Distance moved (cm)':'dist',
                      'Velocity':'vel', 'Velocity (cm/s)':'vel',
-                     'Mobility state(Immobile)':'im','Mobility state(Immobile)':'im',
-                     'Mobility state(Mobile)':'m',
+                     'Mobility state(Immobile)':'im','Mobility state(Immobile)':'im','Movement(Not Moving / Center-point)':'im',
+                     'Mobility state(Mobile)':'m','Movement(Moving / Center-point)':'m',
                      'Mobility continuous':'m_cont','Mobility':'m_cont',
                      'Rotation':'quarter_rot_cw',
                      'Rotation 2':'quarter_rot_ccw',
