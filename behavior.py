@@ -116,10 +116,26 @@ def find_arena_center(raw_df):
             
     return x_center,y_center
 
+def trial_part_position(raw_df,raw_par):
+    x,y=norm_position(raw_df)
+    t=[i for i in range(4)]
+    t[0]=0
+    t[1]=raw_par.task_start[0]
+    t[2]=raw_par.task_stop[0]
+    t[3]=raw_par.exp_end[0]
+    xx=[]
+    yy=[]
+    for i in range(len(t)-1):
+        ind=(raw_df['time']>= t[i]) & (raw_df['time'] < t[i+1])
+        xx.append(x[ind])
+        yy.append(y[ind])
+    return xx,yy
+
 def measure_bearing(raw_df,raw_par):
     # Measurement revolves around direction of travel when crossing midline of open field
     # and subsequent continuation along same route or rebounding
     return raw_df['time'].values[0]
+
 
 def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',baseline=10,stim_dur=10,summarization_fun=np.nanmean):
     

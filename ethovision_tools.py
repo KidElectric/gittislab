@@ -131,39 +131,39 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 else:
                     print('\tNo .csv file found! Generating from .xlsx...')
                 raw,params=raw_params_from_xlsx(xlsxpath)
-                
-                #Set common boolean columns (but don't force it if these columns are not present):
-                common_bool=['im', 'm', 'laserOn','iz1','iz2']
-                for cb in common_bool:
-                    if cb in raw.columns:
-                        raw[cb]=raw[cb].astype('bool')
-                
-                #Improved velocity measure:
-                raw['vel']=behavior.smooth_vel(raw,params,win)
-                params['vel_smooth_win_ms']=win/params['fs'] * 1000 # ~333ms
-                
-                thresh=2; #cm/s; Kravitz & Kreitzer 2010
-                dur=0.5; #s; Kravitz & Kreitzer 2010
-                raw=add_amb_to_raw(raw,params,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
-                params['amb_vel_thresh']=thresh
-                params['amb_dur_criterion_ms']=dur
-                
-                #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:
-                dlcpath=dataloc.dlc_h5(path.parent) 
-                
-                #add_deeplabcut(path) # still need to write this function -> integrated into raw? something else?
-                
-                #Write raw and params to .csv files:
-                pnfn=path.parent.joinpath(new_file_name)
-                print('\tSaving %s\n' % pnfn)
-                raw.to_csv(pnfn)
-                
-                metadata=pd.DataFrame().from_dict(params)
-                # for key in params.keys():
-                #     metadata.loc[key,0]=params[key]
-                meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
-                print('\tSaving %s\n' % meta_pnfn)
-                metadata.to_csv(meta_pnfn)
+                if isinstance(raw,pd.DataFrame):
+                    #Set common boolean columns (but don't force it if these columns are not present):
+                    common_bool=['im', 'm', 'laserOn','iz1','iz2']
+                    for cb in common_bool:
+                        if cb in raw.columns:
+                            raw[cb]=raw[cb].astype('bool')
+                    
+                    #Improved velocity measure:
+                    raw['vel']=behavior.smooth_vel(raw,params,win)
+                    params['vel_smooth_win_ms']=win/params['fs'] * 1000 # ~333ms
+                    
+                    thresh=2; #cm/s; Kravitz & Kreitzer 2010
+                    dur=0.5; #s; Kravitz & Kreitzer 2010
+                    raw=add_amb_to_raw(raw,params,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
+                    params['amb_vel_thresh']=thresh
+                    params['amb_dur_criterion_ms']=dur
+                    
+                    #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:
+                    dlcpath=dataloc.dlc_h5(path.parent) 
+                    
+                    #add_deeplabcut(path) # still need to write this function -> integrated into raw? something else?
+                    
+                    #Write raw and params to .csv files:
+                    pnfn=path.parent.joinpath(new_file_name)
+                    print('\tSaving %s\n' % pnfn)
+                    raw.to_csv(pnfn)
+                    
+                    metadata=pd.DataFrame().from_dict(params)
+                    # for key in params.keys():
+                    #     metadata.loc[key,0]=params[key]
+                    meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
+                    print('\tSaving %s\n' % meta_pnfn)
+                    metadata.to_csv(meta_pnfn)
             else:
                 # path_str=dataloc.path_to_description(path)
                 print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
@@ -483,21 +483,26 @@ def raw_from_mat(pn):
     return df
 
 def raw_params_from_xlsx(pn):
-    
     # Next, we will read in the data using the imported function, read_excel()
     path_str=dataloc.path_to_description(pn)
     print('\tLoading ~%s_Raw.xlsx...' % path_str)
     df=pd.read_excel(pn,sheet_name=None,na_values='-',header=None) #Key addition
-    raw=raw_from_xlsx(df)
-    params=params_from_xlsx(df,pn)
-    stim=stim_from_xlsx(df,pn)
-    params['fs']=1/np.mean(np.diff(raw['time'][0:]))
-    for key,value in stim.items():
-        params['stim_' + key]=value
-    
-    #Also add in: exp_end, task_start, task_stop
-    params=check_params(df,raw,params)
-
+    sheets=[sheet for sheet in df.keys()]
+    if len(sheets) > 1:
+        raw=raw_from_xlsx(df)
+        params=params_from_xlsx(df,pn)
+        stim=stim_from_xlsx(df,pn)
+        params['fs']=1/np.mean(np.diff(raw['time'][0:]))
+        for key,value in stim.items():
+            params['stim_' + key]=value
+        
+        #Also add in: exp_end, task_start, task_stop
+        params=check_params(df,raw,params)        
+    else:
+        print('\tWARNING: This .xlsx file does not contain sufficient number of sheets for further processing.')
+        print(pn)
+        raw=[]
+        params=[]
     return raw,params
 
 def get_header_from_rawdf(df,sheet=0):
