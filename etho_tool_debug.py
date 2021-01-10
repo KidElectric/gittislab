@@ -42,8 +42,8 @@ plt.plot(out3['cont'][:,trial],'--g')
 # plt.plot(out4['cont'][:,trial],'--b')
 
 # %% Unify to CSV is better for a number of reasons, but creates separate metadata and raw .csv files
-inc = [['AG','A2A','GPe',]] # 'zone_1_30mW' , 'AG4971_4','Right'
-exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',
+inc = [['AG','GPe',]] # 'zone_1_30mW' , 'AG4971_4','Right'
+exc = [['exclude','Bad','_and_SNr','_and_Str','20min_10Hz',
         'grooming','20min_4Hz','Exclude','Other XLS']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_to_csv(basepath,inc,exc,force_replace=False)
