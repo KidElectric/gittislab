@@ -28,8 +28,20 @@ exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.raw_csv(basepath,inc[0],exc[0])
 raw,meta=ethovision_tools.csv_load(pns[1])
-clip=behavior.stim_clip_grab(raw,meta,y_col='vel')
-clip_ave=behavior.stim_clip_average(clip)
+baseline= round(np.mean(meta['stim_dur']))
+stim_dur= baseline
+# Calculate stim-triggered speed changes:
+vel_clip=behavior.stim_clip_grab(raw,meta,y_col='vel',baseline=baseline,
+                                 stim_dur=stim_dur)
+
+clip_ave=behavior.stim_clip_average(vel_clip)
+
+# Calculate stim-triggered %time mobile:
+percentage = lambda x: (np.nansum(x)/len(x))*100
+m_clip=behavior.stim_clip_grab(raw,meta,y_col='m',baseline=baseline,
+                                 stim_dur=stim_dur, summarization_fun=percentage)
+
+#Calculate
 
 # %% Create figure layout using gridspec:
 fig = plt.figure(constrained_layout = True,figsize=(8,20))
@@ -44,5 +56,13 @@ f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
 f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
 
 ax_pos = plots.trial_part_position(raw,meta,ax=f_row[0])
+ax_im = plots.mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[1])
+plt.ylabel('% Time Mobile')
 ax_speedbar = plots.mean_cont_plus_conf(clip_ave,xlim=[-10,20],highlight=[0,10,20],ax=f_row[2][0])
-ax_speed = plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],ax=f_row[2][1])
+plt.ylabel('Speed (cm/s)')
+plt.xlabel('Time from stim (s)')
+
+ax_speed = plots.mean_bar_plus_conf(vel_clip,['Pre','Dur','Post'],ax=f_row[2][1])
+plt.ylabel('Speed (cm/s)')
+plt.xlabel('Time from stim (s)')
+

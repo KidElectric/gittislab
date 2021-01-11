@@ -168,6 +168,7 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 # path_str=dataloc.path_to_description(path)
                 print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
     print('Finished')   
+    
 def meta_sum_h5(basepath,conds_inc=[],conds_exc=[]):
     '''
         Generate a summary dataframe of metadata from .h5 files specified by
@@ -444,6 +445,8 @@ def params_from_mat(pn):
     params['stim_n']=np.nansum(not np.isnan(params['stim_on']))
     params['stim_mean_dur']=params['stim_dur'].mean()
     return params
+
+
 
 def raw_from_mat(pn):
     '''

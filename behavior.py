@@ -131,6 +131,24 @@ def trial_part_position(raw_df,raw_par):
         yy.append(y[ind])
     return xx,yy
 
+def stim_xy_loc(raw,meta):
+    '''
+    Return normalized (x,y) coordinates of stimulation onsets
+    '''
+    x_on=[]
+    y_on=[]
+    xx,yy = norm_position(raw)
+    x=xx[1:]
+    y=yy[1:]
+    for i,on in enumerate(meta['stim_on']):
+        ind=raw['time'] > on
+        d = np.diff(ind) == 1
+        x_on.append(x[d])
+        y_on.append(y[d])
+    meta['stim_on_x']=x_on
+    meta['stim_on_y']=y_on
+    return meta
+
 def measure_bearing(raw_df,raw_par):
     # Measurement revolves around direction of travel when crossing midline of open field
     # and subsequent continuation along same route or rebounding
@@ -172,6 +190,17 @@ def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',baseline=10,stim_dur=10,sum
     out_struct={'cont_x':cont_x_array,'cont_y':cont_y_array,'disc':disc_y_array,
                 'samp_int':intervals}
     return out_struct
+def bout_counter(raw,meta,y_col,baseline=10,stim_dur=10,):
+    y_col_bout=y_col + '_bout'
+    val = np.concatenate((np.array([0]),np.diff(raw[y_col])>0))
+    raw[y_col_bout] = val 
+    c1=stim_clip_grab(raw,meta,y_col_bout,baseline=baseline,stim_dur=stim_dur,
+                   summarization_fun=np.nansum)
+    c2=stim_clip_grab(raw,meta,y_col,baseline=baseline,stim_dur=stim_dur,
+                   summarization_fun=np.nansum)
+    clip=c1
+    clip['cont_y']=c2['cont_y']
+    return clip
 
 def stim_clip_average(clip):
     '''

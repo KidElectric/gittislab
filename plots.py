@@ -14,7 +14,7 @@ from matplotlib.collections import PatchCollection
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
 import matplotlib.patches as mpatches
-from gittislab import behavior
+from gittislab import behavior, ethovision_tools
 from scipy.stats import ttest_rel
 
 def get_subs(axes):
@@ -108,8 +108,7 @@ def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=No
     if ax == None: #If no axis provided, create a new plot
         fig,ax=plt.subplots()
     plt.sca(ax)
-    plt.ylabel('Speed (cm/s)')
-    plt.xlabel('Time from stim (s)')
+
     
     #If highlight patch box specified, plot it first:
     if highlight:
@@ -183,12 +182,12 @@ def mean_bar_plus_conf(clip,xlabels,ax=None):
     print(str(p))
     
     #Axis labels (here or outside of this to be more generalized)
-    plt.ylabel('Speed (cm/s)')
-    plt.xlabel('Time from stim (s)')
+
     if axflag == False:
         return fig, ax
     else:
         return ax
+    
 def trial_part_position(raw,meta,ax=None):
     '''
     
@@ -215,11 +214,14 @@ def trial_part_position(raw,meta,ax=None):
         
     xx,yy=behavior.trial_part_position(raw,meta)
     for x,y,a in zip(xx,yy,ax):
-        a.plot(x,y,'k')
+        a.scatter(x,y,4,'k',marker='.',alpha=0.05)
         plt.sca(a)
         plt.xlabel('cm')
         plt.ylabel('cm')
-    
+    meta=behavior.stim_xy_loc(raw,meta)
+    for x,y in zip(meta['stim_on_x'],meta['stim_on_y']):
+        ax[1].plot(x,y,'bo')
+        
     if axflag == False:
         return fig, ax
     else:
