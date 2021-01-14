@@ -66,3 +66,21 @@ ax_speed = plots.mean_bar_plus_conf(vel_clip,['Pre','Dur','Post'],ax=f_row[2][1]
 plt.ylabel('Speed (cm/s)')
 plt.xlabel('Time from stim (s)')
 
+# %% Debug new metric: meander
+dir_smooth=behavior.smooth_direction(raw,meta)
+diff_angle=signal.angle_vector_delta(dir_smooth[0:-1],dir_smooth[1:],thresh=20,
+                            fs=meta['fs'][0])
+meander = behavior.measure_meander(raw,meta)
+dist = raw['vel'] * (1 / meta.fs[0])
+plt.close('all')
+fig = plt.figure(figsize=(5,10))
+ax1=plt.subplot(3,1,1)
+plt.plot(raw['time'][1:],signal.log_modulus(meander))
+plt.subplot(3,1,2,sharex=ax1)
+vel=raw['vel'][0:3]=np.nan
+plt.plot(raw['time'],dist)
+plt.subplot(3,1,3,sharex=ax1)
+plt.plot(raw['time'][1:],diff_angle)
+
+plt.figure(),plt.scatter(dist[1:],diff_angle,np.sqrt(np.power(meander,2))/100,
+                         'k', alpha=0.1)

@@ -10,16 +10,16 @@ from scipy.signal import butter, filtfilt
 from scipy.stats import t
 from itertools import compress
 
-def smooth_vel(raw,params,win=10):
+def smooth_vel(raw,meta,win=10):
     '''
-    smooth_vel(raw,params,win=10)
+    smooth_vel(raw,meta,win=10)
     Calculate mouse velocity by smoothing (x,y) position coordinates with boxcar convolution
     of a length set by "win".
     Parameters
     ----------
     raw : ethovision dataframe
         raw ethovision experiment dataframe created by ethovision_tools
-    params : dict
+    meta : dict
         parameters of ethovision experiment created by ethovision_tools
     win : int, optional
         Length of smoothing window in samples. The default is 10. (333ms at 29.97 fps)
@@ -31,26 +31,27 @@ def smooth_vel(raw,params,win=10):
 
     '''
     vel=[]
-    fs=params['fs']
+    fs=meta['fs'][0]
     cutoff=3 #Hz
     
-    #Interpolate NaNs with nearyby values and convert to floats:
-    x=raw['x'].interpolate(method='pad').astype(np.float)
-    y=raw['y'].interpolate(method='pad').astype(np.float)
+    # #Interpolate NaNs with nearyby values and convert to floats:
+    # x=raw['x'].interpolate(method='pad').astype(np.float)
+    # y=raw['y'].interpolate(method='pad').astype(np.float)
     
-    #Low-pass filter method:     
-    pad=round(fs*2)
-    x=np.pad(x,pad_width=(pad,),mode='linear_ramp')
-    y=np.pad(y,pad_width=(pad,),mode='linear_ramp')
+    # #Low-pass filter method:     
+    # pad=round(fs*2)
+    # x=np.pad(x,pad_width=(pad,),mode='linear_ramp')
+    # y=np.pad(y,pad_width=(pad,),mode='linear_ramp')
     
-    x_s=signal.butter_lowpass_filtfilt(x, cutoff, fs, order=5)
-    x_s=x_s[pad:-pad]
-    y_s=signal.butter_lowpass_filtfilt(y, cutoff, fs, order=5)
-    y_s=y_s[pad:-pad]
+    # x_s=signal.butter_lowpass_filtfilt(x, cutoff, fs, order=5)
+    # x_s=x_s[pad:-pad]
+    # y_s=signal.butter_lowpass_filtfilt(y, cutoff, fs, order=5)
+    # y_s=y_s[pad:-pad]
+    
+    x_s=signal.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
+    y_s=signal.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
 
-    #Boxcar method: (doesn't remove stimulation artifacts very well)
-    # x_s=signal.boxcar_smooth(raw['x'].values,win)
-    # y_s=signal.boxcar_smooth(raw['y'].values,win)
+    #Calculate distance between smoothed (x,y) points for smoother velocity
     for i,x2 in enumerate(x_s):
         x1=x_s[i-1]
         y1=y_s[i-1]
@@ -59,7 +60,23 @@ def smooth_vel(raw,params,win=10):
         vel.append(dist / (1/fs))
     return np.array(vel)
 
-def norm_position(raw_df):
+def smooth_direction(raw,meta,win=10):
+    #Interpolate NaNs with nearyby values and convert to floats:
+    cutoff= 3 #Hz
+    fs=meta['fs'][0]
+    x_n=signal.pad_lowpass_unpad(raw['x_nose'],cutoff,fs,order=5)
+    y_n=signal.pad_lowpass_unpad(raw['y_nose'],cutoff,fs,order=5)
+    x_t=signal.pad_lowpass_unpad(raw['x_tail'],cutoff,fs,order=5)
+    y_t=signal.pad_lowpass_unpad(raw['y_tail'],cutoff,fs,order=5)
+    
+    #Calculate distance between smoothed (x,y) points for smoother body angle
+    angle=[]
+    for x1,y1,x2,y2 in zip(x_n,y_n,x_t,y_t):
+        angle.append(signal.one_line_angle(x2,y2,x1,y1))
+    
+    return np.array(angle)
+        
+def norm_position(raw):
     '''
     Normalize mouse running coordinates so that the center of (x,y) position is
     (0,0). Use method of binning observed (x,y) in cm and finding center bin.
@@ -68,9 +85,9 @@ def norm_position(raw_df):
         xn - np.array, normalized x center coordinate of mouse
         yn - np.array, normalized y center coordinate of mouse
     '''
-    cx,cy = find_arena_center(raw_df)        
-    x=raw_df['x'].values
-    y=raw_df['y'].values
+    cx,cy = find_arena_center(raw)        
+    x=raw['x'].values
+    y=raw['y'].values
     y=y-cy
     x=x-cx
     #Potentially improve this cleaning process with 
@@ -81,7 +98,7 @@ def norm_position(raw_df):
     yn = y - np.nanmin(y) - (np.nanmax(y) - np.nanmin(y))/2
     return xn,yn
 
-def find_arena_center(raw_df):
+def find_arena_center(raw):
     '''
     Approximate the (x,y) center of the arena based off where the mouse has traveled.
     
@@ -97,7 +114,7 @@ def find_arena_center(raw_df):
 
     use = ['x','y']
     for a in use:
-        x=raw_df[a].values
+        x=raw[a].values
         mm=math.floor(np.nanmin(x))
         mmx=math.ceil(np.nanmax(x))
         bin=[i for i in range(mm,mmx,1)]
@@ -117,17 +134,17 @@ def find_arena_center(raw_df):
             
     return x_center,y_center
 
-def trial_part_position(raw_df,raw_par):
-    x,y=norm_position(raw_df)
+def trial_part_position(raw,meta):
+    x,y=norm_position(raw)
     t=[i for i in range(4)]
     t[0]=0
-    t[1]=raw_par.task_start[0]
-    t[2]=raw_par.task_stop[0]
-    t[3]=raw_par.exp_end[0]
+    t[1]=meta.task_start[0]
+    t[2]=meta.task_stop[0]
+    t[3]=meta.exp_end[0]
     xx=[]
     yy=[]
     for i in range(len(t)-1):
-        ind=(raw_df['time']>= t[i]) & (raw_df['time'] < t[i+1])
+        ind=(raw['time']>= t[i]) & (raw['time'] < t[i+1])
         xx.append(x[ind])
         yy.append(y[ind])
     return xx,yy
@@ -150,29 +167,46 @@ def stim_xy_loc(raw,meta):
     meta['stim_on_y']=y_on
     return meta
 
-def measure_bearing(raw_df,raw_par):
+def measure_bearing(raw,meta):
     # Measurement revolves around direction of travel when crossing midline of open field
     # and subsequent continuation along same route or rebounding
-    return raw_df['time'].values[0]
-
-
-def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',stim_dur=30,summarization_fun=np.nanmean):
     
-    if isinstance(raw_par['fs'],float):
-        fs=raw_par['fs']
+    return raw['time'].values[0]
+
+def measure_meander(raw,meta):
+    '''
+    Change in direction vs. change in distance traveled.
+    
+    '''
+    fs=meta['fs'][0]
+    dir = smooth_direction(raw,meta)
+    diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
+    # diff_angle[diff_angle >20]=np.nan
+    # diff_angle=pd.core.series.Series(diff_angle)
+    # cutoff=3 #Hz
+    # diff_angle=signal.pad_lowpass_unpad(diff_angle,cutoff,fs,order=5)
+    dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
+    dist[0:3]=np.nan
+    meander = diff_angle / (dist[1:])
+    return meander
+    
+def stim_clip_grab(raw,meta,y_col,x_col='time',stim_dur=30,summarization_fun=np.nanmean):
+    
+    if isinstance(meta['fs'],float):
+        fs=meta['fs']
     else:
-        fs=raw_par['fs'][0]
+        fs=meta['fs'][0]
     baseline=stim_dur
     nsamps=math.ceil(((baseline*2) + stim_dur) * fs)
-    ntrials=len(raw_par['stim_on'])
+    ntrials=len(meta['stim_on'])
     cont_y_array=np.empty((nsamps,ntrials))
     cont_y_array[:]=np.nan
-    y=raw_df[y_col].values
-    x=raw_df[x_col].values
+    y=raw[y_col].values
+    x=raw[x_col].values
     disc_y_array=np.empty((ntrials,3)) #Pre Dur Post
-    for i,on_time in enumerate(raw_par['stim_on']):
+    for i,on_time in enumerate(meta['stim_on']):
         # Array containing continuous part of analysis:
-        off_time=raw_par['stim_off'][i]
+        off_time=meta['stim_off'][i]
         base_samp= round((on_time - baseline) * fs)
         on_samp = round(on_time * fs)
         on_time_samp= round((on_time + stim_dur) * fs)
@@ -303,15 +337,15 @@ def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
     
     return out_ave
     
-def mouse_stim_vel(raw_df,raw_par,stim_dur=10):
+def mouse_stim_vel(raw,meta,stim_dur=10):
     '''
-        mouse_stim_vel(raw_df,params)
+        mouse_stim_vel(raw,meta)
             Create average velocity trace from one mouse across stimulations.
     Parameters
     ----------
-    raw_df : TYPE
+    raw : TYPE
         DESCRIPTION.
-    params : TYPE
+    meta : TYPE
         DESCRIPTION.
 
     Returns
@@ -320,7 +354,7 @@ def mouse_stim_vel(raw_df,raw_par,stim_dur=10):
 
     '''
     raw_col='vel'
-    out_struct=stim_clip_grab(raw_df,raw_par,raw_col,stim_dur=stim_dur,summarization_fun=np.nanmedian)
+    out_struct=stim_clip_grab(raw,meta,raw_col,stim_dur=stim_dur,summarization_fun=np.nanmedian)
     return out_struct
 
 def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,

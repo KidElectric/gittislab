@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import pandas as pd
 from scipy.signal import find_peaks 
 from scipy.signal import butter, filtfilt
 
@@ -14,6 +15,21 @@ def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
     y = filtfilt(b, a, data)
     return y
 
+def pad_lowpass_unpad(data,cutoff,fs,order=5):
+    pad=round(fs*2)
+    
+    #Fill in nans if pandas series:
+    if isinstance(data,pd.core.series.Series):
+        data=data.interpolate(method='pad').astype(np.float)
+    
+    #Pad:
+    data=np.pad(data,pad_width=(pad,),mode='linear_ramp')
+    
+    #Low-pass filter:     
+    data=butter_lowpass_filtfilt(data, cutoff, fs, order=order)
+    
+    #Return unpadded:
+    return data[pad:-pad]
 
 def thresh(y,thresh, sign='Pos'):
     if len(y.shape) == 1:
@@ -119,6 +135,35 @@ def join_gaps(on,off,min_samp):
                 keep_off.append(last_i)
     return on[keep_on],off[keep_off]
 
+def angle_delta(b1, b2):
+    r=(b2 - b1) % 360.0
+    if r >= 180.0:
+        r -= 360.0
+    return r
+
+def angle_vector_delta(b1, b2,thresh=None,fs=29.97):
+    out=[]
+    for a,b in zip(b1,b2):
+        out.append(angle_delta(a,b))
+    out=np.abs(np.array(out))
+    if thresh != None:
+        out[out >thresh]=np.nan
+        out=pd.core.series.Series(out)
+        cutoff=3 #Hz
+        out= pad_lowpass_unpad(out,cutoff,fs,order=5)
+    return out
+
+def one_line_angle(x1,y1,x2,y2):
+    return math.degrees(math.atan2(y2-y1, x2-x1))
+
+def two_line_angle(vector1, vector2):
+    x1, y1 = vector1
+    x2, y2 = vector2
+    inner_product = x1*x2 + y1*y2
+    len1 = math.hypot(x1, y1)
+    len2 = math.hypot(x2, y2)
+    return math.acos(inner_product/(len1*len2))
+
 def peak_start_stop(y,distance=30,height=0.6,width=10, min_thresh=0.2):
     peaks=find_peaks(y,distance=distance,height=height,width=width)[0] #Will return np.array
     start_peak=[]
@@ -149,6 +194,12 @@ def calculateDistance(x1,y1,x2,y2):
     dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)  
     return dist 
 
+def log_modulus(x):
+    '''
+    Perform the log modulus transform of x (sign(x) * log(|x| + 1))
+    '''
+    
+    return np.sign(x) * np.log10(np.abs(x)+1)
 
 def max_correct(x,y,step,poly_order=2):
     '''
