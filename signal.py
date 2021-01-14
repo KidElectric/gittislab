@@ -38,6 +38,7 @@ def thresh(y,thresh, sign='Pos'):
     if sign == 'Neg':
         y *= -1
     return onsets, offsets
+
 def chunk_by_x(x,y,x_points,x_range):
     '''
         Take x y arrays and make a matrix of data clips from y, centered on x_points, 
@@ -80,6 +81,7 @@ def chunk_by_x(x,y,x_points,x_range):
             clip=y[use_x]
             output.append(clip)
     return output
+
 def boxcar_smooth(y,samps):
     '''
     boxcar_smooth(y,samps)     
@@ -100,7 +102,7 @@ def boxcar_smooth(y,samps):
     y_smooth = np.convolve(y_smooth, box, mode='same')
     return y_smooth[samps:-samps]
 
-def join_crossings(on,off,min_samp):
+def join_gaps(on,off,min_samp):
     on=np.concatenate(([0],on))
     off=np.concatenate(([0],off))
     keep_on = []

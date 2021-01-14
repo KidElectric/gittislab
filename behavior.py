@@ -8,6 +8,7 @@ import cv2
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 from scipy.stats import t
+from itertools import compress
 
 def smooth_vel(raw,params,win=10):
     '''
@@ -155,12 +156,13 @@ def measure_bearing(raw_df,raw_par):
     return raw_df['time'].values[0]
 
 
-def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',baseline=10,stim_dur=10,summarization_fun=np.nanmean):
+def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',stim_dur=30,summarization_fun=np.nanmean):
     
     if isinstance(raw_par['fs'],float):
         fs=raw_par['fs']
     else:
         fs=raw_par['fs'][0]
+    baseline=stim_dur
     nsamps=math.ceil(((baseline*2) + stim_dur) * fs)
     ntrials=len(raw_par['stim_on'])
     cont_y_array=np.empty((nsamps,ntrials))
@@ -190,19 +192,76 @@ def stim_clip_grab(raw_df,raw_par,y_col,x_col='time',baseline=10,stim_dur=10,sum
     out_struct={'cont_x':cont_x_array,'cont_y':cont_y_array,'disc':disc_y_array,
                 'samp_int':intervals}
     return out_struct
-def bout_counter(raw,meta,y_col,baseline=10,stim_dur=10,):
+
+def bout_counter(raw,meta,y_col,stim_dur=30,min_bout_dur_s=1,min_bout_spacing_s=0.5):
+
     y_col_bout=y_col + '_bout'
-    val = np.concatenate((np.array([0]),np.diff(raw[y_col])>0))
-    raw[y_col_bout] = val 
-    c1=stim_clip_grab(raw,meta,y_col_bout,baseline=baseline,stim_dur=stim_dur,
+    dat=raw[y_col].astype(int) #Note: discretely smoothed by signal.join_gaps
+    
+    bout_onset = np.concatenate((np.array([0]),np.diff(dat)>0))
+    onset_samps = list(compress(range(len(bout_onset)),bout_onset))
+    bout_offset = np.concatenate((np.array([0]),np.diff(dat)<0))
+    offset_samps= list(compress(range(len(bout_offset)),bout_offset))
+    
+    #Edgecase: bout starts before recording, so offsets precede onsets:
+    if onset_samps[0] > offset_samps[0]:
+        #Simplest solution, remove first offset, aligning with remaining onsets
+        #(Does not rule out other problems that may arise!)
+        offset_samps.pop(0)
+        
+    #Filter bouts for obeying a minimum bout spacing apart (by default 0.5s):
+    min_bout_spacing_samps=round(meta.fs[0]*min_bout_spacing_s)
+    new_on,new_off=signal.join_gaps(onset_samps,offset_samps,min_bout_spacing_samps)
+    #Also remove detected bouts from bout_onset arrays:
+    bout_onset[[x for x in onset_samps if x not in new_on]]=0
+    bout_offset[[x for x in offset_samps if x not in new_off]]=0
+    onset_samps=new_on
+    offset_samps=new_off
+
+    #Filter bouts for obeying a minimum bout duration (by default, 1s):
+    dur=np.zeros(dat.shape)
+    keep=np.zeros(dat.shape)
+    for on,off in zip(onset_samps,offset_samps): #zip() aligns to shortest of onset/offset
+        dur_temp=(off-on)/meta.fs[0]
+        if dur_temp >= min_bout_dur_s:
+            dur[on]=dur_temp #Bout duration in seconds
+        else:
+            #do not include this bout
+            bout_onset[on]=0 
+            bout_offset[off]=0
+    raw[y_col_bout] = bout_onset 
+    
+    #Use "_bout" column to calculate discrete # of occurences (min duration?)
+    bout_disc=stim_clip_grab(raw,meta,y_col_bout,stim_dur=stim_dur,
                    summarization_fun=np.nansum)
-    c2=stim_clip_grab(raw,meta,y_col,baseline=baseline,stim_dur=stim_dur,
+    
+    #Use boolean clips as continuous measure of behavior occurence (1= occurring)
+    bout_continuous=stim_clip_grab(raw,meta,y_col,stim_dur=stim_dur,
                    summarization_fun=np.nansum)
-    clip=c1
-    clip['cont_y']=c2['cont_y']
+    
+    #Combine these so clip dictionary contains correct discrete and continuous assessment
+    #of bout occurence:
+    clip=bout_disc
+    clip['count'] = clip.pop('disc')
+    clip['analyzed']=clip.pop('cont_y') #Indicate onset position of bouts used for analysis
+    clip['cont_y']=bout_continuous['cont_y'] #needs to be updated to reflect smoothing above
+    
+    
+    #Add in a 'dur_y' field
+    dur[dur==0] = np.nan
+    raw['bout_dur']=dur
+    bout_dur=stim_clip_grab(raw,meta,'bout_dur',stim_dur=stim_dur,
+                   summarization_fun=np.nanmedian)
+    clip['dur']=bout_dur['disc']
+    
+    #Add in a rate of events:
+    clip['rate']=clip['count']/stim_dur
+    
     return clip
 
-def stim_clip_average(clip):
+
+
+def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
     '''
     stim_clip_average(out_struct) Returns an average +/- 95% conf of continuous
            and discrete fields of this structure
@@ -219,30 +278,32 @@ def stim_clip_average(clip):
 
     '''
     confidence = 0.95
+    continous_x_key=continuous_y_key.split('_')[0] + '_x'
     out_ave={'disc_m':np.empty((3,1)),
              'disc_conf':np.empty((3,1)),
-             'cont_y':np.empty(clip['cont_y'][:,0].shape),
-             'cont_x':np.empty(clip['cont_x'].shape),
-             'cont_y_conf':np.empty(clip['cont_y'][:,0].shape)}
-    n=clip['cont_y'].shape[1]
-    for i,data in enumerate(clip['disc'].T):
+             'cont_y':np.empty(clip[continuous_y_key][:,0].shape),
+             'cont_x':np.empty(clip[continous_x_key].shape),
+             'cont_y_conf':np.empty(clip[continuous_y_key][:,0].shape)}
+    n=clip[continuous_y_key].shape[1]
+    
+    for i,data in enumerate(clip[discrete_key].T):
         m = np.mean(data)
         std_err = np.nanstd(data)/np.sqrt(n)
         h = std_err * t.ppf((1 + confidence) / 2, n - 1)
         out_ave['disc_m'][i]=m
         out_ave['disc_conf'][i]=h
     
-    ym=np.mean(clip['cont_y'],axis=1)
+    ym=np.mean(clip[continuous_y_key],axis=1)
     out_ave['cont_y']=ym
    
-    std_err = np.nanstd(clip['cont_y'],axis=1)/np.sqrt(n)
+    std_err = np.nanstd(clip[continuous_y_key],axis=1)/np.sqrt(n)
     h = std_err * t.ppf((1 + confidence) / 2, n - 1)
     out_ave['cont_y_conf']=np.array([ym-h, ym+h]).T
-    out_ave['cont_x']=clip['cont_x']
+    out_ave['cont_x']=clip[continous_x_key]
     
     return out_ave
     
-def mouse_stim_vel(raw_df,raw_par,baseline=10,stim_dur=10):
+def mouse_stim_vel(raw_df,raw_par,stim_dur=10):
     '''
         mouse_stim_vel(raw_df,params)
             Create average velocity trace from one mouse across stimulations.
@@ -259,7 +320,7 @@ def mouse_stim_vel(raw_df,raw_par,baseline=10,stim_dur=10):
 
     '''
     raw_col='vel'
-    out_struct=stim_clip_grab(raw_df,raw_par,raw_col,baseline,stim_dur,summarization_fun=np.nanmedian)
+    out_struct=stim_clip_grab(raw_df,raw_par,raw_col,stim_dur=stim_dur,summarization_fun=np.nanmedian)
     return out_struct
 
 def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,

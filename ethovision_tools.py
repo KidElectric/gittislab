@@ -731,7 +731,7 @@ def stim_from_xlsx(df,pn):
     proto=str(pn).split(sep)[-3]
     stim['proto']=proto
     if len(stim['on']) == 0:
-        if '10x30' in proto:
+        if '10x30' in proto: #Stim times occur at well-known times, can be inferred in few cases of missing values
             stim['on']=[x for x in range(630,2550,(60*3+30))] #infer
             stim['off']=[i + 30 for i in stim['on']]
         else:
