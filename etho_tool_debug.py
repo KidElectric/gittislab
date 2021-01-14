@@ -13,7 +13,9 @@ import pandas as pd
 import math
 from matplotlib import pyplot as plt
 import pdb
+from itertools import compress
 
+# %%
 # inc=['GPi','CAG','Arch','10x30','AG6151_3_CS090720']
 inc=['AG','Str','CAG','Arch','10x10_30mW',]
 exc=['exclude','_and_Str','Left','Right']
@@ -42,9 +44,8 @@ plt.plot(out3['cont'][:,trial],'--g')
 # plt.plot(out4['cont'][:,trial],'--b')
 
 # %% Unify to CSV is better for a number of reasons, but creates separate metadata and raw .csv files
-inc = [['AG','GPe',]] # 'zone_1_30mW' , 'AG4971_4','Right'
-exc = [['exclude','Bad','_and_SNr','_and_Str','20min_10Hz',
-        'grooming','20min_4Hz','Exclude','Other XLS']]
+inc = [['AG',]] #Run on all experiments
+exc = [['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']] #'_and_SNr','_and_Str'
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_to_csv(basepath,inc,exc,force_replace=False)
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
@@ -52,7 +53,13 @@ print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 # summary.iloc[np.where(np.isnan(summary.stim_dur))[0][0],:]
+# %%
 
+nan_entries = list(compress(range(len(summary.stim_dur)), 
+                            np.isnan(summary.stim_dur)))
+for r in nan_entries:
+    print('%s %s %s %s' % (summary['anid'][r],summary['proto'][r],
+                           summary['exper'][r],summary['settings'][r]))
 # %% Print summary of metadata retrieved by query:
 # inc = [['AG','A2a','ChR2','Str']] # 'zone_1_30mW'
 # exc = [['exclude','_and_SNr','_and_Str','20min_10Hz',

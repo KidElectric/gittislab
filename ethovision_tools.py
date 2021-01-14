@@ -727,11 +727,16 @@ def stim_from_xlsx(df,pn):
     else:
         stim={'on':'','off':''}
         
-    if len(stim['on']) == 0:
-        stim['on']=[np.nan]
-        stim['off']=[np.nan]
+
     proto=str(pn).split(sep)[-3]
     stim['proto']=proto
+    if len(stim['on']) == 0:
+        if '10x30' in proto:
+            stim['on']=[x for x in range(630,2550,(60*3+30))] #infer
+            stim['off']=[i + 30 for i in stim['on']]
+        else:
+            stim['on']=[np.nan]
+            stim['off']=[np.nan]
     stim_dur=[]
     for i,onset in enumerate(stim['on']):
         if i< len(stim['off']):
