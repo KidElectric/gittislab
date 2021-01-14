@@ -746,7 +746,7 @@ def stim_from_xlsx(df,pn):
     else:
         stim['n']=0
     if ('mw' in proto) or ('mW' in proto):
-        temp_amp=proto.split('_')[-1].split('m')[0]
+        temp_amp=proto.split('_')[1].split('m')[0]
         if 'p' in temp_amp:
             use_amp = int(temp_amp.split('p')[1])/10
         else:
