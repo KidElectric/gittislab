@@ -181,15 +181,25 @@ def measure_meander(raw,meta):
     fs=meta['fs'][0]
     dir = smooth_direction(raw,meta)
     diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
-    # diff_angle[diff_angle >20]=np.nan
-    # diff_angle=pd.core.series.Series(diff_angle)
-    # cutoff=3 #Hz
-    # diff_angle=signal.pad_lowpass_unpad(diff_angle,cutoff,fs,order=5)
     dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
     dist[0:3]=np.nan
     meander = diff_angle / (dist[1:])
     return meander
+
+def measure_directedness(raw,meta):
+    '''
+    Change in direction vs. change in distance traveled.
     
+    '''
+    fs=meta['fs'][0]
+    dir = smooth_direction(raw,meta)
+    diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
+
+    dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
+    dist[0:3]=np.nan
+    directed = (100*dist[1:]) / diff_angle # meter travel / change in direction
+    return directed
+
 def stim_clip_grab(raw,meta,y_col,x_col='time',stim_dur=30,summarization_fun=np.nanmean):
     
     if isinstance(meta['fs'],float):
@@ -227,7 +237,50 @@ def stim_clip_grab(raw,meta,y_col,x_col='time',stim_dur=30,summarization_fun=np.
                 'samp_int':intervals}
     return out_struct
 
-def bout_counter(raw,meta,y_col,stim_dur=30,min_bout_dur_s=1,min_bout_spacing_s=0.5):
+
+def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
+    '''
+    stim_clip_average(out_struct) Returns an average +/- 95% conf of continuous
+           and discrete fields of this structure
+
+    Parameters
+    ----------
+    out_struct : Struct.
+        Output structure from stim_clip_grab with a continous field ('cont') and discrete field ('disc')
+
+    Returns
+    -------
+    out_struct_averaged : TYPE
+        DESCRIPTION.
+
+    '''
+    confidence = 0.95
+    continous_x_key=continuous_y_key.split('_')[0] + '_x'
+    out_ave={'disc_m':np.empty((3,1)),
+             'disc_conf':np.empty((3,1)),
+             'cont_y':np.empty(clip[continuous_y_key][:,0].shape),
+             'cont_x':np.empty(clip[continous_x_key].shape),
+             'cont_y_conf':np.empty(clip[continuous_y_key][:,0].shape)}
+    n=clip[continuous_y_key].shape[1]
+    
+    for i,data in enumerate(clip[discrete_key].T):
+        m = np.nanmean(data)
+        std_err = np.nanstd(data)/np.sqrt(n)
+        h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+        out_ave['disc_m'][i]=m
+        out_ave['disc_conf'][i]=h
+    # out_ave['disc']=clip[discrete_key]
+    ym=np.mean(clip[continuous_y_key],axis=1)
+    out_ave['cont_y']=ym
+   
+    std_err = np.nanstd(clip[continuous_y_key],axis=1)/np.sqrt(n)
+    h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+    out_ave['cont_y_conf']=np.array([ym-h, ym+h]).T
+    out_ave['cont_x']=clip[continous_x_key]
+    
+    return out_ave
+
+def bout_analyze(raw,meta,y_col,stim_dur=30,min_bout_dur_s=0.5,min_bout_spacing_s=0.1):
 
     y_col_bout=y_col + '_bout'
     dat=raw[y_col].astype(int) #Note: discretely smoothed by signal.join_gaps
@@ -243,9 +296,10 @@ def bout_counter(raw,meta,y_col,stim_dur=30,min_bout_dur_s=1,min_bout_spacing_s=
         #(Does not rule out other problems that may arise!)
         offset_samps.pop(0)
         
-    #Filter bouts for obeying a minimum bout spacing apart (by default 0.5s):
+    #Filter bouts for obeying a minimum bout spacing apart (by default 0.25s):
     min_bout_spacing_samps=round(meta.fs[0]*min_bout_spacing_s)
     new_on,new_off=signal.join_gaps(onset_samps,offset_samps,min_bout_spacing_samps)
+    
     #Also remove detected bouts from bout_onset arrays:
     bout_onset[[x for x in onset_samps if x not in new_on]]=0
     bout_offset[[x for x in offset_samps if x not in new_off]]=0
@@ -291,52 +345,29 @@ def bout_counter(raw,meta,y_col,stim_dur=30,min_bout_dur_s=1,min_bout_spacing_s=
     #Add in a rate of events:
     clip['rate']=clip['count']/stim_dur
     
+    #Add in a measure of meandering:
+    meander=np.empty(dur.shape)
+    meander[:]=np.nan
+    full_meander = measure_meander(raw,meta)
+    for on,off in zip(onset_samps,offset_samps):
+        meander[on:off]=full_meander[on:off]
+    raw['bout_meander']=meander
+    bout_meander=stim_clip_grab(raw,meta,'bout_meander',stim_dur=stim_dur,
+                                summarization_fun=np.nanmedian)
+    clip['meander']=bout_meander['disc']
+    
+    #Add in a measure of speed:
+    speed=np.empty(dur.shape)
+    speed[:]=np.nan
+    for on,off in zip(onset_samps,offset_samps):
+        speed[on:off]=raw['vel'][on:off]
+    raw['bout_speed']=speed
+    bout_meander=stim_clip_grab(raw,meta,'bout_speed',stim_dur=stim_dur,
+                                summarization_fun=np.nanmedian)
+    clip['speed']=bout_meander['disc']
+    
     return clip
 
-
-
-def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
-    '''
-    stim_clip_average(out_struct) Returns an average +/- 95% conf of continuous
-           and discrete fields of this structure
-
-    Parameters
-    ----------
-    out_struct : Struct.
-        Output structure from stim_clip_grab with a continous field ('cont') and discrete field ('disc')
-
-    Returns
-    -------
-    out_struct_averaged : TYPE
-        DESCRIPTION.
-
-    '''
-    confidence = 0.95
-    continous_x_key=continuous_y_key.split('_')[0] + '_x'
-    out_ave={'disc_m':np.empty((3,1)),
-             'disc_conf':np.empty((3,1)),
-             'cont_y':np.empty(clip[continuous_y_key][:,0].shape),
-             'cont_x':np.empty(clip[continous_x_key].shape),
-             'cont_y_conf':np.empty(clip[continuous_y_key][:,0].shape)}
-    n=clip[continuous_y_key].shape[1]
-    
-    for i,data in enumerate(clip[discrete_key].T):
-        m = np.mean(data)
-        std_err = np.nanstd(data)/np.sqrt(n)
-        h = std_err * t.ppf((1 + confidence) / 2, n - 1)
-        out_ave['disc_m'][i]=m
-        out_ave['disc_conf'][i]=h
-    
-    ym=np.mean(clip[continuous_y_key],axis=1)
-    out_ave['cont_y']=ym
-   
-    std_err = np.nanstd(clip[continuous_y_key],axis=1)/np.sqrt(n)
-    h = std_err * t.ppf((1 + confidence) / 2, n - 1)
-    out_ave['cont_y_conf']=np.array([ym-h, ym+h]).T
-    out_ave['cont_x']=clip[continous_x_key]
-    
-    return out_ave
-    
 def mouse_stim_vel(raw,meta,stim_dur=10):
     '''
         mouse_stim_vel(raw,meta)

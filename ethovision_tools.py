@@ -685,9 +685,9 @@ def check_params(df,raw,params):
         params['stim_off']=params['stim_off'][0:len(params['stim_on'])]
     
     if any(params['stim_dur'] < 0):
-        stim_dur_negative_detected
+        # stim_dur_negative_detected
         print('\tProblem with stim time alignment as negative stim durations detected.')
-        stim_dur_negative_detected
+        # stim_dur_negative_detected
     params['task_prestart_warning']=False
     if params['stim_on'][0] < params['task_start']:
         params['task_prestart_warning']=True
@@ -968,29 +968,37 @@ def rename_xlsx_columns(df):
     return df.rename(rename_dict,axis=1)
 
 def add_amb_to_raw(raw,params,amb_thresh=2,amb_dur=0.5,im_thresh=1,im_dur=0.5):
-    fs=params['fs']
+    fs=params['fs'][0]
     
     on,off=signal.thresh(raw['vel'],amb_thresh,sign='Pos')
-    bouts=(off-on)/fs    
+    if off[0] < on[0]:
+        off=off[1:]
+      
     amb=np.zeros(raw['vel'].shape,dtype=bool)
     im = amb
     m = np.ones(raw['vel'].shape,dtype=bool)
-    for i,bout in enumerate(bouts):
+    for o,f in zip(on,off):
+        bout = (f-o)/fs
         if bout > amb_dur:
-            amb[on[i]:off[i]]=True
+            amb[o:f]=True
     
     im=raw['vel'] < im_thresh
     on,off=signal.thresh(im,0.5,sign='Pos')
-    im = amb
-    bouts=(off-on)/fs  
-    for i,bout in enumerate(bouts):
+    if off[0] < on[0]:
+        off=off[1:]
+        
+    for o,f in zip(on,off):
+        bout = (f-o)/fs
         if bout > im_dur:
-            im[on[i]:off[i]]=True
+            im[o:f]=True
         
     m[im]=False  #Mobile = not immobile
     raw['im2']=im # 'im' is the immobility measure calculated in ethovision itself
     raw['m2']=m #m is the mobility measure
+    
     raw['ambulation']=amb
+    raw['ambulation'][raw['im'] == True]=False
+    
     raw['fine_move']= (raw['ambulation']==False) & (raw['im']==False)
     return raw
     
