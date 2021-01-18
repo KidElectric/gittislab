@@ -312,7 +312,10 @@ def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
     
     return out_ave
 
-def bout_analyze(raw,meta,y_col,stim_dur=30,min_bout_dur_s=0.5,min_bout_spacing_s=0.1):
+def bout_analyze(raw,meta,y_col,stim_dur=30,
+                 min_bout_dur_s=0.5,
+                 min_bout_spacing_s=0.1,
+                 use_dlc=False):
 
     y_col_bout=y_col + '_bout'
     dat=raw[y_col].astype(int) #Note: discretely smoothed by signal.join_gaps
@@ -380,7 +383,7 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,min_bout_dur_s=0.5,min_bout_spacing_
     #Add in a measure of meandering:
     meander=np.empty(dur.shape)
     meander[:]=np.nan
-    full_meander = measure_meander(raw,meta,use_dlc=True)
+    full_meander = measure_meander(raw,meta,use_dlc=use_dlc)
     for on,off in zip(onset_samps,offset_samps):
         meander[on:off]=full_meander[on:off]
     raw['bout_meander']=meander

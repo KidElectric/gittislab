@@ -306,6 +306,7 @@ def raw_csv(basepath,inc=[],exc = []):
     """
     keep_path=gen_paths_recurse(basepath,inc,exc,filetype = 'Raw*.csv')
     return keep_path
+
 def meta_csv(basepath,inc=[],exc = []):
     """ Using the input file path "basepath,"
     return the metadata .csv locations for all mice that

@@ -130,8 +130,10 @@ def join_gaps(on,off,min_samp):
             if diff > min_samp:
                 keep_on.append(i)
                 last_i=i
-                while last_i < (len(on)-1) and (on[last_i+1] - off[last_i]) < min_samp:
+                while last_i < (len(off)-1) and (on[last_i+1] - off[last_i]) < min_samp:
                     last_i +=1
+                # if last_i >= len(off):
+                #     last_i=len(off)-1
                 keep_off.append(last_i)
     return on[keep_on],off[keep_off]
 
