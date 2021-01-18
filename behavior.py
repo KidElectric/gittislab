@@ -60,21 +60,7 @@ def smooth_vel(raw,meta,win=10):
         vel.append(dist / (1/fs))
     return np.array(vel)
 
-def smooth_direction(raw,meta,win=10):
-    #Interpolate NaNs with nearyby values and convert to floats:
-    cutoff= 3 #Hz
-    fs=meta['fs'][0]
-    x_n=signal.pad_lowpass_unpad(raw['x_nose'],cutoff,fs,order=5)
-    y_n=signal.pad_lowpass_unpad(raw['y_nose'],cutoff,fs,order=5)
-    x_t=signal.pad_lowpass_unpad(raw['x_tail'],cutoff,fs,order=5)
-    y_t=signal.pad_lowpass_unpad(raw['y_tail'],cutoff,fs,order=5)
-    
-    #Calculate distance between smoothed (x,y) points for smoother body angle
-    angle=[]
-    for x1,y1,x2,y2 in zip(x_n,y_n,x_t,y_t):
-        angle.append(signal.one_line_angle(x2,y2,x1,y1))
-    
-    return np.array(angle)
+
         
 def norm_position(raw):
     '''
@@ -173,19 +159,65 @@ def measure_bearing(raw,meta):
     
     return raw['time'].values[0]
 
-def measure_meander(raw,meta):
+def measure_meander(raw,meta,use_dlc=False):
     '''
     Change in direction vs. change in distance traveled.
     
     '''
+        
     fs=meta['fs'][0]
-    dir = smooth_direction(raw,meta)
+    dir = smooth_direction(raw,meta,use_dlc=use_dlc)
     diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
     dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
     dist[0:3]=np.nan
     meander = diff_angle / (dist[1:])
     return meander
 
+def smooth_direction(raw,meta,
+                     use_dlc=False,
+                     win=10):
+    '''
+    
+
+    Parameters
+    ----------
+    raw : pd.DataFrame() 
+        Contains columns of ethovision / DLC raw tracking data via ethovision_tools.unify_to_csv()
+    meta : pd.DataFrame()
+        Contains columns of experiment parameters data ethovision_tools.unify_to_csv()
+    head_tail : List of columns to use for calculating direction (default is ethovision)
+        DESCRIPTION. The default is ['x_nose','y_nose','x_tail','y_tail'].
+    win : Int, optional, currently unused
+        DESCRIPTION. The default is 10.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    '''
+    if use_dlc == True:
+        head_tail=['dlc_top_head_x','dlc_top_head_y',
+           'dlc_top_tail_base_x','dlc_top_tail_base_y']
+        multiplier= -1
+    else:
+        head_tail=['x_nose','y_nose','x_tail','y_tail']
+        multiplier=1
+        
+    #Interpolate NaNs with nearyby values and convert to floats:
+    cutoff= 3 #Hz
+    fs=meta['fs'][0]
+    x_n=signal.pad_lowpass_unpad(raw[head_tail[0]],cutoff,fs,order=5)
+    y_n=signal.pad_lowpass_unpad(raw[head_tail[1]],cutoff,fs,order=5)
+    x_t=signal.pad_lowpass_unpad(raw[head_tail[2]],cutoff,fs,order=5)
+    y_t=signal.pad_lowpass_unpad(raw[head_tail[3]],cutoff,fs,order=5)
+    
+    #Calculate distance between smoothed (x,y) points for smoother body angle
+    angle=[]
+    for x1,y1,x2,y2 in zip(x_n,y_n,x_t,y_t):
+        angle.append(signal.one_line_angle(x2,y2,x1,y1))
+    
+    return np.array(angle)*multiplier
 def measure_directedness(raw,meta):
     '''
     Change in direction vs. change in distance traveled.
@@ -348,7 +380,7 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,min_bout_dur_s=0.5,min_bout_spacing_
     #Add in a measure of meandering:
     meander=np.empty(dur.shape)
     meander[:]=np.nan
-    full_meander = measure_meander(raw,meta)
+    full_meander = measure_meander(raw,meta,use_dlc=True)
     for on,off in zip(onset_samps,offset_samps):
         meander[on:off]=full_meander[on:off]
     raw['bout_meander']=meander

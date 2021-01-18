@@ -14,6 +14,7 @@ from matplotlib.collections import PatchCollection
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
 import matplotlib.patches as mpatches
+import matplotlib.gridspec as gridspec
 from gittislab import behavior, ethovision_tools
 from scipy.stats import ttest_rel
 
@@ -229,6 +230,118 @@ def trial_part_position(raw,meta,ax=None):
         return fig, ax
     else:
         return ax
+    
+def plot_openloop_day(raw,meta):    
+    
+    #### Set up figure axes in desired pattern
+    fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
+    gs = fig.add_gridspec(6, 3)
+    f_row=list(range(gs.nrows))
+    f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
+    f_row[1]=[fig.add_subplot(gs[1,0:2]) , fig.add_subplot(gs[1,2])]
+    f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
+    f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
+    f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
+    
+    #### Row 0: Mouse position over trial parts 
+    ax_pos = trial_part_position(raw,meta,ax=f_row[0])
+    plt.sca(ax_pos[1])
+    plt.title('%s, %s   %s   %s %s %s' % (meta['anid'][0],
+                          meta['etho_exp_date'][0],
+                          meta['protocol'][0],
+                          meta['cell_type'][0],
+                          meta['opsin_type'][0],
+                          meta['stim_area'][0]))
+    
+
+    #### Calculate stim-triggered speed changes:
+    baseline= round(np.mean(meta['stim_dur']))
+    stim_dur= baseline
+    vel_clip=behavior.stim_clip_grab(raw,meta,y_col='vel', stim_dur=stim_dur)
+    
+    clip_ave=behavior.stim_clip_average(vel_clip)
+    
+    #### Calculate stim-triggered %time mobile:
+    percentage = lambda x: (np.nansum(x)/len(x))*100
+    m_clip=behavior.stim_clip_grab(raw,meta,y_col='m', stim_dur=stim_dur, summarization_fun=percentage)
+
+    #### Row 1: Speed related
+    ax_speedbar = mean_cont_plus_conf(clip_ave,xlim=[-stim_dur,stim_dur*2],
+                                            highlight=[0,stim_dur,25],ax=f_row[1][0])
+    plt.ylabel('Speed (cm/s)')
+    plt.xlabel('Time from stim (s)')
+    
+    ax_speed = mean_bar_plus_conf(vel_clip,['Pre','Dur','Post'],ax=f_row[1][1])
+    plt.ylabel('Speed (cm/s)')
+    plt.xlabel('Time from stim (s)')
+    
+    #### Row 2: % Time mobile & (Rearing?)
+    ax_im = mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
+    plt.ylabel('% Time Mobile')
+    
+    min_bout=1
+    amb_bouts=behavior.bout_analyze(raw,meta,'ambulation',stim_dur=30,min_bout_dur_s=min_bout)
+    im_bouts=behavior.bout_analyze(raw,meta,'im',stim_dur=30,min_bout_dur_s=min_bout)
+    
+    
+    #### Row 3: Ambulation bout info
+    #Rate
+    ax_amb_bout_rate= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+                                               use_key='rate',ax=f_row[3][0])
+    plt.ylabel('Amb. bouts / 30s')
+    
+    #Duration
+    ax_amb_bout_dur = mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+                                               use_key='dur',ax=f_row[3][1])
+    plt.ylabel('Amb. dur (s)')
+    
+    #Speed
+    ax_amb_bout_speed= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+                                               use_key='speed',ax=f_row[3][2])
+    plt.ylabel('Amb. speed (cm/s)')
+    
+    ####I Row 4: immobility bout info
+    #Rate
+    ax_im_bout_rate= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+                                               use_key='rate',ax=f_row[4][0])
+    plt.ylabel('Im. bouts / 30s')
+    
+    #Duration
+    ax_im_bout_dur= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+                                               use_key='dur',ax=f_row[4][1])
+    plt.ylabel('Im. dur (s)')
+    
+    ax_im_bout_speed= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+                                               use_key='speed',ax=f_row[4][2])
+    plt.ylabel('Im. speed (cm/s)')
+    
+    #### Row 5: Meander/directedness (in progress)
+    #Amb meander 
+    ax_amb_meander= mean_bar_plus_conf(amb_bouts,
+                                             ['Pre','Dur','Post'],
+                                               use_key='meander',
+                                               ax=f_row[5][0])
+    plt.ylabel('Ambulation meander (deg/cm)')
+    
+    #All meander 
+    raw['meander']= behavior.measure_meander(raw,meta,use_dlc=True)
+    meander_clip=behavior.stim_clip_grab(raw,meta,y_col='meander',
+                                         stim_dur=stim_dur,
+                                         summarization_fun = np.nanmedian)
+    ax_all_meander= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+                                               ax=f_row[5][1])
+    plt.ylabel('Meadian meander (deg/cm)')
+    
+    raw['directed']= 1/ raw['meander']
+    meander_clip=behavior.stim_clip_grab(raw,meta,y_col='directed',
+                                         stim_dur=stim_dur,
+                                         summarization_fun = np.nanmedian)
+    ax_all_direct= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+                                               ax=f_row[5][2])
+    plt.ylabel('Directed (cm/deg)')
+    return fig
+
 # Below 2 functions might be better in ethovision_tools ?
 def etho_check_sidecamera(vid_path,frame_array,plot_points=None):
     """

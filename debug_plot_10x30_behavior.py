@@ -18,121 +18,25 @@ from scipy.stats import sem, t
 import pdb
 import math
 
-# inc=['GPi','CAG','Arch','10x30','AG6151_3_CS090720']
-# inc=['AG','GPe','FoxP2','ChR2','10x10_20mW',]
-# exc=['exclude','_and_Str','Left','Right']
-# basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-# pns=dataloc.rawh5(basepath,inc,exc)
-# raw_df,raw_par=ethovision_tools.h5_load(pns[0])
-# %%
-inc=[['AG','GPe','CAG','Arch','10x30']]
-exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
-basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-dlc_path=dataloc.gen_paths_recurse(basepath,inc[0],exc[0],'dlc_analyze.h5')
-raw_path=dataloc.raw_csv(basepath,inc[0],exc[0])
-
-# ethovision_tools.add_dlc_to_csv(basepath,inc,exc)
-# dlc = pd.read_hdf(dlc_path[0])
-dlc = behavior.load_and_clean_dlc_h5(dlc_path[0])
-raw,meta=ethovision_tools.csv_load(raw_path[0])
-# %%
+# %% Plot one 10x30 experiment day
 inc=[['AG','GPe','CAG','Arch','10x30']]
 exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.raw_csv(basepath,inc[0],exc[0])
 raw,meta=ethovision_tools.csv_load(pns[1])
 raw=ethovision_tools.add_amb_to_raw(raw,meta)
-baseline= round(np.mean(meta['stim_dur']))
-stim_dur= baseline
-# Calculate stim-triggered speed changes:
-vel_clip=behavior.stim_clip_grab(raw,meta,y_col='vel', stim_dur=stim_dur)
 
-clip_ave=behavior.stim_clip_average(vel_clip)
-
-# Calculate stim-triggered %time mobile:
-percentage = lambda x: (np.nansum(x)/len(x))*100
-m_clip=behavior.stim_clip_grab(raw,meta,y_col='m', stim_dur=stim_dur, summarization_fun=percentage)
-
-#Calculate
-
-# %% Create figure layout using gridspec:
-plt.close('all')
-fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
-gs = fig.add_gridspec(6, 3)
-stim_dur=np.mean(meta['stim_dur'])
-f_row=list(range(gs.nrows))
-f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
-f_row[1]=[fig.add_subplot(gs[1,0:2]) , fig.add_subplot(gs[1,2])]
-f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
-f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
-f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
-f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
-
-ax_pos = plots.trial_part_position(raw,meta,ax=f_row[0])
-plt.sca(ax_pos[1])
-plt.title('%s, %s   %s   %s %s %s' % (meta['anid'][0],
-                      meta['etho_exp_date'][0],
-                      meta['protocol'][0],
-                      meta['cell_type'][0],
-                      meta['opsin_type'][0],
-                      meta['stim_area'][0]))
-ax_speedbar = plots.mean_cont_plus_conf(clip_ave,xlim=[-stim_dur,stim_dur*2],
-                                        highlight=[0,stim_dur,25],ax=f_row[1][0])
-plt.ylabel('Speed (cm/s)')
-plt.xlabel('Time from stim (s)')
-
-ax_speed = plots.mean_bar_plus_conf(vel_clip,['Pre','Dur','Post'],ax=f_row[1][1])
-plt.ylabel('Speed (cm/s)')
-plt.xlabel('Time from stim (s)')
-
-ax_im = plots.mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
-plt.ylabel('% Time Mobile')
-
-amb_bouts=behavior.bout_analyze(raw,meta,'ambulation',stim_dur=30,min_bout_dur_s=0.5)
-im_bouts=behavior.bout_analyze(raw,meta,'im',stim_dur=30,min_bout_dur_s=0.5)
-
-
-######################
-#Ambulation bout row
-#Rate
-ax_amb_bout_rate= plots.mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
-                                           use_key='rate',ax=f_row[3][0])
-plt.ylabel('Amb. bouts / 30s')
-
-#Duration
-ax_amb_bout_dur = plots.mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
-                                           use_key='dur',ax=f_row[3][1])
-plt.ylabel('Amb. dur (s)')
-
-#Speed
-ax_amb_bout_speed= plots.mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
-                                           use_key='speed',ax=f_row[3][2])
-plt.ylabel('Amb. speed (cm/s)')
-
-##################################
-#Immobility bout row
-#Rate
-ax_im_bout_rate= plots.mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
-                                           use_key='rate',ax=f_row[4][0])
-plt.ylabel('Im. bouts / 30s')
-
-#Duration
-ax_im_bout_dur= plots.mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
-                                           use_key='dur',ax=f_row[4][1])
-plt.ylabel('Im. dur (s)')
-
-ax_im_bout_speed= plots.mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
-                                           use_key='speed',ax=f_row[4][2])
-plt.ylabel('Im. speed (cm/s)')
-
-###########################
-#Meander row
+#The magic:
+plots.plot_openloop_day(raw,meta)
 
 # %% Debug new metric: meander
-dir_smooth=behavior.smooth_direction(raw,meta)
+#DLC Measure:
+dir_smooth=behavior.smooth_direction(raw,meta,use_dlc=True)
+dir_smooth_etho=behavior.smooth_direction(raw,meta)
+
 diff_angle=signal.angle_vector_delta(dir_smooth[0:-1],dir_smooth[1:],thresh=20,
                             fs=meta['fs'][0])
-meander = behavior.measure_meander(raw,meta)
+meander = behavior.measure_meander(raw,meta,use_dlc=True)
 dist = raw['vel'] * (1 / meta.fs[0])
 plt.close('all')
 fig = plt.figure(figsize=(5,10))
@@ -149,6 +53,13 @@ plt.figure(),plt.scatter(dist[1:],diff_angle,np.sqrt(np.power(meander,2))/100,
 plt.xlabel('Distance (cm)')
 plt.ylabel(r'$\Delta$ direction (deg)')
 
+# %% Compare mouse direction from DLC vs. ethovision:
+plt.figure(),
+ax0=plt.subplot(2,1,1)
+plt.plot(raw['time'],dir_smooth_etho,'k')
+plt.plot(raw['time'],dir_smooth,'--r')
+plt.subplot(2,1,2,sharex=ax0)
+plt.plot(raw['time'],dir_smooth_etho-dir_smooth)
 # %% 
 amb_bouts=behavior.bout_analyze(raw,meta,'ambulation',stim_dur=30,min_bout_dur_s=1)
 im_bouts=behavior.bout_analyze(raw,meta,'im',stim_dur=30,min_bout_dur_s=1)
@@ -170,3 +81,18 @@ plt.plot(raw['time'],raw['ambulation']*m,'--r')
 plt.plot(raw['time'],raw['fine_move']*m,'--c')
 plt.plot(raw['time'][wtf],np.ones((sum(wtf),1))*m,'ro')
 plt.plot(raw['time'].values[[0,-1]],meta['amb_vel_thresh'][0:2],'--g')
+
+# %% Debug adding DLC data columns to Raw*.csv:
+# 
+ex0=['exclude','_and_GPe','Left','Right','Other XLS','Exclude']
+inc=[['AG','GPe','CAG','Arch','10x']]
+exc=[ex0]
+# inc=[['AG','Str','A2A','Ai32','10x'],['AG','Str','A2A','ChR2','10x']]
+# exc=[ex0,ex0]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+dlc_path=dataloc.gen_paths_recurse(basepath,inc[0],exc[0],'dlc_analyze.h5')
+raw_path=dataloc.raw_csv(basepath,inc[0],exc[0])
+
+ethovision_tools.add_dlc_to_csv(basepath,inc,exc,save=True)
+# dlc = behavior.load_and_clean_dlc_h5(dlc_path[0])
+# raw,meta=ethovision_tools.csv_load(raw_path[0])

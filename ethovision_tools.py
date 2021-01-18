@@ -101,10 +101,11 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
             if isinstance(dlc_path,Path):
                 file_exists = True
             else:
-                file_exists = len(dlc_path > 0)
-            if save == True:
-                print('Inc[%d], file %d) %s adding to Raw*.csv ...' % (i,ii,dlc_path))
+                file_exists = len(dlc_path) > 0
+
             if (file_exists == True):       
+                if save == True:
+                    print('Inc[%d], file %d) %s adding to Raw*.csv ...' % (i,ii,dlc_path))
                 #Read raw and params to .csv files:               
                 print('\tLoading %s\n' % path)
                 raw,meta= csv_load(path)
@@ -151,7 +152,7 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
                 
             else:
                 print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
-    
+
 def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
     '''
     unify_to_csv(basepath,conds_inc=[],conds_exc=[]):
