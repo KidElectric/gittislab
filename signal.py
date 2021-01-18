@@ -217,5 +217,12 @@ def max_correct(x,y,step,poly_order=2):
         if any(suby):
             out.append(max(suby)) #Take max value of each bin of x
             keep_x.append(xtemp[i])
-    p=np.poly1d(np.polyfit(keep_x,np.array(out)[:,0],poly_order))
+    #Remove nan:
+    out= np.array(out).flatten()
+    keep_x=np.array(keep_x)
+    ind = np.isnan(out) == False
+    keep_x=keep_x[ind]
+    out=out[ind]
+    
+    p=np.poly1d(np.polyfit(keep_x,out,poly_order))
     return y/p(x)

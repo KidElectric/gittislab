@@ -479,7 +479,7 @@ def load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_th
     # Spline-fitting smooth method (slow!):
     print('Quadratic interpolation...')
     ex=np.isnan(newy)
-    s=interp1d(ind[~ex],newy[~ex],kind='quadratic') #Takes a hecking long time
+    s=interp1d(ind[~ex],newy[~ex],kind='quadratic',bounds_error=False) 
     smooth_y=s(ind)
     print('\tfinished')
     col=(exp,'front_over_rear','length')

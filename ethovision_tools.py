@@ -144,9 +144,11 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
                         meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
                         print('\tSaving updated meta*.csv %s\n' % meta_pnfn)
                         meta.to_csv(meta_pnfn)
+                    else:
+                        return raw, meta
                 else:
                     print('\t DLC content already added to Raw*.csv ... skipping.')
-                return raw, meta
+                
             else:
                 print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
     
