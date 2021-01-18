@@ -388,55 +388,7 @@ def mouse_stim_vel(raw,meta,stim_dur=10):
     out_struct=stim_clip_grab(raw,meta,raw_col,stim_dur=stim_dur,summarization_fun=np.nanmedian)
     return out_struct
 
-def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,
-                dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1):    
-    '''
-    
-
-    Parameters
-    ----------
-    dlc_h5_path : String
-        DESCRIPTION. Path to the .h5 file containing deeplabcut video analysis 
-        with the following body parts tracked from Ethovision side camera:
-            'snout','side_head','side_left_fore','side_right_fore',
-            'side_tail_base','side_left_hind','side_right_hind'
-    rear_thresh : Integer, optional
-        DESCRIPTION. Threshold distance of mouse front over mouse hind 
-            used to detect rearing events in mice via gittislab.signal.peak_start_stop() 
-            The default is 0.65.
-    min_thresh : Integer, optional
-        DESCRIPTION. Threshold distance of mouse front over mouse hind
-            used to detect when rearing starts/stops via gittislab.signal.peak_start_stop() 
-            The default is 0.25.
-    save_figs : Boolean, optional
-        DESCRIPTION. Save a figure of rear detection. The default is False.
-    dlc_outlier_thresh_sd : Inteer, optional
-        DESCRIPTION. Threshold (in standard deviations) used to detect when instantaneous changes in 
-            deeplabcut position tracking outputs are too large and likely due 
-            to mistracking. The default is 4.
-    dlc_likelihood_thresh : Int. value between 0 and 1, optional
-        DESCRIPTION. Threshold for deeplabcut position probability estimate to be included
-            for further analysis. The default is 0.1.
-
-    Returns
-    -------
-    peaks : array
-        index of peak rear times in video samples
-    start_peak : array
-        index of rear start times in video samples
-    stop_peak : array
-        index of rear stop times in video samples
-    df : dataframe
-        full dataframe of deeplabcut analysis with rearing columns added:
-            head_centroid = mean of snout and side-head points
-            front_centroid = mean of  'snout','side_head','side_left_fore','side_right_fore'
-            rear_centroid = mean of 'side_tail_base','side_left_hind','side_right_hind'
-            front_over_rear = distance between front and rear centroids, smoothed and used for rearing calc
-            is_rearing = logical index of when mouse is rearing given rear_thresh and min_thresh input criteria
-
-    '''
-    # from scipy.ndimage import gaussian_filter
-    
+def load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1):
     df = pd.read_hdf(dlc_h5_path)
     
     # Clean up rows based on likelihood:
@@ -534,9 +486,64 @@ def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,
     df[col]=smooth_y
     print('Mouse height added to dataframe')
     
+    return df
+
+def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):    
+    '''
+    
+
+    Parameters
+    ----------
+    dlc_h5_path : String
+        DESCRIPTION. Path to the .h5 file containing deeplabcut video analysis 
+        with the following body parts tracked from Ethovision side camera:
+            'snout','side_head','side_left_fore','side_right_fore',
+            'side_tail_base','side_left_hind','side_right_hind'
+    rear_thresh : Integer, optional
+        DESCRIPTION. Threshold distance of mouse front over mouse hind 
+            used to detect rearing events in mice via gittislab.signal.peak_start_stop() 
+            The default is 0.65.
+    min_thresh : Integer, optional
+        DESCRIPTION. Threshold distance of mouse front over mouse hind
+            used to detect when rearing starts/stops via gittislab.signal.peak_start_stop() 
+            The default is 0.25.
+    save_figs : Boolean, optional
+        DESCRIPTION. Save a figure of rear detection. The default is False.
+    dlc_outlier_thresh_sd : Inteer, optional
+        DESCRIPTION. Threshold (in standard deviations) used to detect when instantaneous changes in 
+            deeplabcut position tracking outputs are too large and likely due 
+            to mistracking. The default is 4.
+    dlc_likelihood_thresh : Int. value between 0 and 1, optional
+        DESCRIPTION. Threshold for deeplabcut position probability estimate to be included
+            for further analysis. The default is 0.1.
+
+    Returns
+    -------
+    peaks : array
+        index of peak rear times in video samples
+    start_peak : array
+        index of rear start times in video samples
+    stop_peak : array
+        index of rear stop times in video samples
+    df : dataframe
+        full dataframe of deeplabcut analysis with rearing columns added:
+            head_centroid = mean of snout and side-head points
+            front_centroid = mean of  'snout','side_head','side_left_fore','side_right_fore'
+            rear_centroid = mean of 'side_tail_base','side_left_hind','side_right_hind'
+            front_over_rear = distance between front and rear centroids, smoothed and used for rearing calc
+            is_rearing = logical index of when mouse is rearing given rear_thresh and min_thresh input criteria
+
+    '''
+  
+    # df = load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1)
+    
     # Peak - detection method:
-    peaks,start_peak,stop_peak = signal.peak_start_stop(smooth_y,height=rear_thresh,min_thresh=min_thresh)
-    rear=np.zeros(smooth_y.shape)
+    exp=df.columns[0][0]
+    dims=['x','y']
+    col=(exp,'front_over_rear','length')
+    mouse_height=df[col]
+    peaks,start_peak,stop_peak = signal.peak_start_stop(mouse_height,height=rear_thresh,min_thresh=min_thresh)
+    rear=np.zeros(mouse_height.shape)
     for i,start in enumerate(start_peak):
         rear[start:stop_peak[i]]=1
     df[(exp,'is_rearing','logical')]=rear
@@ -582,11 +589,11 @@ def detect_rear(dlc_h5_path,rear_thresh=0.65,min_thresh=0.25,save_figs=False,
                         ax[i].plot(temp[0],temp[1],cols[pn],markersize=3)
                 else:
                     ax[i].set_title('No frame returned.')
-            ax[-1].plot(smooth_y[frames[0]:frames[2]],'r')
+            ax[-1].plot(mouse_height[frames[0]:frames[2]],'r')
             mid=frames[1]-frames[0]
-            ax[-1].plot(mid,smooth_y[frames[1]],'bo')
-            ax[-1].plot(0,smooth_y[frames[0]],'rx')
-            ax[-1].plot(frames[2]-frames[0],smooth_y[frames[2]],'gx')
+            ax[-1].plot(mid,mouse_height[frames[1]],'bo')
+            ax[-1].plot(0,mouse_height[frames[0]],'rx')
+            ax[-1].plot(frames[2]-frames[0],mouse_height[frames[2]],'gx')
             plt.tight_layout()
             plt.show(block=False)
             plt.savefig(rear_dir + '/rear_%03d.png' % pp )

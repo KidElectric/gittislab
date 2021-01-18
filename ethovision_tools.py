@@ -87,6 +87,68 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 # path_str=dataloc.path_to_description(path)
                 print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
     print('Finished')
+
+def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
+                   save=False,force_replace = False):
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        csv_paths=dataloc.raw_csv(basepath,inc,exc)
+        if isinstance(csv_paths,Path):
+            csv_paths=[csv_paths]
+        for ii,path in enumerate(csv_paths):            
+            # First, let's check if there is a dlc .h5 file in this folder:                 
+            dlc_path=dataloc.gen_paths_recurse(path.parent,inc,exc,'*dlc_analyze.h5')
+            if isinstance(dlc_path,Path):
+                file_exists = True
+            else:
+                file_exists = len(dlc_path > 0)
+            if save == True:
+                print('Inc[%d], file %d) %s adding to Raw*.csv ...' % (i,ii,dlc_path))
+            if (file_exists == True):       
+                #Read raw and params to .csv files:               
+                print('\tLoading %s\n' % path)
+                raw,meta= csv_load(path)
+                
+                #Check if DLC already added:
+                dlc_added = 'dlc_side_tail_base_x' in raw.columns
+                #If not, or if set to force replace:
+                if (dlc_added == False) or ((dlc_added==True) and (force_replace==True)):
+                    # Read in the DLC file:
+                    print('\tLoading DLC file...')
+                    dlc_outlier_thresh_sd=4
+                    dlc_likelihood_thresh=0.1
+                    dlc= behavior.load_and_clean_dlc_h5(dlc_path,dlc_outlier_thresh_sd,
+                                                        dlc_likelihood_thresh)
+                    meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
+                    meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
+                    
+                    #Add rearing to dlc:
+                    rear_thresh=0.65
+                    min_thresh=0.25
+                    _,_,_,dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
+                    meta['rear_thresh']=rear_thresh
+                    meta['rear_min_thresh']=min_thresh
+                    
+                    # Make sure locomotion state fields are up-to-date:
+                    raw = add_amb_to_raw(raw,meta)
+                    
+                    # For each column in dlc, make a column in raw with collapsed name:
+                    for col in dlc.columns:                    
+                        if 'likelihood' not in col:
+                            new_col='dlc_%s_%s' % col[1:]
+                            raw[new_col]=dlc[col]
+                    if save == True:
+                        print('\t Saving updated Raw*.csv...')
+                        raw.to_csv(path)
+                        
+                        meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
+                        print('\tSaving updated meta*.csv %s\n' % meta_pnfn)
+                        meta.to_csv(meta_pnfn)
+                else:
+                    print('\t DLC content already added to Raw*.csv ... skipping.')
+                return raw, meta
+            else:
+                print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
     
 def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
     '''
@@ -148,10 +210,10 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                     params['amb_vel_thresh']=thresh
                     params['amb_dur_criterion_ms']=dur
                     
-                    #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:
-                    dlcpath=dataloc.dlc_h5(path.parent) 
+                    # #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:
+                    # dlcpath=dataloc.dlc_h5(path.parent) 
                     
-                    #add_deeplabcut(path) # still need to write this function -> integrated into raw? something else?
+                    raw, metadata = add_dlc_to_csv(path)
                     
                     #Write raw and params to .csv files:
                     pnfn=path.parent.joinpath(new_file_name)
@@ -159,8 +221,6 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                     raw.to_csv(pnfn)
                     
                     metadata=pd.DataFrame().from_dict(params)
-                    # for key in params.keys():
-                    #     metadata.loc[key,0]=params[key]
                     meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
                     print('\tSaving %s\n' % meta_pnfn)
                     metadata.to_csv(meta_pnfn)
@@ -996,8 +1056,8 @@ def add_amb_to_raw(raw,params,amb_thresh=2,amb_dur=0.5,im_thresh=1,im_dur=0.5):
     raw['im2']=im # 'im' is the immobility measure calculated in ethovision itself
     raw['m2']=m #m is the mobility measure
     
+    amb[raw['im'] == True] = False
     raw['ambulation']=amb
-    raw['ambulation'][raw['im'] == True]=False
     
     raw['fine_move']= (raw['ambulation']==False) & (raw['im']==False)
     return raw

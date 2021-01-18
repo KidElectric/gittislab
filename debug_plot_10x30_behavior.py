@@ -28,6 +28,17 @@ import math
 inc=[['AG','GPe','CAG','Arch','10x30']]
 exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+dlc_path=dataloc.gen_paths_recurse(basepath,inc[0],exc[0],'dlc_analyze.h5')
+raw_path=dataloc.raw_csv(basepath,inc[0],exc[0])
+
+# ethovision_tools.add_dlc_to_csv(basepath,inc,exc)
+# dlc = pd.read_hdf(dlc_path[0])
+dlc = behavior.load_and_clean_dlc_h5(dlc_path[0])
+raw,meta=ethovision_tools.csv_load(raw_path[0])
+# %%
+inc=[['AG','GPe','CAG','Arch','10x30']]
+exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.raw_csv(basepath,inc[0],exc[0])
 raw,meta=ethovision_tools.csv_load(pns[1])
 raw=ethovision_tools.add_amb_to_raw(raw,meta)
