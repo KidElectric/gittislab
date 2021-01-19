@@ -29,7 +29,7 @@ exc=[ex0,ex0,ex0]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
-                              'amb_vel','amb_meander','amb_bouts'])
+                              'amb_vel','amb_meander','amb_bouts','amb_directed'])
 temp=data
 min_bout=1
 use_dlc=False
@@ -38,6 +38,7 @@ for ii,ee in zip(inc,exc):
     for pn in pns:
         temp={}
         raw,meta=ethovision_tools.csv_load(pn)
+        raw=ethovision_tools.add_amb_to_raw(raw,meta)
         temp['anid']=meta['anid'][0]
         temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
                                                  meta['stim_area'][0],
@@ -56,16 +57,18 @@ for ii,ee in zip(inc,exc):
                                         summarization_fun=percentage)        
         
         #### Calculate ambulation bout properties:
-        raw['run'] = (raw['ambulation']==True) & (raw['vel']>7)
+        raw['run'] = (raw['ambulation']==True) & (raw['vel']>5)
         if any(raw['run']):
             amb_bouts=behavior.bout_analyze(raw,meta,'run',
                                             stim_dur=stim_dur,
                                             min_bout_dur_s=min_bout,
                                             use_dlc=use_dlc)
             temp['amb_meander']=np.nanmean(amb_bouts['meander'],axis=0)
-            temp['amb_bouts']=np.nanmean(amb_bouts['speed'],axis=0)
+            temp['amb_directed']=np.nanmean(amb_bouts['directed'],axis=0)
+            temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
         else:
             temp['amb_meander']=[np.nan, np.nan, np.nan]
+            temp['amb_directed']=[np.nan, np.nan, np.nan]
             temp['amb_bouts']=[0,0,0]
         #### Calculate immobile bout properties:
         im_bouts=behavior.bout_analyze(raw,meta,'im',
@@ -79,22 +82,29 @@ for ii,ee in zip(inc,exc):
 plt.figure()
 ax=plt.subplot(1,2,1)
 chr2= np.array([('Ai32'in x or 'ChR2' in x) for x in data['cell_area_opsin']])
-subset=np.stack(list(data.loc[chr2,'amb_meander']),axis=0)
+subset=np.stack(list(data.loc[chr2,'amb_directed']),axis=0)
 clip=amb_bouts
 clip={'run_meander':subset}
 plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
                          use_key='run_meander', ax=ax,
                          clip_method=False)
+plt.ylabel('Directedness (cm/deg)')
 plt.ylim(0,15)
-# print(np.nanmean(subset,axis=0))
+subset=np.stack(list(data.loc[chr2,'amb_bouts']),axis=0)
+print(np.nanmean(subset,axis=0))
 
 ax=plt.subplot(1,2,2)
-subset=np.stack(list(data.loc[~chr2,'amb_meander']),axis=0)
+subset=np.stack(list(data.loc[~chr2,'amb_directed']),axis=0)
 clip={'run_meander':subset}
 plots.mean_bar_plus_conf(clip, ['Pre','Dur','Post'],
-                         use_key='run_meander',ax=ax,clip_method=False)
+                         use_key='run_meander',ax=ax,
+                         clip_method=False)
 plt.ylim(0,15)
-# print(np.nanmean(subset,axis=0))
+plt.ylabel('Directedness (cm/deg)')
+subset=np.stack(list(data.loc[~chr2,'amb_bouts']),axis=0)
+print(np.nanmean(subset,axis=0))
+
 # %% Can I reasonably combine Ai32 & ChR2 mice?
 
 # %% What percent of time ethovision says immobile is animal rearing?
+print(sum(raw['ambulation'] & raw['dlc_is_rearing_logical']) / len(raw['im']) * 100)

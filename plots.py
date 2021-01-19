@@ -186,8 +186,9 @@ def mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True):
     
     #bar plot with errorbars:
     ax.bar(xlabels, values, yerr=conf)
-    my=np.nanmax([v+conf[i] for i,v in enumerate(values)])
-    myy=np.nanmax(clip[use_key].flat)
+    # my=np.nanmax([v+conf[i] for i,v in enumerate(values)])
+    # myy=np.nanmax(clip[use_key].flat)
+    my=np.nanmax(values)
     not_isnan =  [not any(x) for x in np.isnan(clip[use_key])]
     nan_removed=clip[use_key][not_isnan,:]
     ax=connected_lines([0,1,2],nan_removed,ax=ax,color='k')
@@ -195,7 +196,7 @@ def mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True):
     #Perform paired t-test:
     _,p = ttest_rel(nan_removed[:,0],nan_removed[:,1])
     
-    sig_star([0,1],p,max([my,myy]),ax)
+    sig_star([0,1],p,my,ax)
     print(str(p))
     
     #Axis labels (here or outside of this to be more generalized)

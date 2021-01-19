@@ -383,13 +383,19 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
     #Add in a measure of meandering:
     meander=np.empty(dur.shape)
     meander[:]=np.nan
+    directedness=meander
     full_meander = measure_meander(raw,meta,use_dlc=use_dlc)
     for on,off in zip(onset_samps,offset_samps):
         meander[on:off]=full_meander[on:off]
+        directedness[on:off]=1/full_meander[on:off]
     raw['bout_meander']=meander
+    raw['bout_directed']=directedness
     bout_meander=stim_clip_grab(raw,meta,'bout_meander',stim_dur=stim_dur,
                                 summarization_fun=np.nanmedian)
+    bout_directed=stim_clip_grab(raw,meta,'bout_directed',stim_dur=stim_dur,
+                                summarization_fun=np.nanmedian)
     clip['meander']=bout_meander['disc']
+    clip['directed']=bout_directed['disc']
     
     #Add in a measure of speed:
     speed=np.empty(dur.shape)
@@ -577,7 +583,7 @@ def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):
     dims=['x','y']
     col=(exp,'front_over_rear','length')
     mouse_height=df[col]
-    peaks,start_peak,stop_peak = signal.peak_start_stop(mouse_height,height=rear_thresh,min_thresh=min_thresh)
+    peaks,start_peak,stop_peak = signal.rear_peak_start_stop(mouse_height,height=rear_thresh,min_thresh=min_thresh)
     rear=np.zeros(mouse_height.shape)
     for i,start in enumerate(start_peak):
         rear[start:stop_peak[i]]=1
