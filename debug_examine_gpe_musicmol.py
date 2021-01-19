@@ -20,6 +20,58 @@ from scipy.signal import find_peaks
 from scipy.stats import circmean
 from statistics import mode
 
+# %% Look at mouse speed vs. time in each case:
+    
+ex0=['exclude','and_GPe','and_Str','Left','Right',
+     'Other XLS','Exclude','mW','mw']
+
+inc=[['AG','zone_','AG6343_4'],
+     ['AG','zone_','AG6343_5'],]
+exc=[ex0,ex0,ex0,ex0]
+
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+
+data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
+                              'room','speed','time'])
+temp=data
+min_bout=1
+use_dlc=False
+keep_enter=[]
+plt.close('all')
+percentage = lambda x: round((np.nansum(x)/len(x))*100,ndigits=2)
+for ii,ee in zip(inc,exc):
+    pns=dataloc.raw_csv(basepath,ii,ee)
+    for pn in pns:
+        temp={}
+        raw,meta=ethovision_tools.csv_load(pn)
+        raw=ethovision_tools.add_amb_to_raw(raw,meta)
+        temp['anid']=meta['anid'][0]
+        temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
+                                                 meta['stim_area'][0],
+                                                 meta['opsin_type'][0])
+        temp['proto']=meta['protocol'][0]
+        temp['room']=meta.exp_room_number[0]
+
+        smth_amount=round(60*meta['fs'][0])
+        speed=raw['vel'].values.astype(float)
+        speed[0:10]=speed[10]
+        speed = signal.boxcar_smooth(speed,smth_amount)
+        temp['speed']=speed
+        temp['time']=raw['time']/60
+        # plt.plot(raw['time']/60,speed)
+        # plt.xlabel('Time (m)')
+        # plt.ylabel('Speed (cm/s)')
+        data=data.append(temp,ignore_index=True)
+# %%
+a=data['anid'].unique()
+for an in a:
+    plt.figure()
+    plt.title('%s' % an)
+    for i,row_an in enumerate(data['anid']):
+        if row_an == an:
+            speed=data.loc[i,'speed']
+            plt.plot(data.loc[i,'time'],speed)
+
 # %%
 ex0=['exclude','and_GPe','and_Str','Left','Right',
      'Other XLS','Exclude','mW','mw']
@@ -72,6 +124,7 @@ for ii,ee in zip(inc,exc):
             temp['in_sz']=in_zone
  
         else:
+            plots.plot_openloop_day(raw,meta)
             stim_dur = round(np.mean(meta['stim_dur']))        
             vel_clip=behavior.stim_clip_grab(raw,meta,
                                               y_col='vel', 
@@ -102,7 +155,7 @@ zone=np.array([(('zone' in x) and ('muscimol' in x)) for x in data['proto']])
 subset=np.stack(list(data.loc[zone,'in_sz']),axis=0)
 subset=np.array([x/x[0] for x in subset])
 clip={'in_sz':subset}
-plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
+h0=plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
                          use_key='in_sz',ax=ax,
                          clip_method=False)
 plt.ylabel('% time in SZ')
@@ -114,11 +167,12 @@ zone=np.array([(('zone' in x) and not ('muscimol' in x)) for x in data['proto']]
 subset=np.stack(list(data.loc[zone,'in_sz']),axis=0)
 subset=np.array([x/x[0] for x in subset])
 clip={'in_sz':subset}
-plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
+_,h1=plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
                          use_key='in_sz',ax=ax,
                          clip_method=False)
+plt.legend(h1,data['anid'].unique(),loc = 'upper left')
 plt.ylabel('Normalized % time in SZ')
-plt.ylim(0,2)
+plt.ylim(0,4)
 
 # %% open loop speed
 plt.figure()

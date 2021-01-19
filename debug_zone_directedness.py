@@ -20,6 +20,7 @@ from scipy.signal import find_peaks
 from scipy.stats import circmean
 from statistics import mode
 
+
 # %%
 ex0=['exclude','and_GPe','and_Str','Left','Right',
      'Other XLS','Exclude',
@@ -31,7 +32,8 @@ inc=[['AG','GPe','CAG','Arch','zone_1'],
 exc=[ex0,ex0,ex0]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-ethovision_tools.add_dlc_to_csv(basepath,inc,exc,save=True)
+# ethovision_tools.add_dlc_to_csv(basepath,inc,exc,save=True)
+raw,meta=ethovision_tools.csv_load(pns[0])
 
 # %%
 data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
@@ -93,25 +95,6 @@ for ii,ee in zip(inc,exc):
         #                                 min_bout_dur_s=min_bout,
         #                                 use_dlc=use_dlc)
 
-        data=data.append(temp,ignore_index=True)
-keep_enter=np.array(keep_enter)        
-# %%
-ind=data['room'].values.astype(int)==228
-print(keep_enter[ind])
-
-    # data.dirz2=d.dir < 0 & d.dir >= -90; %Facing Zone 2
-    # data.dirz1=d.dir > 90 | d.dir <= -180; %Facing Zone 1
-# %% Approach zone 2 direction?
-# zone_enter
-enter=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) > 0)).astype('bool')
-exit=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) < 0)).astype('bool')
-dir = behavior.smooth_direction(raw,meta,use_dlc=False)
-b=dir[enter]
-mb=circmean(b,high=180,low=-180)
-print(mb)
-c=dir[exit]
-mc=circmean(c,high=180,low=-180)
-print(mc)
-
+# %% Take center crossing trajectory clips, align to crossing point
 
 # %% Where are rears happening during zone task?

@@ -348,11 +348,26 @@ def h5_load(filename):
     store.close()
     return data, metadata
 
-def csv_load(exp_path):
+def csv_load(exp_path,columns='Minimal'):
     rawfn=dataloc.path_to_rawfn(exp_path) + '.csv'
     pnfn=exp_path.parent.joinpath(rawfn)
     print('Loading %s\n' % pnfn)
-    raw=pd.read_csv(pnfn)
+    a=pd.read_csv(pnfn,nrows=1)
+    if columns=='Minimal':
+        use_cols=['time', 'x', 'y', 'x_nose', 'y_nose', 'x_tail',
+       'y_tail', 'dir', 'dist', 'vel', 'im', 'm',
+       'iz1', 'iz2', 'laserOn', 
+       'im2', 'm2', 'ambulation', 'fine_move']
+        if 'dlc_top_head_x' in a.columns:
+            use_cols=use_cols + ['dlc_top_head_x',
+                                 'dlc_top_head_y',
+                                 'dlc_top_tail_base_x',
+                                 'dlc_top_tail_base_y',
+                                 'dlc_is_rearing_logical']
+        if 'full_rot_cw' in a.columns:
+            use_cols=use_cols + ['full_rot_cw', 'full_rot_ccw',]
+        
+    raw=pd.read_csv(pnfn,usecols=use_cols)
     meta_pnfn=exp_path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(exp_path)[4:])
     metadata=meta_csv_load(meta_pnfn)
     return raw, metadata

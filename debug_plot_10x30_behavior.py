@@ -53,13 +53,25 @@ plt.figure(),plt.scatter(dist[1:],diff_angle,np.sqrt(np.power(meander,2))/100,
 plt.xlabel('Distance (cm)')
 plt.ylabel(r'$\Delta$ direction (deg)')
 
-# %% Compare mouse direction from DLC vs. ethovision:
+# %% Compare mouse direction etho vs. smoothed ethovision:
+dir = raw['dir']
+dir_smooth_dlc=behavior.smooth_direction(raw,meta,use_dlc=True)
+dir_smooth_etho=behavior.smooth_direction(raw,meta)
 plt.figure(),
-ax0=plt.subplot(2,1,1)
-plt.plot(raw['time'],dir_smooth_etho,'k')
-plt.plot(raw['time'],dir_smooth,'--r')
-plt.subplot(2,1,2,sharex=ax0)
-plt.plot(raw['time'],dir_smooth_etho-dir_smooth)
+ax0=plt.subplot(3,1,1)
+plt.plot(raw['time'],dir,'k')
+plt.plot(raw['time'],dir_smooth_etho,'--r')
+plt.plot(raw['time'],dir_smooth_dlc,'--g')
+plt.ylabel('Direction (deg)')
+
+plt.subplot(3,1,2,sharex=ax0)
+plt.plot(raw['time'],dir_smooth_etho-dir)
+plt.ylabel('Smooth-NotSmooth')
+
+plt.subplot(3,1,3,sharex=ax0)
+plt.plot(raw['time'],raw['elon'])
+plt.plot(raw['time'],raw['fine_move'])
+plt.ylabel('Elongation (cm)')
 # %% 
 amb_bouts=behavior.bout_analyze(raw,meta,'ambulation',stim_dur=30,min_bout_dur_s=1)
 im_bouts=behavior.bout_analyze(raw,meta,'im',stim_dur=30,min_bout_dur_s=1)
