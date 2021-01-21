@@ -1,4 +1,5 @@
 import pandas as pd
+# import modin.pandas as pd
 from gittislab import dataloc, signal, behavior, mat_file
 import os #To help us check if a file exists
 from pathlib import Path
@@ -15,7 +16,7 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
     '''
     unify_to_h5(basepath,conds_inc=[],conds_exc=[]):
             makes a fully integrated .h5 file containing:
-            a) params - dictionary with key experiment information (animal id, condition, etc).
+            a) meta - dictionary with key experiment information (animal id, condition, etc).
             b) raw - dataframe with columns of samples for various measurements like mouse position (x,y)
             c) stim - dictionary with stimulation times and type (if relevant)
             d) deeplabcut - dataframe of body tracking if available
@@ -49,11 +50,11 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 matpath=dataloc.rawmat(path.parent)
                 xlsxpath=path
                 if matpath: #If .mat file exists, create raw .h5 file from this file
-                    raw=raw_from_mat(matpath) #Will add 'raw', 'params', and 'stim' to .h5
-                    params=params_from_mat(matpath)
+                    raw=raw_from_mat(matpath) #Will add 'raw', 'meta', and 'stim' to .h5
+                    meta=meta_from_mat(matpath)
                 else: #If no .mat file exists, generate raw .h5 from xlsx (slow)
                     print('\tNo .mat file found! Generating from .xlsx...')
-                    raw,params=raw_params_from_xlsx(xlsxpath)
+                    raw,meta=raw_meta_from_xlsx(xlsxpath)
 
                 
                 #Set common boolean columns (but don't force it if these columns are not present):
@@ -64,24 +65,24 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 
                 #Improved velocity measure:
                 
-                raw['vel']=behavior.smooth_vel(raw,params,win)
-                params['vel_smooth_win_ms']=win/params['fs'] * 1000 # ~333ms
+                raw['vel']=behavior.smooth_vel(raw,meta,win)
+                meta['vel_smooth_win_ms']=win/meta['fs'] * 1000 # ~333ms
                 
                 thresh=2; #cm/s; Kravitz & Kreitzer 2010
                 dur=0.5; #s; Kravitz & Kreitzer 2010
-                raw=add_amb_to_raw(raw,params,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
-                params['amb_vel_thresh']=thresh
-                params['amb_dur_criterion_ms']=dur
+                raw=add_amb_to_raw(raw,meta,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
+                meta['amb_vel_thresh']=thresh
+                meta['amb_dur_criterion_ms']=dur
                 
                 #Assume a Raw*.h5 now exists and add deeplabcut tracking to this .h5:
                 dlcpath=dataloc.dlc_h5(path.parent)
                 
                 #add_deeplabcut(path) # still need to write this function -> integrated into raw? something else?
                 
-                #Write raw and params to .h5 file:
+                #Write raw and meta to .h5 file:
                 pnfn=path.parent.joinpath(new_file_name)
                 print('\tSaving %s\n' % pnfn)
-                h5_store(pnfn,raw,**params)
+                h5_store(pnfn,raw,**meta)
                 
             else:
                 # path_str=dataloc.path_to_description(path)
@@ -106,7 +107,7 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
             if (file_exists == True):       
                 if save == True:
                     print('Inc[%d], file %d) %s adding to Raw*.csv ...' % (i,ii,dlc_path))
-                #Read raw and params to .csv files:               
+                #Read raw and meta to .csv files:               
                 print('\tLoading %s\n' % path)
                 raw,meta= csv_load(path)
                 
@@ -153,9 +154,10 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
             else:
                 print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
 
-def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
+def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
+                     force_replace=False, make_preproc=False, win=10):
     '''
-    unify_to_csv(basepath,conds_inc=[],conds_exc=[]):
+    unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[]):
             makes 
             a) Raw*.csv - file containing EthoVision raw data:
                 - columns of samples for various measurements like mouse position (x,y)
@@ -195,7 +197,7 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                     print('\t .csv found but force_replace == True so file will be updated.')
                 else:
                     print('\tNo .csv file found! Generating from .xlsx...')
-                raw,params=raw_params_from_xlsx(xlsxpath)
+                raw,meta=raw_meta_from_xlsx(xlsxpath)
                 if isinstance(raw,pd.DataFrame):
                     #Set common boolean columns (but don't force it if these columns are not present):
                     common_bool=['im', 'm', 'laserOn','iz1','iz2']
@@ -203,33 +205,92 @@ def unify_to_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                         if cb in raw.columns:
                             raw[cb]=raw[cb].astype('bool')
                     
-                    #Improved velocity measure:
-                    raw['vel']=behavior.smooth_vel(raw,params,win)
-                    params['vel_smooth_win_ms']=win/params['fs'] * 1000 # ~333ms
-                    
-                    thresh=2; #cm/s; Kravitz & Kreitzer 2010
-                    dur=0.5; #s; Kravitz & Kreitzer 2010
-                    raw=add_amb_to_raw(raw,params,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
-                    params['amb_vel_thresh']=thresh
-                    params['amb_dur_criterion_ms']=dur
+                    #As of 1/21/21, expect raw to only have raw behavior and
+                    # any changes will be in a separate preproc file made by
+                    # behavior.preproc_raw()
                     
                     # #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:
                     # dlcpath=dataloc.dlc_h5(path.parent) 
                     
                     raw, metadata = add_dlc_to_csv(path)
                     
-                    #Write raw and params to .csv files:
+                    if make_preproc == True:
+                        raw_csv_to_preprocessed_csv(path.parent,
+                                                    force_replace=force_replace,
+                                                    win=win)
+                    
+                    #Write raw and meta to .csv files:
                     pnfn=path.parent.joinpath(new_file_name)
                     print('\tSaving %s\n' % pnfn)
                     raw.to_csv(pnfn)
                     
-                    metadata=pd.DataFrame().from_dict(params)
+                    metadata=pd.DataFrame().from_dict(meta)
                     meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
                     print('\tSaving %s\n' % meta_pnfn)
                     metadata.to_csv(meta_pnfn)
             else:
                 # path_str=dataloc.path_to_description(path)
                 print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
+    print('Finished')   
+
+def raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
+    '''
+    raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
+            Takes
+            a) Raw*.csv - file containing EthoVision raw data:
+                - columns of samples for various measurements like mouse position (x,y)
+            Returns: pre-processed:Preproc_*.csv file
+
+            c) deeplabcut.csv - dataframe of body tracking if available
+
+    Parameters
+    ----------
+    basepath : TYPE
+        DESCRIPTION.
+    conds_inc : TYPE, optional
+        DESCRIPTION. The default is [].
+    conds_exc : TYPE, optional
+        DESCRIPTION. The default is [].
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        csv_paths=dataloc.raw_csv(basepath,inc,exc)
+        if isinstance(csv_paths,Path):
+            xlsx_paths=[csv_paths]
+        for ii,path in enumerate(csv_paths):
+            # First, let's check if there is already a .csv file in this folder:    
+            preproc_file_name=dataloc.path_to_preprocfn(path) + '.csv'
+            file_exists=os.path.exists(path.parent.joinpath(preproc_file_name))
+            print('Inc[%d], file %d) %s generation...' % (i,ii,preproc_file_name))
+            if (file_exists == False) or ((file_exists == True) and (force_replace == True)): 
+                rawpath=path
+                #If no .mat file exists, generate raw .csv from xlsx (slow)
+                if ((file_exists == True) and (force_replace == True)):
+                    print('\t preproc*.csv found but force_replace == True so file will be updated.')
+                else:
+                    print('\tNo preproc*.csv file found- Generating from Raw*.csv...')
+                raw,meta=csv_load(rawpath)
+                if isinstance(raw,pd.DataFrame):
+                    preproc,meta=behavior.preproc_raw(raw,meta,win=win)
+                    
+                    #Write raw and meta to .csv files:
+                    pnfn=path.parent.joinpath(preproc_file_name)
+                    print('\tSaving %s\n' % pnfn)
+                    preproc.to_csv(pnfn)
+                    
+                    metadata=pd.DataFrame().from_dict(meta)
+                    meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
+                    print('\tSaving %s\n' % meta_pnfn)
+                    metadata.to_csv(meta_pnfn)
+            else:
+                # path_str=dataloc.path_to_description(path)
+                print('\t %s already EXISTS in %s.\n' % (preproc_file_name,path.parent))
     print('Finished')   
     
 def meta_sum_h5(basepath,conds_inc=[],conds_exc=[]):
@@ -348,26 +409,32 @@ def h5_load(filename):
     store.close()
     return data, metadata
 
-def csv_load(exp_path,columns='Minimal'):
-    rawfn=dataloc.path_to_rawfn(exp_path) + '.csv'
+def csv_load(exp_path,columns='All',method='raw'):
+    if method == 'raw':
+        rawfn=dataloc.path_to_rawfn(exp_path) + '.csv'
+    else:
+        rawfn=dataloc.path_to_preprocfn(exp_path) + '.csv'
     pnfn=exp_path.parent.joinpath(rawfn)
     print('Loading %s\n' % pnfn)
     a=pd.read_csv(pnfn,nrows=1)
-    if columns=='Minimal':
-        use_cols=['time', 'x', 'y', 'x_nose', 'y_nose', 'x_tail',
-       'y_tail', 'dir', 'dist', 'vel', 'im', 'm',
-       'iz1', 'iz2', 'laserOn', 
-       'im2', 'm2', 'ambulation', 'fine_move']
-        if 'dlc_top_head_x' in a.columns:
-            use_cols=use_cols + ['dlc_top_head_x',
-                                 'dlc_top_head_y',
-                                 'dlc_top_tail_base_x',
-                                 'dlc_top_tail_base_y',
-                                 'dlc_is_rearing_logical']
-        if 'full_rot_cw' in a.columns:
-            use_cols=use_cols + ['full_rot_cw', 'full_rot_ccw',]
+    if isinstance(columns,list):
+        use_cols=columns
+        raw=pd.read_csv(pnfn,usecols=use_cols)
+    elif columns=='Minimal':
+        use_cols=['time', 'x', 'y','dir', 'vel', 'im',
+       'laserOn'] 
+        if method == 'raw':
+            if 'dlc_is_rearing_logical' in a.columns:
+                use_cols=use_cols + ['dlc_is_rearing_logical']
+        else:
+            if 'rear' in a.columns:
+                use_cols=use_cols + ['rear']
+
+        raw=pd.read_csv(pnfn,usecols=use_cols)
+    else:
+        raw=pd.read_csv(pnfn)
         
-    raw=pd.read_csv(pnfn,usecols=use_cols)
+    
     meta_pnfn=exp_path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(exp_path)[4:])
     metadata=meta_csv_load(meta_pnfn)
     return raw, metadata
@@ -382,7 +449,7 @@ def h5_load_par(filename):
     store.close()
     return metadata
 
-def params_from_mat(pn):
+def meta_from_mat(pn):
     '''
     Extract parameters from existing .mat file via scipy.io.loadmat output (dict of arrays)
 
@@ -391,7 +458,7 @@ def params_from_mat(pn):
     pn : path a matlab .mat file  
         
     Returns
-    params : dict containing experiment information
+    meta : dict containing experiment information
 
     '''
     
@@ -405,7 +472,7 @@ def params_from_mat(pn):
         fs=1/np.mean(np.diff(mat['time'][0:].flatten())) #usually ~29.97 fps
     possible_retrack=0
         
-    pars=mat_file.dtype_array_to_dict(mat,'params')
+    pars=mat_file.dtype_array_to_dict(mat,'meta')
     nold = mat_file.dtype_array_to_dict(mat,'noldus')
     
     #Check if there is any ambiguity about which mouse is in the file:
@@ -460,7 +527,7 @@ def params_from_mat(pn):
     else:
         etho_exp=np.nan
         
-    params={
+    meta={
         'etho_animal_id': nold['Mouse_ID'],
         'etho_da_state':dep_status,
         'etho_sex': sex,
@@ -490,39 +557,39 @@ def params_from_mat(pn):
         'fs':fs, #Default frames / second but should confirm in each video if possible        
         }
     if 'Experiment' in nold:
-        params['etho_experiment_file']=nold['Experiment']
+        meta['etho_experiment_file']=nold['Experiment']
     else:
-        params['etho_experiment_file']=np.nan
+        meta['etho_experiment_file']=np.nan
         
     inc=['task','exp_start','exp_end','task_start','task_stop','zone']
     for f in inc:
         if f in mat:
             if mat[f].size > 0:
-                params[f]=mat[f].flatten()[0]
+                meta[f]=mat[f].flatten()[0]
             else:
-                params[f]=[]
+                meta[f]=[]
                 
-    #Incorporate stimulus info into the params dictionary:
+    #Incorporate stimulus info into the meta dictionary:
     use_keys=['laserOnTimes','laserOffTimes']
     rename=['stim_on','stim_off']
-    params['stim_amp_mw']=1 #By default, 1 mW
+    meta['stim_amp_mw']=1 #By default, 1 mW
     proto=str(pn).split(sep)[-3]
-    params['stim_proto']=proto
+    meta['stim_proto']=proto
     if ('mw' in proto) or ('mW' in proto):
-        params['stim_amp_mw']=int(proto.split('_')[-1].split('m')[0])
+        meta['stim_amp_mw']=int(proto.split('_')[-1].split('m')[0])
     for i,key in enumerate(use_keys):
-        params[rename[i]]=mat[key].flatten()
+        meta[rename[i]]=mat[key].flatten()
     stim_dur=[]
-    for i,onset in enumerate(params['stim_on']):
-        if i< len(params['stim_off']):
-            stim_dur.append(params['stim_off'][i]-onset)
+    for i,onset in enumerate(meta['stim_on']):
+        if i< len(meta['stim_off']):
+            stim_dur.append(meta['stim_off'][i]-onset)
         else: #If recording ended before stimulus shut off for some reason
             stim_dur.append(np.nan)
-    params['stim_dur']=np.array(stim_dur)
+    meta['stim_dur']=np.array(stim_dur)
     
-    params['stim_n']=np.nansum(not np.isnan(params['stim_on']))
-    params['stim_mean_dur']=params['stim_dur'].mean()
-    return params
+    meta['stim_n']=np.nansum(not np.isnan(meta['stim_on']))
+    meta['stim_mean_dur']=meta['stim_dur'].mean()
+    return meta
 
 
 
@@ -563,7 +630,7 @@ def raw_from_mat(pn):
     df=pd.DataFrame.from_dict(raw_dat)
     return df
 
-def raw_params_from_xlsx(pn):
+def raw_meta_from_xlsx(pn):
     # Next, we will read in the data using the imported function, read_excel()
     path_str=dataloc.path_to_description(pn)
     print('\tLoading ~%s_Raw.xlsx...' % path_str)
@@ -571,20 +638,20 @@ def raw_params_from_xlsx(pn):
     sheets=[sheet for sheet in df.keys()]
     if len(sheets) > 1:
         raw=raw_from_xlsx(df)
-        params=params_from_xlsx(df,pn)
+        meta=meta_from_xlsx(df,pn)
         stim=stim_from_xlsx(df,pn)
-        params['fs']=1/np.mean(np.diff(raw['time'][0:]))
+        meta['fs']=1/np.mean(np.diff(raw['time'][0:]))
         for key,value in stim.items():
-            params['stim_' + key]=value
+            meta['stim_' + key]=value
         
         #Also add in: exp_end, task_start, task_stop
-        params=check_params(df,raw,params)        
+        meta=check_meta(df,raw,meta)        
     else:
         print('\tWARNING: This .xlsx file does not contain sufficient number of sheets for further processing.')
         print(pn)
         raw=[]
-        params=[]
-    return raw,params
+        meta=[]
+    return raw,meta
 
 def get_header_from_rawdf(df,sheet=0):
     '''
@@ -644,9 +711,9 @@ def get_header_and_sheet_rawdf(df,sheet=0):
     data = data.loc[:, data.columns.notnull()]
     return header, data
 
-def check_params(df,raw,params):
+def check_meta(df,raw,meta):
     '''
-        Take existing params and use raw .xlsx (in df) to verify / clarify correct
+        Take existing meta and use raw .xlsx (in df) to verify / clarify correct
         task type and start/stop times.
     '''
     keys=['Trial' in key for key in df.keys()]
@@ -668,123 +735,123 @@ def check_params(df,raw,params):
     # 2) Determine if there's any reason to think the file is in the wrong folder (i.e. task mis-classified)
     iszone=[('zone_' in a) or ('Zone' in a) for a in rule[2]]
     if any(iszone):
-        params['task'] = 'avoidance' 
+        meta['task'] = 'avoidance' 
     elif 'right_trig' in raw.columns:
-        params['task'] = 'trigger'
-    elif ('rescue' in params['protocol']) or ('10x' in params['protocol']):
-        params['task'] = '10x_stim'
+        meta['task'] = 'trigger'
+    elif ('rescue' in meta['protocol']) or ('10x' in meta['protocol']):
+        meta['task'] = '10x_stim'
     else:
-        params['task'] = params['protocol']
+        meta['task'] = meta['protocol']
     
-    params['active_trigger']=''
-    if params['task'] == 'trigger':
-        trig=params['protocol'].split('_')[1]
+    meta['active_trigger']=''
+    if meta['task'] == 'trigger':
+        trig=meta['protocol'].split('_')[1]
         if trig == 'l':
-            params['active_trigger']='Left'
+            meta['active_trigger']='Left'
         elif trig=='r':
-            params['active_trigger']='Right'
+            meta['active_trigger']='Right'
 
     # Clarify best way to describe experiment vs. task onset (i.e. is there a 
     # 'pre-' / 'baseline' period?)
-    params['exp_start'] = raw['time'].values[0]    
-    params['exp_end']=raw['time'].values[-1]
+    meta['exp_start'] = raw['time'].values[0]    
+    meta['exp_end']=raw['time'].values[-1]
 
     event_ends =np.array(['becomes inactive' in i for i in data['Event']])
     event_starts =np.array(['becomes active' in i for i in data['Event']])
     baseline = np.array([any([x in y for x in ['Baseline','base','Habituation']]) for y in rule[2]])
     if any (event_ends & baseline):
-        params['task_start'] = rule_time[event_ends & baseline][0]
+        meta['task_start'] = rule_time[event_ends & baseline][0]
     else:
         print('\tNo baseline period found, available events:')
         for val in pd.unique(rule[2]):
             print('\t' + val)
-        params['task_start'] = ''
+        meta['task_start'] = ''
         print('\n')
-    if params['task_start'] == params['exp_end']:
+    if meta['task_start'] == meta['exp_end']:
         #Entire trial likely 'free-running' and treated as baseline:
-        params['task_start']=''
+        meta['task_start']=''
         
     task_stop=np.array([any([x in y for x in ['Time (1)','post_period']]) for y in rule[2]])
     if any(event_starts & task_stop):
-        params['task_stop'] = rule_time[task_stop & event_starts][0]
+        meta['task_stop'] = rule_time[task_stop & event_starts][0]
     else:
         print('\tNo task stop time found, fields available:')
         for val in pd.unique(rule[2]):
             print('\t' + val)
-        params['task_stop'] = ''
+        meta['task_stop'] = ''
         print('\n')
         
     #Check if zone or other task has blink state.
     #(This is often used if mouse stays in stimulated zone > certain time)
-    params['has_blink_state']=False
+    meta['has_blink_state']=False
     blink_present=np.array([any([x in y for x in ['Blink On','blink']]) for y in rule[2]])
     if any(blink_present):
-        params['has_blink_state'] = True
+        meta['has_blink_state'] = True
     #
     
-    if params['task_stop'] == '':
+    if meta['task_stop'] == '':
         #Trial recording might have ended prematurely, estimate task_stop:
-        if params['task'] == 'trigger':
+        if meta['task'] == 'trigger':
             #Task ends when last stim turns off, or 20 minutes after start, whichever is possible
-            # stop=params['stim_off'][-1]
+            # stop=meta['stim_off'][-1]
             # if np.isnan(stop):
             print('\tNo task_stop found, estimating 20min after task_start.')
-            stop=params['task_start'] + (20 * 60) #20 min in seconds
-            params['task_stop'] = stop
-        elif params['task'] == '10x30':
+            stop=meta['task_start'] + (20 * 60) #20 min in seconds
+            meta['task_stop'] = stop
+        elif meta['task'] == '10x30':
             print('\tNo task_stop found, estimating 30min after task_start.')
-            params['task_stop']=params['task_start'] + (30 * 60) #30 min in seconds
-        elif params['task'] == 'aversion':
+            meta['task_stop']=meta['task_start'] + (30 * 60) #30 min in seconds
+        elif meta['task'] == 'aversion':
             print('\tNo task_stop found, estimating 30min after task_start.')
-            params['task_stop']=params['task_start'] + (30 * 60) #30 min in seconds
-        elif params['task'] == '30min':
-            params['task_stop'] = 30 * 60 #30 min in seconds
-        elif any(i in params['task'] for i in ['60min','60min_psem','60min_saline']):
-            params['task_stop'] = 60 * 60 #60 min in seconds
+            meta['task_stop']=meta['task_start'] + (30 * 60) #30 min in seconds
+        elif meta['task'] == '30min':
+            meta['task_stop'] = 30 * 60 #30 min in seconds
+        elif any(i in meta['task'] for i in ['60min','60min_psem','60min_saline']):
+            meta['task_stop'] = 60 * 60 #60 min in seconds
         else:
-            params['task_stop']=params['exp_end']
-    params['no_trial_structure']=False   
-    if params['task_start'] == '':
-        if params['stim_n']>0:
+            meta['task_stop']=meta['exp_end']
+    meta['no_trial_structure']=False   
+    if meta['task_start'] == '':
+        if meta['stim_n']>0:
             #If there is evidence of stim but task start still empty, set task start to 30s before first stim
-            params['task_start']=params['stim_on'][0]
-            print('\tNo trial start detected but stim detected, task start set to time of 1st stim: %4.1fs' % params['task_start'])
+            meta['task_start']=meta['stim_on'][0]
+            print('\tNo trial start detected but stim detected, task start set to time of 1st stim: %4.1fs' % meta['task_start'])
         else:
             #Assume this is a free-running recording without structure and task starts at 0:
-            params['task_start']=raw['time'].values[0]
-            params['no_trial_structure']=True
-            params['task_stop']=raw['time'].values[-1]
+            meta['task_start']=raw['time'].values[0]
+            meta['no_trial_structure']=True
+            meta['task_stop']=raw['time'].values[-1]
             print('\tFree running trial detected. Setting task start time to time 0.')
     
-    if len(params['stim_on']) > len(params['stim_off']):
-        params['stim_off']=np.hstack((params['stim_off'],params['exp_end']))
+    if len(meta['stim_on']) > len(meta['stim_off']):
+        meta['stim_off']=np.hstack((meta['stim_off'],meta['exp_end']))
         
-    if len(params['stim_off']) > len(params['stim_on']):
-        params['stim_off']=params['stim_off'][0:len(params['stim_on'])]
+    if len(meta['stim_off']) > len(meta['stim_on']):
+        meta['stim_off']=meta['stim_off'][0:len(meta['stim_on'])]
     
-    if any(params['stim_dur'] < 0):
+    if any(meta['stim_dur'] < 0):
         # stim_dur_negative_detected
         print('\tProblem with stim time alignment as negative stim durations detected.')
         # stim_dur_negative_detected
-    params['task_prestart_warning']=False
-    if params['stim_on'][0] < params['task_start']:
-        params['task_prestart_warning']=True
-        params['task_start'] = params['stim_on'][0]
-        print('\tWarning, first stim occurred before "task_start" time! Setting task start to %4.1fs' % params['task_start'])
-    params['task_overrun_warning']=False
-    if (params['task'] == 'aversion') and (params['task_stop'] > (41*60)): # All of these should be titrated appropriately
-        params['task_overrun_warning']=True
-    elif (params['task'] == 'trigger') and (params['task_stop'] > (36*60)):
-        params['task_overrun_warning']=True
-    elif (params['task'] == '10x30') and (params['task_stop'] > (46 * 60)):
-        params['task_overrun_warning']=True
-    elif (params['task_stop'] == params['exp_end']) and (not params['no_trial_structure']):
-        params['task_overrun_warning']=True
+    meta['task_prestart_warning']=False
+    if meta['stim_on'][0] < meta['task_start']:
+        meta['task_prestart_warning']=True
+        meta['task_start'] = meta['stim_on'][0]
+        print('\tWarning, first stim occurred before "task_start" time! Setting task start to %4.1fs' % meta['task_start'])
+    meta['task_overrun_warning']=False
+    if (meta['task'] == 'aversion') and (meta['task_stop'] > (41*60)): # All of these should be titrated appropriately
+        meta['task_overrun_warning']=True
+    elif (meta['task'] == 'trigger') and (meta['task_stop'] > (36*60)):
+        meta['task_overrun_warning']=True
+    elif (meta['task'] == '10x30') and (meta['task_stop'] > (46 * 60)):
+        meta['task_overrun_warning']=True
+    elif (meta['task_stop'] == meta['exp_end']) and (not meta['no_trial_structure']):
+        meta['task_overrun_warning']=True
     
-    if params['task_overrun_warning']:
+    if meta['task_overrun_warning']:
         print('\tTask stop time appears too long, trial flagged as overruning.')
     
-    return params
+    return meta
     
 def stim_from_xlsx(df,pn):
     keys=['Hardware' in key for key in df.keys()]
@@ -842,7 +909,7 @@ def stim_from_xlsx(df,pn):
         # stim['dur']=[np.nan]
     return stim
 
-def params_from_xlsx(df,pn):
+def meta_from_xlsx(df,pn):
     '''
     Read header information from EthoVision raw .xlsx dataframe loaded via pandas.read_excel
 
@@ -855,7 +922,7 @@ def params_from_xlsx(df,pn):
 
     Returns
     -------
-    params: Dict
+    meta: Dict
         Dictionary containing all relevant information about the given experiment,
         gleaned from header information in raw data df
 
@@ -936,7 +1003,7 @@ def params_from_xlsx(df,pn):
         etho_exp=nold['Test'].values[0]
     else:
         etho_exp=np.nan
-    params={
+    meta={
         'anid':anid,
         'protocol':str_pn.split(sep)[-3], 
         'side': str_pn.split(sep)[-4],
@@ -944,14 +1011,14 @@ def params_from_xlsx(df,pn):
         'cell_type':str_pn.split(sep)[-6],
         'da_state':str_pn.split(sep)[-7],
         'stim_area':str_pn.split(sep)[-8],
-        'task': str_pn.split(sep)[-3], #will be changed in check_params()
+        'task': str_pn.split(sep)[-3], #will be changed in check_meta()
         'experimenter':str_pn.split(sep)[-2].split('_')[-1][0:2],
         'exp_room_number':room_num,
         'fs':29.97, # placeholder default frames / second but should confirm in each video if possible
-        'exp_start': 0, #will be updated in check_params()
-        'exp_end':[], #will be updated in check_params()
-        'task_start':[], #will be updated in check_params()
-        'task_stop':[], #will be updated in check_params()
+        'exp_start': 0, #will be updated in check_meta()
+        'exp_end':[], #will be updated in check_meta()
+        'task_start':[], #will be updated in check_meta()
+        'task_stop':[], #will be updated in check_meta()
         'etho_animal_id': nold_an,
         'etho_da_state': dep_status,
         'etho_sex':sex,
@@ -970,12 +1037,12 @@ def params_from_xlsx(df,pn):
         'animal_id_mismatch':anid_mismatch,
         'possible_retrack':possible_retrack,
         }
-    if 'zone' in params['protocol']:
-        params['zone']='%s %s' % (params['protocol'].split('_')[0].capitalize(),
-                        params['protocol'].split('_')[1])
+    if 'zone' in meta['protocol']:
+        meta['zone']='%s %s' % (meta['protocol'].split('_')[0].capitalize(),
+                        meta['protocol'].split('_')[1])
 
     
-    return params
+    return meta
 
 
 def raw_from_xlsx(df):
@@ -1045,40 +1112,7 @@ def rename_xlsx_columns(df):
         df=df.drop('Result 1',axis=1)
     return df.rename(rename_dict,axis=1)
 
-def add_amb_to_raw(raw,params,amb_thresh=2,amb_dur=0.5,im_thresh=1,im_dur=0.5):
-    fs=params['fs'][0]
-    
-    on,off=signal.thresh(raw['vel'],amb_thresh,sign='Pos')
-    if off[0] < on[0]:
-        off=off[1:]
-      
-    amb=np.zeros(raw['vel'].shape,dtype=bool)
-    im = amb
-    m = np.ones(raw['vel'].shape,dtype=bool)
-    for o,f in zip(on,off):
-        bout = (f-o)/fs
-        if bout > amb_dur:
-            amb[o:f]=True
-    
-    im=raw['vel'] < im_thresh
-    on,off=signal.thresh(im,0.5,sign='Pos')
-    if off[0] < on[0]:
-        off=off[1:]
-        
-    for o,f in zip(on,off):
-        bout = (f-o)/fs
-        if bout > im_dur:
-            im[o:f]=True
-        
-    m[im]=False  #Mobile = not immobile
-    raw['im2']=im # 'im' is the immobility measure calculated in ethovision itself
-    raw['m2']=m #m is the mobility measure
-    
-    amb[raw['im'] == True] = False
-    raw['ambulation']=amb
-    
-    raw['fine_move']= (raw['ambulation']==False) & (raw['im']==False)
-    return raw
+
     
     
     # keep.fine_move= ~keep.ambulation & ~keep.im; %Note: keep.im is the ethovision 'immobile' output

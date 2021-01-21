@@ -17,17 +17,20 @@ import matplotlib.gridspec as gridspec
 from scipy.stats import sem, t
 import pdb
 import math
-
+import time
 # %% Plot one 10x30 experiment day
 inc=[['AG','GPe','CAG','Arch','10x30']]
 exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.raw_csv(basepath,inc[0],exc[0])
-raw,meta=ethovision_tools.csv_load(pns[1])
-raw=ethovision_tools.add_amb_to_raw(raw,meta)
+a=time.time()
+df,meta=ethovision_tools.csv_load(pns[1],columns='All',method='preproc' )
+b=time.time()
+print('%2.2f seconds to load' % (b-a))
+# raw=ethovision_tools.add_amb_to_raw(raw,meta)
 
 #The magic:
-plots.plot_openloop_day(raw,meta)
+plots.plot_openloop_day(df,meta)
 
 # %% Debug new metric: meander
 #DLC Measure:

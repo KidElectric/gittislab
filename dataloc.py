@@ -352,8 +352,26 @@ def path_to_rawfn(pn):
     '''
     if not isinstance(pn,str):
         pn=str(pn)
-    raw= 'Raw_%s' % (pn.split(sep)[-2])
-    return raw
+    fn= 'Raw_%s' % (pn.split(sep)[-2])
+    return fn
+
+def path_to_preprocfn(pn):
+    '''
+        Generate generic preprocessed file name from a FILE path pn
+        
+        output: raw (str)
+            in format: Preproc_CAGE_ANIMALID_EXPDATE,
+            
+        input: path str:
+        
+            
+        e.g. if pn= ~/10x30/AG6151_3_CS090720/Raw data-BI_two_zone_closed_loop_v3_retrack-Trial     1.xlsx'
+         preproc = Preproc_AG6151_3_CS090720
+    '''
+    if not isinstance(pn,str):
+        pn=str(pn)
+    fn= 'Preproc_%s' % (pn.split(sep)[-2])
+    return fn
 
 def full_exp_dict(ver = 0):
     """ Generate full dictionary of all experiments run

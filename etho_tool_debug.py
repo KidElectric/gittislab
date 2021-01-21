@@ -23,6 +23,21 @@ basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.rawh5(basepath,inc,exc)
 df_raw,par_raw=ethovision_tools.h5_load(pns[0])
 
+
+#%% Debug preproc*.csv generation method:
+ex0=['exclude','and_GPe','and_Str','Left','Right',
+     'Other XLS','Exclude',
+     '_gpe_muscimol','_gpe_pbs','mW','mw']
+inc=[['AG','GPe','CAG','Arch','10x'],
+     ['AG','Str','A2A','Ai32','10x'],
+     ['AG','Str','A2A','ChR2','10x']]
+exc=[ex0,ex0,ex0]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,
+                                             inc,exc,force_replace=True,
+                                             win=10)
+
+
 # %% unify_h5
 inc=[['AG','GPe','FoxP2','ChR2','10x10_20mW',]]
 exc=[['exclude','_and_Str','Left','Right']]

@@ -298,6 +298,7 @@ def plot_openloop_day(raw,meta):
     
     #### Calculate stim-triggered %time mobile:
     percentage = lambda x: (np.nansum(x)/len(x))*100
+    raw['m']=~raw['im']
     m_clip=behavior.stim_clip_grab(raw,meta,y_col='m', 
                                    stim_dur=stim_dur,
                                    summarization_fun=percentage)

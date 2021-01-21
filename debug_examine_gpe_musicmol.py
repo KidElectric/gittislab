@@ -19,7 +19,7 @@ import math
 from scipy.signal import find_peaks 
 from scipy.stats import circmean
 from statistics import mode
-
+import time
 # %% Look at mouse speed vs. time in each case:
     
 ex0=['exclude','and_GPe','and_Str','Left','Right',
@@ -58,9 +58,6 @@ for ii,ee in zip(inc,exc):
         speed = signal.boxcar_smooth(speed,smth_amount)
         temp['speed']=speed
         temp['time']=raw['time']/60
-        # plt.plot(raw['time']/60,speed)
-        # plt.xlabel('Time (m)')
-        # plt.ylabel('Speed (cm/s)')
         data=data.append(temp,ignore_index=True)
 # %%
 a=data['anid'].unique()
@@ -124,7 +121,7 @@ for ii,ee in zip(inc,exc):
             temp['in_sz']=in_zone
  
         else:
-            plots.plot_openloop_day(raw,meta)
+            # plots.plot_openloop_day(raw,meta)
             stim_dur = round(np.mean(meta['stim_dur']))        
             vel_clip=behavior.stim_clip_grab(raw,meta,
                                               y_col='vel', 
@@ -170,9 +167,37 @@ clip={'in_sz':subset}
 _,h1=plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
                          use_key='in_sz',ax=ax,
                          clip_method=False)
-plt.legend(h1,data['anid'].unique(),loc = 'upper left')
+plt.legend(h1,data['anid'].unique()[[1,0]],loc = 'upper left')
 plt.ylabel('Normalized % time in SZ')
 plt.ylim(0,4)
+
+#%% Plot a normalized change PBS -> Musc. AG6343_4 
+m=np.array(data['anid'])=='AG6343_4'
+# m=np.array(data['anid'])=='AG6343_5'
+dsub=data.iloc[m,:]
+out=[x for x in range(4)]
+olfield='mobile'
+for index, row in dsub.iterrows():
+    z='zone' in row['proto']
+    musc = 'muscimol' in row['proto']
+    pbs = 'pbs' in row['proto']
+    if (not z) and pbs:
+        out[0] = row[olfield][1]/row[olfield][0] * 100
+    elif (not z) and musc:
+        out[1] = row[olfield][1]/row[olfield][0] * 100
+    elif (z) and (not musc):
+        out[2] = row['in_sz'][1]/row['in_sz'][0] * 100
+    elif z and musc:
+        out[3] = row['in_sz'][1]/row['in_sz'][0] * 100
+plt.figure(figsize=(5.07,5.37))
+labels=('10x10 PBS','10x10 Musc.','Zone','Zone Musc.')
+h=plt.bar(labels,out)
+for i in range(2,4):
+    h[i].set_facecolor('r')
+plt.ylim(0,100)
+plt.ylabel('% of baseline (Stim On / Stim Off)')
+ind=slice(0,3,2)
+plt.legend(h[ind],('% Time Mobile','% Time in SZ'),loc='upper left')
 
 # %% open loop speed
 plt.figure()

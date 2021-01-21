@@ -1,11 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jan 18 14:36:52 2021
-
-@author: brian
-"""
-from gittislab import signal, behavior, dataloc, ethovision_tools, plots, profile_fun
+from gittislab import signal, behavior, dataloc, ethovision_tools, plots
 import os
 from pathlib import Path
 import numpy as np
@@ -17,25 +10,9 @@ from scipy.stats import sem, t
 import pdb
 import math
 import time
-# %%
-ex0=['exclude','and_GPe','and_Str','Left','Right',
-     'Other XLS','Exclude',
-     '_gpe_muscimol','_gpe_pbs','mW','mw']
-# inc=[['AG','GPe','CAG','Arch','10x']]
-# exc=[ex0]
-inc=[['AG','GPe','CAG','Arch','10x'],
-     ['AG','Str','A2A','Ai32','10x'],
-     ['AG','Str','A2A','ChR2','10x']]
-exc=[ex0,ex0,ex0]
-
-basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-
-# %%
 
 
-# %%
-
-def test_batch_analyze(inc,exc):
+def batch_analyze(basepath,inc,exc):
     '''
     With comments
     '''
@@ -91,61 +68,3 @@ def test_batch_analyze(inc,exc):
                                             use_dlc=use_dlc)
     
             data=data.append(temp,ignore_index=True)
-        
-# %% Flight
-plt.figure()
-ax=plt.subplot(1,2,1)
-plt.title('Str A2a ChR2')
-chr2= np.array([('Ai32'in x or 'ChR2' in x) for x in data['cell_area_opsin']])
-subset=np.stack(list(data.loc[chr2,'amb_bouts']),axis=0)
-clip={'run_meander':subset}
-plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
-                         use_key='run_meander', ax=ax,
-                         clip_method=False)
-plt.ylabel('Flight bouts / s')
-plt.ylim(0,0.3)
-
-
-ax=plt.subplot(1,2,2)
-plt.title('GPe CAG Arch')
-subset=np.stack(list(data.loc[~chr2,'amb_bouts']),axis=0)
-clip={'run_meander':subset}
-plots.mean_bar_plus_conf(clip, ['Pre','Dur','Post'],
-                         use_key='run_meander',ax=ax,
-                         clip_method=False)
-plt.ylim(0,0.3)
-plt.ylabel('Flight bouts / s')
-
-# %% Note: try limiting "ambulation" to "running"
-plt.figure()
-ax=plt.subplot(1,2,1)
-plt.title('Str A2a ChR2')
-chr2= np.array([('Ai32'in x or 'ChR2' in x) for x in data['cell_area_opsin']])
-subset=np.stack(list(data.loc[chr2,'amb_directed']),axis=0)
-clip=amb_bouts
-clip={'run_meander':subset}
-plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
-                         use_key='run_meander', ax=ax,
-                         clip_method=False)
-plt.ylabel('Directedness (cm/deg)')
-plt.ylim(0,3)
-subset=np.stack(list(data.loc[chr2,'amb_bouts']),axis=0)
-print(np.nanmean(subset,axis=0))
-
-ax=plt.subplot(1,2,2)
-plt.title('GPe CAG Arch')
-subset=np.stack(list(data.loc[~chr2,'amb_directed']),axis=0)
-clip={'run_meander':subset}
-plots.mean_bar_plus_conf(clip, ['Pre','Dur','Post'],
-                         use_key='run_meander',ax=ax,
-                         clip_method=False)
-plt.ylim(0,3)
-plt.ylabel('Directedness (cm/deg)')
-subset=np.stack(list(data.loc[~chr2,'amb_bouts']),axis=0)
-print(np.nanmean(subset,axis=0))
-
-
-# %% Can I reasonably combine Ai32 & ChR2 mice?
-
-# %% What percent of time ethovision says immobile is animal rearing?
-print(sum(raw['ambulation'] & raw['dlc_is_rearing_logical']) / len(raw['im']) * 100)

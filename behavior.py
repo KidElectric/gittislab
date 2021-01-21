@@ -4,6 +4,7 @@ import os
 import math
 from matplotlib import pyplot as plt
 import pandas as pd
+# import modin.pandas as pd
 import cv2
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
@@ -60,8 +61,105 @@ def smooth_vel(raw,meta,win=10):
         vel.append(dist / (1/fs))
     return np.array(vel)
 
+def preproc_raw(raw,meta,win=10):
 
+    fs=meta['fs'][0]
+    cutoff=3 #Hz    
+    
+    preproc=raw.loc[:,['time','x','y','vel','laserOn']]
+    keep_cols=['iz1','iz2','im','full_rot_cw', 'full_rot_ccw']
+    for col in keep_cols:
+        if col in raw.columns:
+            preproc[col]=raw[col]
+            
+    x_s=signal.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
+    y_s=signal.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
+
+    #Calculate distance between smoothed (x,y) points for smoother velocity
+    vel=[]
+    dist=[]
+    for i,x2 in enumerate(x_s):
+        x1=x_s[i-1]
+        y1=y_s[i-1]
+        y2=y_s[i]
+        dist_temp=signal.calculateDistance(x1,y1,x2,y2)
+        dist.append(dist_temp)
+        vel.append(dist_temp / (1/fs))
+    preproc['dist']=dist
+    
+    if 'vel_smooth_win_ms' not in meta.columns:
+        preproc['vel']=vel
+        meta['vel_smooth_win_ms']=win/fs * 1000 # ~333ms
+                    
+    thresh=2; #cm/s; Kravitz & Kreitzer 2010
+    dur=0.5; #s; Kravitz & Kreitzer 2010
+    im_thresh=1
+    im_dur=dur/2
+    preproc=add_amb_to_raw(preproc,meta,thresh,dur,
+                           im_thresh=im_thresh,
+                           im_dur=im_dur) #Thresh and dur
+    meta['amb_vel_thresh']=thresh
+    meta['amb_dur_criterion_ms']=dur
+    meta['im_vel_thresh']=im_thresh
+    meta['im_dur_criterion_ms']=im_dur
+    
+    #Use smoothed x,y to calculate a normalized position
+    raw['x']=x_s
+    raw['y']=y_s
+    xn,yn=norm_position(raw)
+    preproc['x']=xn
+    preproc['y']=yn
+    
+    if 'dlc_is_rearing_logical' in raw.columns:
+        preproc['rear']=raw['dlc_is_rearing_logical']
+    else:
+        preproc['rear']=np.ones(raw['x'].shape)*np.nan
         
+    if 'dlc_top_head_x' in raw.columns:
+        use_dlc = True
+        meta['has_dlc']=True        
+    else:
+        meta['has_dlc']=False
+        use_dlc=False
+    preproc['dir']=smooth_direction(raw,meta,use_dlc=use_dlc, win=win)
+    preproc['meander'] = measure_meander(raw,meta,use_dlc=use_dlc)
+    return preproc,meta
+
+def add_amb_to_raw(raw,meta,amb_thresh=2,amb_dur=0.5,im_thresh=1,im_dur=0.5):
+    fs=meta['fs'][0]
+    
+    on,off=signal.thresh(raw['vel'],amb_thresh,sign='Pos')
+    if off[0] < on[0]:
+        off=off[1:]
+      
+    amb=np.zeros(raw['vel'].shape,dtype=bool)
+    im = amb
+    m = np.ones(raw['vel'].shape,dtype=bool)
+    for o,f in zip(on,off):
+        bout = (f-o)/fs
+        if bout > amb_dur:
+            amb[o:f]=True
+    
+    im=raw['vel'] < im_thresh
+    on,off=signal.thresh(im,0.5,sign='Pos')
+    if off[0] < on[0]:
+        off=off[1:]
+        
+    for o,f in zip(on,off):
+        bout = (f-o)/fs
+        if bout > im_dur:
+            im[o:f]=True
+        
+    m[im]=False  #Mobile = not immobile
+    raw['im2']=im # 'im' is the immobility measure calculated in ethovision itself
+    raw['m2']=m #m is the mobility measure
+    
+    amb[raw['im'] == True] = False
+    raw['ambulation']=amb
+    
+    raw['fine_move']= (raw['ambulation']==False) & (raw['im']==False)
+    return raw
+
 def norm_position(raw):
     '''
     Normalize mouse running coordinates so that the center of (x,y) position is
@@ -166,7 +264,8 @@ def measure_meander(raw,meta,use_dlc=False):
     '''
         
     fs=meta['fs'][0]
-    dir = smooth_direction(raw,meta,use_dlc=use_dlc)
+    # dir = smooth_direction(raw,meta,use_dlc=use_dlc)
+    dir=raw['dir']
     diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
     dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
     dist[0:3]=np.nan
@@ -330,14 +429,22 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
         #Simplest solution, remove first offset, aligning with remaining onsets
         #(Does not rule out other problems that may arise!)
         offset_samps.pop(0)
-        
+    offset_samps=np.array(offset_samps)
+    onset_samps=np.array(onset_samps)
+    
     #Filter bouts for obeying a minimum bout spacing apart (by default 0.25s):
     min_bout_spacing_samps=round(meta.fs[0]*min_bout_spacing_s)
     new_on,new_off=signal.join_gaps(onset_samps,offset_samps,min_bout_spacing_samps)
     
     #Also remove detected bouts from bout_onset arrays:
-    bout_onset[[x for x in onset_samps if x not in new_on]]=0
-    bout_offset[[x for x in offset_samps if x not in new_off]]=0
+    # bout_onset[[x for x in onset_samps if x not in new_on]]=0 #quite slow
+    # bout_offset[[x for x in offset_samps if x not in new_off]]=0
+    ind=signal.ismember(new_on, onset_samps) #could this improve speed?
+    bout_onset[onset_samps[~ind]]=0
+    ind=signal.ismember(new_off,offset_samps) #could this improve speed?
+    bout_offset[offset_samps[~ind]]=0
+    
+    
     onset_samps=new_on
     offset_samps=new_off
 
@@ -384,7 +491,7 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
     meander=np.empty(dur.shape)
     meander[:]=np.nan
     directedness=meander
-    full_meander = measure_meander(raw,meta,use_dlc=use_dlc)
+    full_meander = raw['meander']
     for on,off in zip(onset_samps,offset_samps):
         meander[on:off]=full_meander[on:off]
         directedness[on:off]=1/full_meander[on:off]

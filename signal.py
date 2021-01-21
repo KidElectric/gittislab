@@ -155,6 +155,16 @@ def angle_vector_delta(b1, b2,thresh=None,fs=29.97):
         out= pad_lowpass_unpad(out,cutoff,fs,order=5)
     return out
 
+def ismember(a, b):
+     B_unique_sorted = np.unique(b)
+     B_in_A_bool = np.in1d(B_unique_sorted, a, assume_unique=True)
+     return B_in_A_bool
+    # bind = {}
+    # for i, elt in enumerate(b):
+    #     if elt not in bind:
+    #         bind[elt] = i
+    # return [bind.get(itm, None) for itm in a]  # None can be replaced by any other "not in b" value
+
 def one_line_angle(x1,y1,x2,y2):
     return math.degrees(math.atan2(y2-y1, x2-x1))
 
