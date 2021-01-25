@@ -23,7 +23,7 @@ from statistics import mode
 
 # %%
 ex0=['exclude','and_GPe','and_Str','Left','Right',
-     'Other XLS','Exclude',
+     'Other XLS','Exclude','zone_1_d1r',
      '_gpe_muscimol','_gpe_pbs','mW','mw']
 
 inc=[['AG','GPe','CAG','Arch','zone_1'],
@@ -33,8 +33,18 @@ exc=[ex0,ex0,ex0]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 # ethovision_tools.add_dlc_to_csv(basepath,inc,exc,save=True)
-raw,meta=ethovision_tools.csv_load(pns[0])
-
+pns=dataloc.raw_csv(basepath,inc[0],ex0)
+raw,meta=ethovision_tools.csv_load(pns[0],method='preproc' )
+# raw,meta=ethovision_tools.csv_load(pns[0])
+# %%
+x_s=raw['x']
+y_s=raw['y']
+cross=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) > 0)).astype('bool')
+cross_zero=np.median(x_s[cross])
+print(cross_zero)
+plt.figure()
+plt.plot(x_s,y_s)
+plt.plot(x_s-cross_zero,y_s)
 # %%
 data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
                               'room','amb_meander','amb_bouts'])
@@ -46,8 +56,7 @@ for ii,ee in zip(inc,exc):
     pns=dataloc.raw_csv(basepath,ii,ee)
     for pn in pns:
         temp={}
-        raw,meta=ethovision_tools.csv_load(pn)
-        raw=ethovision_tools.add_amb_to_raw(raw,meta)
+        raw,meta=ethovision_tools.csv_load(pn,method='preproc')
         temp['anid']=meta['anid'][0]
         temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
                                                  meta['stim_area'][0],
@@ -61,7 +70,7 @@ for ii,ee in zip(inc,exc):
         
         enter=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) > 0)).astype('bool')
         exit=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) < 0)).astype('bool')
-        dir = behavior.smooth_direction(raw,meta,use_dlc=False)
+        dir = raw['dir']
         b=dir[enter]
         bb= np.array(raw['vel'].values[enter]) > 10
         b=b[bb]

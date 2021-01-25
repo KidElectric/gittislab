@@ -5,6 +5,7 @@ Created on Tue Sep 15 16:25:12 2020
 
 @author: brian
 """
+
 from gittislab import signal, behavior, dataloc, ethovision_tools 
 import os
 from pathlib import Path
@@ -15,22 +16,38 @@ from matplotlib import pyplot as plt
 import pdb
 from itertools import compress
 
-# %%
+# %% 
 # inc=['GPi','CAG','Arch','10x30','AG6151_3_CS090720']
+
 inc=['AG','Str','CAG','Arch','10x10_30mW',]
 exc=['exclude','_and_Str','Left','Right']
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.rawh5(basepath,inc,exc)
 df_raw,par_raw=ethovision_tools.h5_load(pns[0])
 
-
-#%% Debug preproc*.csv generation method:
+# %% 10x10 or 10x30 Convert .xlsx to .csv, add in DLC rearing data, & generate preproc *.csv in one go:
 ex0=['exclude','and_GPe','and_Str','Left','Right',
      'Other XLS','Exclude',
      '_gpe_muscimol','_gpe_pbs','mW','mw']
 inc=[['AG','GPe','CAG','Arch','10x'],
      ['AG','Str','A2A','Ai32','10x'],
      ['AG','Str','A2A','ChR2','10x']]
+make_preproc = True
+exc=[ex0,ex0,ex0]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_raw_to_csv(basepath,
+                                  inc,exc,force_replace=True,
+                                  win=10,make_preproc =True)
+
+#%% Debug preproc*.csv generation method in zone task:
+ex0=['exclude','and_GPe','and_Str','Left','Right',
+     'Other XLS','Exclude','zone_1_d1r',
+     '_gpe_muscimol','_gpe_pbs','mW','mw']
+
+inc=[['AG','GPe','CAG','Arch','zone_1'],
+     ['AG','Str','A2A','Ai32','zone_1'],
+     ['AG','Str','A2A','ChR2','zone_1']]
+
 exc=[ex0,ex0,ex0]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.raw_csv_to_preprocessed_csv(basepath,

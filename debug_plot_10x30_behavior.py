@@ -34,7 +34,7 @@ plots.plot_openloop_day(df,meta)
 
 # %% Debug new metric: meander
 #DLC Measure:
-dir_smooth=behavior.smooth_direction(raw,meta,use_dlc=True)
+dir_smooth=behavior.smooth_direction(raw, meta,use_dlc=True)
 dir_smooth_etho=behavior.smooth_direction(raw,meta)
 
 diff_angle=signal.angle_vector_delta(dir_smooth[0:-1],dir_smooth[1:],thresh=20,

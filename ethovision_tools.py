@@ -70,7 +70,7 @@ def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
                 
                 thresh=2; #cm/s; Kravitz & Kreitzer 2010
                 dur=0.5; #s; Kravitz & Kreitzer 2010
-                raw=add_amb_to_raw(raw,meta,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
+                raw=behavior.add_amb_to_raw(raw,meta,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
                 meta['amb_vel_thresh']=thresh
                 meta['amb_dur_criterion_ms']=dur
                 
@@ -129,10 +129,7 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
                     min_thresh=0.25
                     _,_,_,dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
                     meta['rear_thresh']=rear_thresh
-                    meta['rear_min_thresh']=min_thresh
-                    
-                    # Make sure locomotion state fields are up-to-date:
-                    raw = add_amb_to_raw(raw,meta)
+                    meta['rear_min_thresh']=min_thresh                
                     
                     # For each column in dlc, make a column in raw with collapsed name:
                     for col in dlc.columns:                    
@@ -209,20 +206,23 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                     # any changes will be in a separate preproc file made by
                     # behavior.preproc_raw()
                     
-                    # #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:
-                    # dlcpath=dataloc.dlc_h5(path.parent) 
-                    
-                    raw, metadata = add_dlc_to_csv(path)
-                    
-                    if make_preproc == True:
-                        raw_csv_to_preprocessed_csv(path.parent,
-                                                    force_replace=force_replace,
-                                                    win=win)
-                    
                     #Write raw and meta to .csv files:
                     pnfn=path.parent.joinpath(new_file_name)
                     print('\tSaving %s\n' % pnfn)
                     raw.to_csv(pnfn)
+                    
+                    # #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:                  
+                    raw, mout = add_dlc_to_csv(path.parent,[inc],[exc],
+                                            force_replace=True)
+                    meta['dlc_outlier_thresh_sd'] = mout['dlc_outlier_thresh_sd']
+                    meta['dlc_liklihood_thresh'] = mout['dlc_likelihood_thresh']                    
+                    meta['rear_thresh']=mout['rear_thresh']
+                    meta['rear_min_thresh']=mout['rear_min_thresh']
+                    
+                    if make_preproc == True:
+                        raw_csv_to_preprocessed_csv(path.parent,
+                                                    force_replace=True,
+                                                    win=win)
                     
                     metadata=pd.DataFrame().from_dict(meta)
                     meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])

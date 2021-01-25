@@ -245,6 +245,36 @@ def fn_to_path(basepath,file_list,max_depth = 6,iteration = 0):
         newpns.append(basepath + pathstr)
     return newpns,newfns
 
+def folders_without_dlc_analysis(basepath,conds_inc=[],conds_exc=[]):
+    '''Using the input file path "basepath,"
+    return the .mpg video locations for all mice that
+    match the criteria of "inc" list of strings and "exc" string list (optional)
+    See: gen_paths_recurse() for further help.
+    >>>
+    '''
+    vid_paths=[]
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        xlsx_paths=raw_csv(basepath,inc,exc)
+        if isinstance(xlsx_paths,Path):
+            xlsx_paths=[xlsx_paths]
+        for ii,path in enumerate(xlsx_paths):
+            # First, let's check if there is a raw file in this folder:    
+            new_file_name=path_to_rawfn(path) + '.csv'
+            raw_file_exists=os.path.exists(path.parent.joinpath(new_file_name))
+        
+            #Next, let's check if there is also a dlc_analyze file:                
+            dlc_path=gen_paths_recurse(path.parent,inc,exc,'*dlc_analyze.h5')
+            if isinstance(dlc_path,Path):
+                dlc_file_exists = True
+            else:
+                dlc_file_exists = len(dlc_path) > 0
+            # print(path)  
+            if (raw_file_exists == True) and (dlc_file_exists==False):  
+                vid= video(path.parent)
+                vid_paths.append(str(vid))
+    return vid_paths
+                
 def video(basepath,inc=[],exc=[]):
     """ Using the input file path "basepath,"
     return the .mpg video locations for all mice that

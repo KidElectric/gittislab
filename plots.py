@@ -368,13 +368,13 @@ def plot_openloop_day(raw,meta):
     plt.ylabel('Ambulation meander (deg/cm)')
     
     #All meander 
-    raw['meander']= behavior.measure_meander(raw,meta,use_dlc=False)
-    meander_clip=behavior.stim_clip_grab(raw,meta,y_col='meander',
-                                         stim_dur=stim_dur,
-                                         summarization_fun = np.nanmedian)
-    ax_all_meander= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
-                                               ax=f_row[5][1])
-    plt.ylabel('Meadian meander (deg/cm)')
+    #raw['meander']= behavior.measure_meander(raw,meta,use_dlc=False)
+    # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='meander',
+    #                                      stim_dur=stim_dur,
+    #                                      summarization_fun = np.nanmedian)
+    # ax_all_meander= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+    #                                            ax=f_row[5][1])
+    # plt.ylabel('Meadian meander (deg/cm)')
     
     raw['directed']= 1/ raw['meander']
     meander_clip=behavior.stim_clip_grab(raw,meta,y_col='directed',

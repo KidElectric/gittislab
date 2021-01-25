@@ -34,21 +34,7 @@ def smooth_vel(raw,meta,win=10):
     vel=[]
     fs=meta['fs'][0]
     cutoff=3 #Hz
-    
-    # #Interpolate NaNs with nearyby values and convert to floats:
-    # x=raw['x'].interpolate(method='pad').astype(np.float)
-    # y=raw['y'].interpolate(method='pad').astype(np.float)
-    
-    # #Low-pass filter method:     
-    # pad=round(fs*2)
-    # x=np.pad(x,pad_width=(pad,),mode='linear_ramp')
-    # y=np.pad(y,pad_width=(pad,),mode='linear_ramp')
-    
-    # x_s=signal.butter_lowpass_filtfilt(x, cutoff, fs, order=5)
-    # x_s=x_s[pad:-pad]
-    # y_s=signal.butter_lowpass_filtfilt(y, cutoff, fs, order=5)
-    # y_s=y_s[pad:-pad]
-    
+        
     x_s=signal.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
     y_s=signal.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
 
@@ -104,6 +90,14 @@ def preproc_raw(raw,meta,win=10):
     meta['im_dur_criterion_ms']=im_dur
     
     #Use smoothed x,y to calculate a normalized position
+    is_zone=('zone' in meta['protocol'][0]) 
+    is_openloop=('10x' in meta['protocol'][0])
+    if  is_zone or (is_openloop and ('iz1' in raw.columns)):
+        #Normalize coordinates to zone-cross
+        cross=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) > 0)).astype('bool')
+        zone_cross_x=np.nanmedian(x_s[cross])
+        x_s = x_s - zone_cross_x #so that 0 is defined as beginning of zone 1
+        
     raw['x']=x_s
     raw['y']=y_s
     xn,yn=norm_position(raw)
@@ -116,13 +110,18 @@ def preproc_raw(raw,meta,win=10):
         preproc['rear']=np.ones(raw['x'].shape)*np.nan
         
     if 'dlc_top_head_x' in raw.columns:
-        use_dlc = True
+        use_dlc = False #Always use ethovision by default?
         meta['has_dlc']=True        
     else:
         meta['has_dlc']=False
         use_dlc=False
-    preproc['dir']=smooth_direction(raw,meta,use_dlc=use_dlc, win=win)
-    preproc['meander'] = measure_meander(raw,meta,use_dlc=use_dlc)
+    preproc['dir']=smooth_direction(raw,meta,use_dlc=False, win=win)
+    if 'dlc_top_head_x' in raw.columns:
+        raw['dlc_dir']=smooth_direction(raw,meta,use_dlc=True,win=win)
+    else:
+        raw['dlc_dir']=np.ones(raw['x'].shape)*np.nan
+        
+    preproc['meander'] = measure_meander(raw,meta,use_dlc=False)
     return preproc,meta
 
 def add_amb_to_raw(raw,meta,amb_thresh=2,amb_dur=0.5,im_thresh=1,im_dur=0.5):
@@ -323,7 +322,7 @@ def measure_directedness(raw,meta):
     
     '''
     fs=meta['fs'][0]
-    dir = smooth_direction(raw,meta)
+    dir = raw['dir']
     diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
 
     dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
