@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import pdb
 import pandas as pd
 from scipy.signal import find_peaks 
 from scipy.signal import butter, filtfilt
@@ -18,9 +19,16 @@ def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
 def pad_lowpass_unpad(data,cutoff,fs,order=5):
     pad=round(fs*2)
     
+    #Remove outliers
+    existing_nan=np.isnan(data)
+    data=outlier_to_nan(data,outlier_thresh=3.5)
+    data[existing_nan]=np.nan
+   
     #Fill in nans if pandas series:
-    if isinstance(data,pd.core.series.Series):
-        data=data.interpolate(method='pad').astype(np.float)
+    if not isinstance(data,pd.core.series.Series):
+        data=pd.core.series.Series(data)
+        
+    data=data.interpolate(method='pad').astype(np.float)
     
     #Pad:
     data=np.pad(data,pad_width=(pad,),mode='linear_ramp')
@@ -30,6 +38,34 @@ def pad_lowpass_unpad(data,cutoff,fs,order=5):
     
     #Return unpadded:
     return data[pad:-pad]
+
+def outlier_to_nan(y,outlier_thresh=3):
+    if not isinstance(y,pd.core.series.Series):
+        y=pd.core.series.Series(y)
+        
+    y=y.interpolate(method='pad').astype(np.float)
+    y=np.array(y.values.astype(float))
+    
+    # y[np.isnan(y)]=0
+    dy=np.diff(np.concatenate(([y[0]],y)))
+    # pdb.set_trace()
+    # sd_thresh=np.nanstd(dy)*sd
+    # pdb.set_trace()
+    on, _ = thresh(dy, outlier_thresh,'Pos')
+    _, off =thresh(dy, outlier_thresh,'Neg')
+    if (len(on) > 0) and (len(off) >0):
+        for i,j in zip(on,off):
+            if j < i:
+                ii=j
+                j=i
+                i=ii
+                i = i-2       
+            #Expand:
+            i = i-2
+            j = j+2
+    
+            y[i:j]=np.nan
+    return y
 
 def thresh(y,thresh, sign='Pos'):
     if len(y.shape) == 1:

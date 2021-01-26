@@ -34,9 +34,12 @@ def smooth_vel(raw,meta,win=10):
     vel=[]
     fs=meta['fs'][0]
     cutoff=3 #Hz
-        
-    x_s=signal.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
-    y_s=signal.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
+    x=raw['x']
+    x[0:5]=np.nan
+    y=raw['y']
+    y[0:5]=np.nan
+    x_s=signal.pad_lowpass_unpad(x,cutoff,fs,order=5)
+    y_s=signal.pad_lowpass_unpad(y,cutoff,fs,order=5)
 
     #Calculate distance between smoothed (x,y) points for smoother velocity
     for i,x2 in enumerate(x_s):
@@ -217,8 +220,30 @@ def find_arena_center(raw):
             
     return x_center,y_center
 
+def z1_to_z2_cross_detect(raw,meta,max_cross_dur=5,min_total_dist=5,min_cross_dist=3):
+    z2=raw['iz2'] == True
+    facing_z1=((raw['dir'] > 155) | (raw['dir'] < -155))
+    close_or_crossing= (raw['x'] < 10) & (raw['x'] >-15)
+    facing_close= facing_z1 & close_or_crossing & raw['ambulation'] # & z2 
+    start,stop = signal.thresh(facing_close.astype(int),0.5, sign='Pos')
+    cross=[]
+    no_cross=[]
+    for i,j in zip(start,stop):
+        xi=raw['x'][i]
+        xj=raw['x'][j]
+        fullx=raw['x'][i:j]
+        dur = (j-i)/meta['fs'][0]
+        dist=signal.calculateDistance(xi,0,xj,0)
+        good_dur=((dur < max_cross_dur) and (dur > 0.5))
+        if (dist > min_total_dist) and (xi > 0) and good_dur:
+            if (xj < 0) or any(fullx < -min_cross_dist):
+                cross.append([i,j])
+            else:
+                no_cross.append([i,j])
+    return cross, no_cross
+
 def trial_part_position(raw,meta):
-    x,y=norm_position(raw)
+    # x,y=norm_position(raw)
     t=[i for i in range(4)]
     t[0]=0
     t[1]=meta.task_start[0]

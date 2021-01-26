@@ -33,8 +33,9 @@ exc=[ex0,ex0,ex0]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 # ethovision_tools.add_dlc_to_csv(basepath,inc,exc,save=True)
-pns=dataloc.raw_csv(basepath,inc[0],ex0)
-raw,meta=ethovision_tools.csv_load(pns[0],method='preproc' )
+pns=dataloc.raw_csv(basepath,inc[1],ex0)
+raw,meta=ethovision_tools.csv_load(pns[1],method='preproc' )
+r,_=ethovision_tools.csv_load(pns[1])
 # raw,meta=ethovision_tools.csv_load(pns[0])
 # %%
 x_s=raw['x']
@@ -45,65 +46,60 @@ print(cross_zero)
 plt.figure()
 plt.plot(x_s,y_s)
 plt.plot(x_s-cross_zero,y_s)
-# %%
+
+# %% Plot approaches to zone 1:
+c,nc=behavior.z1_to_z2_cross_detect(raw,meta)
+plt.figure()
+plt.plot([-25,-25,25,25,-25],[-25,25,25,-25,-25],'k')
+plt.plot([0,0],[-25,25],'--k')
+for i,j in c:
+    fullx=raw['x'][i:j]
+    plt.plot(fullx,raw['y'][i:j],10,c='r')
+
+for i,j in nc:
+    fullx=raw['x'][i:j]
+    plt.plot(fullx,raw['y'][i:j],10,c='c')
+# %% Summarize across many mice / conditions:
 data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
-                              'room','amb_meander','amb_bouts'])
+                              'room','cross_per','cross_counts'])
 temp=data
 min_bout=1
 use_dlc=False
 keep_enter=[]
+keep_exit=[]
+use_col=['iz1','iz2','dir','vel','x','ambulation']
 for ii,ee in zip(inc,exc):
     pns=dataloc.raw_csv(basepath,ii,ee)
     for pn in pns:
         temp={}
-        raw,meta=ethovision_tools.csv_load(pn,method='preproc')
+        raw,meta=ethovision_tools.csv_load(pn,columns=use_col,method='preproc')
         temp['anid']=meta['anid'][0]
         temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
                                                  meta['stim_area'][0],
                                                  meta['opsin_type'][0])
         temp['proto']=meta['protocol'][0]
         temp['room']=meta.exp_room_number[0]
-        stim_dur = round(np.mean(meta['stim_dur']))        
-        vel_clip=behavior.stim_clip_grab(raw,meta,
-                                          y_col='vel', 
-                                          stim_dur=stim_dur)    
-        
-        enter=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) > 0)).astype('bool')
-        exit=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) < 0)).astype('bool')
-        dir = raw['dir']
-        b=dir[enter]
-        bb= np.array(raw['vel'].values[enter]) > 10
-        b=b[bb]
-        mb=circmean(b,high=180,low=-180)
-        # mb=mode([x for x in b])
-        keep_enter.append(mb)
-        c=dir[exit]
-        mc=circmean(c,high=180,low=-180)
-        print(mc)
-        # clip_ave=behavior.stim_clip_average(vel_clip)   
-        
-        # #### Calculate stim-triggered %time mobile:
-        # percentage = lambda x: (np.nansum(x)/len(x))*100
-      
-        
-        # #### Calculate ambulation bout properties:
-        # raw['stim_zone'] = (raw['ambulation']==True) & (raw['vel']>5)
-        # if any(raw['run']):
-        #     amb_bouts=behavior.bout_analyze(raw,meta,'run',
-        #                                     stim_dur=stim_dur,
-        #                                     min_bout_dur_s=min_bout,
-        #                                     use_dlc=use_dlc)
-        #     temp['amb_meander']=np.nanmean(amb_bouts['meander'],axis=0)
-        #     temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
-        # else:
-        #     temp['amb_meander']=[np.nan, np.nan, np.nan]
-        #     temp['amb_bouts']=[0,0,0]
-        # #### Calculate immobile bout properties:
-        # im_bouts=behavior.bout_analyze(raw,meta,'im',
-        #                                 stim_dur=stim_dur,
-        #                                 min_bout_dur_s=min_bout,
-        #                                 use_dlc=use_dlc)
+        c,nc=behavior.z1_to_z2_cross_detect(raw,meta)
+        t=[i for i in range(4)]
+        t[0]=0
+        t[1]=meta.task_start[0] * meta['fs'][0]
+        t[2]=meta.task_stop[0]* meta['fs'][0]
+        t[3]=meta.exp_end[0]* meta['fs'][0]
+        tot_c=np.zeros((2,3))
 
-# %% Take center crossing trajectory clips, align to crossing point
-
+        for i in range(len(t)-1):
+            in_period=0
+            for cross in c:
+                if (cross[0] >=t[i]) and (cross[1] < t[i+1]):
+                    in_period += 1
+            tot_c[0,i]=in_period
+            in_period=0
+            for cross in nc:
+                if (cross[0] >=t[i]) and (cross[1] < t[i+1]):
+                    in_period += 1
+            tot_c[1,i]=in_period
+        completed_cross=(tot_c[0,:]/np.nansum(tot_c,axis=0)) * 100
+        temp['cross_per']= completed_cross
+        temp['cross_counts']=np.nansum(tot_c,axis=0)
+        data=data.append(temp,ignore_index=True)
 # %% Where are rears happening during zone task?
