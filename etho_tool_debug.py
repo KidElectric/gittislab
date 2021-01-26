@@ -16,6 +16,20 @@ from matplotlib import pyplot as plt
 import pdb
 from itertools import compress
 
+# %% RUN ON ALL:
+ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
+inc=[['AG']]
+make_preproc = True
+exc=[ex0]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_raw_to_csv(basepath,
+                                  inc,exc,force_replace=True,
+                                  win=10,make_preproc =True)
+summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
+print(summary.stim_dur)
+print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
+print('negative stim durs: %d' % sum((summary.stim_dur<0)))
+
 # %% 
 # inc=['GPi','CAG','Arch','10x30','AG6151_3_CS090720']
 

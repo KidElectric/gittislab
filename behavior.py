@@ -220,11 +220,12 @@ def find_arena_center(raw):
             
     return x_center,y_center
 
-def z1_to_z2_cross_detect(raw,meta,max_cross_dur=5,min_total_dist=5,min_cross_dist=3):
+def z2_to_z1_cross_detect(raw,meta,start_cross_dist=15,stop_cross_dist=10,
+                          max_cross_dur=5,min_total_dist=5,min_cross_dist=3):
     z2=raw['iz2'] == True
-    facing_z1=((raw['dir'] > 155) | (raw['dir'] < -155))
-    close_or_crossing= (raw['x'] < 10) & (raw['x'] >-15)
-    facing_close= facing_z1 & close_or_crossing & raw['ambulation'] # & z2 
+    facing_z1=((raw['dir'] > 155) | (raw['dir'] < -165))
+    close_or_crossing= (raw['x'] < start_cross_dist) & (raw['x'] >-stop_cross_dist)
+    facing_close= facing_z1 & close_or_crossing  # & z2 #& raw['ambulation']
     start,stop = signal.thresh(facing_close.astype(int),0.5, sign='Pos')
     cross=[]
     no_cross=[]
@@ -242,8 +243,31 @@ def z1_to_z2_cross_detect(raw,meta,max_cross_dur=5,min_total_dist=5,min_cross_di
                 no_cross.append([i,j])
     return cross, no_cross
 
+def trial_part_count_cross(cross,non_cross,meta):
+    t=[i for i in range(4)]
+    t[0]=0
+    t[1]=meta.task_start[0] * meta['fs'][0]
+    t[2]=meta.task_stop[0]* meta['fs'][0]
+    t[3]=meta.exp_end[0]* meta['fs'][0]
+    tot_c=np.zeros((2,3))
+
+    for i in range(len(t)-1):
+        in_period=0
+        for c in cross:
+            if (c[0] >=t[i]) and (c[1] < t[i+1]):
+                in_period += 1
+        tot_c[0,i]=in_period
+        in_period=0
+        for c in non_cross:
+            if (c[0] >=t[i]) and (c[1] < t[i+1]):
+                in_period += 1
+        tot_c[1,i]=in_period
+    return tot_c
+
 def trial_part_position(raw,meta):
-    # x,y=norm_position(raw)
+    # x,y=norm_position(raw) #Already performed with preprocessed raw dataframe
+    x=raw['x']
+    y=raw['y']
     t=[i for i in range(4)]
     t[0]=0
     t[1]=meta.task_start[0]

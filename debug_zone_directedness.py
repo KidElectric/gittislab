@@ -59,6 +59,7 @@ for i,j in c:
 for i,j in nc:
     fullx=raw['x'][i:j]
     plt.plot(fullx,raw['y'][i:j],10,c='c')
+    
 # %% Summarize across many mice / conditions:
 data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
                               'room','cross_per','cross_counts'])
@@ -79,27 +80,54 @@ for ii,ee in zip(inc,exc):
                                                  meta['opsin_type'][0])
         temp['proto']=meta['protocol'][0]
         temp['room']=meta.exp_room_number[0]
-        c,nc=behavior.z1_to_z2_cross_detect(raw,meta)
-        t=[i for i in range(4)]
-        t[0]=0
-        t[1]=meta.task_start[0] * meta['fs'][0]
-        t[2]=meta.task_stop[0]* meta['fs'][0]
-        t[3]=meta.exp_end[0]* meta['fs'][0]
-        tot_c=np.zeros((2,3))
-
-        for i in range(len(t)-1):
-            in_period=0
-            for cross in c:
-                if (cross[0] >=t[i]) and (cross[1] < t[i+1]):
-                    in_period += 1
-            tot_c[0,i]=in_period
-            in_period=0
-            for cross in nc:
-                if (cross[0] >=t[i]) and (cross[1] < t[i+1]):
-                    in_period += 1
-            tot_c[1,i]=in_period
+        c,nc=behavior.z2_to_z1_cross_detect(raw,meta,
+                                            start_cross_dist=10,
+                                            stop_cross_dist=10,
+                                            max_cross_dur=5,
+                                            min_total_dist=5,
+                                            min_cross_dist=3)
+        tot_c= behavior.trial_part_count_cross(c,nc,meta)
         completed_cross=(tot_c[0,:]/np.nansum(tot_c,axis=0)) * 100
         temp['cross_per']= completed_cross
         temp['cross_counts']=np.nansum(tot_c,axis=0)
+        
+        c,nc=behavior.z2_to_z1_cross_detect(raw,meta,
+                                            start_cross_dist=15,
+                                            stop_cross_dist=10, #Not enforced, just defines end of crossing
+                                            max_cross_dur=10, #Enforced
+                                            min_total_dist=10, #Enforced
+                                            min_cross_dist=3)
+        
+        tot_c= behavior.trial_part_count_cross(c,nc,meta)
+        completed_cross=(tot_c[0,:]/np.nansum(tot_c,axis=0)) * 100
+        temp['far_cross_per']= completed_cross
+        
+        on,off=signal.thresh(raw['iz1'].astype(int),0.5,'Pos')
+        facing=circmean(raw['dir'][on],high=180,low=-180)
+        temp['face_z1_dir']=facing
         data=data.append(temp,ignore_index=True)
+# %% Plot this
+use_field='far_cross_per'
+plt.figure()
+ax=plt.subplot(1,2,1)
+plt.title('Str A2a ChR2')
+chr2= np.array([('Ai32'in x or 'ChR2' in x) for x in data['cell_area_opsin']])
+subset=np.stack(list(data.loc[chr2,use_field]),axis=0)
+clip={'data':subset}
+plots.mean_bar_plus_conf(clip,['Pre','Dur','Post'],
+                         use_key='data', ax=ax,
+                         clip_method=False)
+plt.ylabel('% Of crossings completed')
+plt.ylim(0,100)
+
+
+ax=plt.subplot(1,2,2)
+plt.title('GPe CAG Arch')
+subset=np.stack(list(data.loc[~chr2,use_field]),axis=0)
+clip={'data':subset}
+plots.mean_bar_plus_conf(clip, ['Pre','Dur','Post'],
+                         use_key='data',ax=ax,
+                         clip_method=False)
+plt.ylim(0,100)
+plt.ylabel('% Of crossings completed')
 # %% Where are rears happening during zone task?

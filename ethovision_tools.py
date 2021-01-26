@@ -150,6 +150,10 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
                 
             else:
                 print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
+                meta['dlc_outlier_thresh_sd'] =np.nan
+                meta['dlc_likelihood_thresh'] = np.nan
+                meta['rear_thresh']=np.nan
+                meta['rear_min_thresh']=np.nan   
 
 def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                      force_replace=False, make_preproc=False, win=10):
