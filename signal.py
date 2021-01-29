@@ -2,7 +2,7 @@ import math
 import numpy as np
 import pdb
 import pandas as pd
-from scipy.signal import find_peaks 
+from scipy.signal import find_peaks
 from scipy.signal import butter, filtfilt
 
 def butter_lowpass(cutoff, fs, order=5):
@@ -212,8 +212,8 @@ def two_line_angle(vector1, vector2):
     len2 = math.hypot(x2, y2)
     return math.acos(inner_product/(len1*len2))
 
-def rear_peak_start_stop(y,distance=30,height=0.6,width=10, min_thresh=0.2):
-    # Use find_peaks() to calculate rear locations
+def expand_peak_start_stop(y,distance=30,height=0.6,width=10, min_thresh=0.2):
+    # Use find_peaks() and generate boundaries additionally defined by a minimum threshold
     peaks=find_peaks(y,distance=distance,height=height,width=width)[0] #Will return np.array
     start_peak=[]
     stop_peak=[]

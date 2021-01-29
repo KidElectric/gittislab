@@ -12,204 +12,7 @@ if os.name == 'posix':
     sep='/'
 else:
     sep='\\'
-def unify_to_h5(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
-    '''
-    unify_to_h5(basepath,conds_inc=[],conds_exc=[]):
-            makes a fully integrated .h5 file containing:
-            a) meta - dictionary with key experiment information (animal id, condition, etc).
-            b) raw - dataframe with columns of samples for various measurements like mouse position (x,y)
-            c) stim - dictionary with stimulation times and type (if relevant)
-            d) deeplabcut - dataframe of body tracking if available
 
-    Parameters
-    ----------
-    basepath : TYPE
-        DESCRIPTION.
-    conds_inc : TYPE, optional
-        DESCRIPTION. The default is [].
-    conds_exc : TYPE, optional
-        DESCRIPTION. The default is [].
-
-    Returns
-    -------
-    None.
-
-    '''
-    
-    for i,inc in enumerate(conds_inc):
-        exc=conds_exc[i]
-        xlsx_paths=dataloc.rawxlsx(basepath,inc,exc)
-        if isinstance(xlsx_paths,Path):
-            xlsx_paths=[xlsx_paths]
-        for ii,path in enumerate(xlsx_paths):
-            # First, let's check if there is already a .h5 file in this folder:    
-            new_file_name=dataloc.path_to_rawfn(path) + '.h5'
-            file_exists=os.path.exists(path.parent.joinpath(new_file_name))
-            print('Inc[%d], file %d) %s generation...' % (i,ii,new_file_name))
-            if (file_exists == False) or ((file_exists == True) and (force_replace == True)): 
-                matpath=dataloc.rawmat(path.parent)
-                xlsxpath=path
-                if matpath: #If .mat file exists, create raw .h5 file from this file
-                    raw=raw_from_mat(matpath) #Will add 'raw', 'meta', and 'stim' to .h5
-                    meta=meta_from_mat(matpath)
-                else: #If no .mat file exists, generate raw .h5 from xlsx (slow)
-                    print('\tNo .mat file found! Generating from .xlsx...')
-                    raw,meta=raw_meta_from_xlsx(xlsxpath)
-
-                
-                #Set common boolean columns (but don't force it if these columns are not present):
-                common_bool=['im', 'm', 'laserOn','iz1','iz2']
-                for cb in common_bool:
-                    if cb in raw.columns:
-                        raw[cb]=raw[cb].astype('bool')
-                
-                #Improved velocity measure:
-                
-                raw['vel']=behavior.smooth_vel(raw,meta,win)
-                meta['vel_smooth_win_ms']=win/meta['fs'] * 1000 # ~333ms
-                
-                thresh=2; #cm/s; Kravitz & Kreitzer 2010
-                dur=0.5; #s; Kravitz & Kreitzer 2010
-                raw=behavior.add_amb_to_raw(raw,meta,thresh,dur,im_thresh=1,im_dur=0.25) #Thresh and dur
-                meta['amb_vel_thresh']=thresh
-                meta['amb_dur_criterion_ms']=dur
-                
-                #Assume a Raw*.h5 now exists and add deeplabcut tracking to this .h5:
-                dlcpath=dataloc.dlc_h5(path.parent)
-                
-                #add_deeplabcut(path) # still need to write this function -> integrated into raw? something else?
-                
-                #Write raw and meta to .h5 file:
-                pnfn=path.parent.joinpath(new_file_name)
-                print('\tSaving %s\n' % pnfn)
-                h5_store(pnfn,raw,**meta)
-                
-            else:
-                # path_str=dataloc.path_to_description(path)
-                print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
-    print('Finished')
-
-def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
-                   save=False,force_replace = False):
-    for i,inc in enumerate(conds_inc):
-        exc=conds_exc[i]
-        csv_paths=dataloc.raw_csv(basepath,inc,exc)
-        if isinstance(csv_paths,Path):
-            csv_paths=[csv_paths]
-        for ii,path in enumerate(csv_paths):            
-            # First, let's check if there is a dlc .h5 file in this folder:                 
-            dlc_path=dataloc.gen_paths_recurse(path.parent,inc,exc,'*dlc_analyze.h5')
-            if isinstance(dlc_path,Path):
-                file_exists = True
-            else:
-                file_exists = len(dlc_path) > 0
-
-            if (file_exists == True):       
-                if save == True:
-                    print('Inc[%d], file %d) %s adding to Raw*.csv ...' % (i,ii,dlc_path))
-                #Read raw and meta to .csv files:               
-                print('\tLoading %s\n' % path)
-                raw,meta= csv_load(path)
-                
-                #Check if DLC already added:
-                dlc_added = 'dlc_side_tail_base_x' in raw.columns
-                #If not, or if set to force replace:
-                if (dlc_added == False) or ((dlc_added==True) and (force_replace==True)):
-                    # Read in the DLC file:
-                    print('\tLoading DLC file...')
-                    dlc_outlier_thresh_sd=4
-                    dlc_likelihood_thresh=0.1
-                    dlc= behavior.load_and_clean_dlc_h5(dlc_path,dlc_outlier_thresh_sd,
-                                                        dlc_likelihood_thresh)
-                    meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
-                    meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
-                    
-                    #Add rearing to dlc:
-                    rear_thresh=0.65
-                    min_thresh=0.25
-                    _,_,_,dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
-                    meta['rear_thresh']=rear_thresh
-                    meta['rear_min_thresh']=min_thresh                
-                    
-                    # For each column in dlc, make a column in raw with collapsed name:
-                    for col in dlc.columns:                    
-                        if 'likelihood' not in col:
-                            new_col='dlc_%s_%s' % col[1:]
-                            raw[new_col]=dlc[col]
-                    if save == True:
-                        print('\t Saving updated Raw*.csv...')
-                        raw.to_csv(path)
-                        
-                        meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
-                        print('\tSaving updated meta*.csv %s\n' % meta_pnfn)
-                        meta.to_csv(meta_pnfn)
-                    else:
-                        return raw, meta
-                else:
-                    print('\t DLC content already added to Raw*.csv ... skipping.')
-                
-            else:
-                print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
-
-def add_dlc_helper(raw,meta,path,inc,exc,force_replace=False):               
-    dlc_path=dataloc.gen_paths_recurse(path,inc,exc,'*dlc_analyze.h5')
-    if isinstance(dlc_path,Path):
-        file_exists = True
-    else:
-        file_exists = len(dlc_path) > 0
-
-    if (file_exists == True):       
-        
-        #Check if DLC already added:
-        dlc_added = 'dlc_side_tail_base_x' in raw.columns
-        
-        #If not, or if set to force replace:
-        if (dlc_added == False) or ((dlc_added==True) and (force_replace==True)):
-            # Read in the DLC file:
-            print('\tLoading DLC file...')
-            dlc_outlier_thresh_sd=4
-            dlc_likelihood_thresh=0.1
-            dlc= behavior.load_and_clean_dlc_h5(dlc_path,dlc_outlier_thresh_sd,
-                                                dlc_likelihood_thresh)
-            if isinstance(dlc,pd.DataFrame):                
-                meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
-                meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
-                
-                #Add rearing to dlc:
-                rear_thresh=0.65
-                min_thresh=0.25
-                _,_,_,dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
-                meta['rear_thresh']=rear_thresh
-                meta['rear_min_thresh']=min_thresh                
-                meta['bad_dlc_tracking']=False
-                # For each column in dlc, make a column in raw with collapsed name:
-                for col in dlc.columns:                    
-                    if 'likelihood' not in col:
-                        new_col='dlc_%s_%s' % col[1:]
-                        raw[new_col]=dlc[col]
-            else:
-                print('\t DLC exists but tracking is bad and should be re-done/examined.')
-                meta['dlc_outlier_thresh_sd'] =np.nan
-                meta['dlc_likelihood_thresh'] = np.nan
-                meta['rear_thresh']=np.nan
-                meta['rear_min_thresh']=np.nan   
-                meta['bad_dlc_tracking']=True
-        else:
-            print('\t DLC content already added to Raw*.csv ... skipping.')
-            meta['dlc_outlier_thresh_sd'] =np.nan
-            meta['dlc_likelihood_thresh'] = np.nan
-            meta['rear_thresh']=np.nan
-            meta['rear_min_thresh']=np.nan   
-            meta['bad_dlc_tracking']=False
-        
-    else:
-        print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
-        meta['dlc_outlier_thresh_sd'] =np.nan
-        meta['dlc_likelihood_thresh'] = np.nan
-        meta['rear_thresh']=np.nan
-        meta['rear_min_thresh']=np.nan   
-        meta['bad_dlc_tracking']=np.nan
-    return raw, meta
 
 def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                      force_replace=False, make_preproc=False, win=10):
@@ -236,7 +39,8 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
     None.
 
     '''
-    version=3
+    version=3 #Version where versioning is formally implemented (all at version 3)
+    # version = 4 #Change rear threshold to 0.6 and min thresh to 0.55
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         xlsx_paths=dataloc.rawxlsx(basepath,inc,exc)
@@ -258,7 +62,7 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                     found_ver = 0
                     
             print('Inc[%d], file %d) %s generation...' % (i,ii,new_file_name))
-            if (version != found_ver) and (file_exists == False) \
+            if (version > found_ver) and (file_exists == False) \
                 or ((file_exists == True) and (force_replace == True) and (version != found_ver) ): 
                     
                 xlsxpath=path
@@ -284,13 +88,6 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                     print('\tSaving %s\n' % pnfn)
                     raw.to_csv(pnfn)
                     
-                    # #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:                  
-                    raw, mout = add_dlc_helper(raw,meta,path.parent,inc,exc,force_replace=False)
-                    
-                    meta['dlc_outlier_thresh_sd'] = mout['dlc_outlier_thresh_sd']
-                    meta['dlc_liklihood_thresh'] = mout['dlc_likelihood_thresh']                    
-                    meta['rear_thresh']=mout['rear_thresh']
-                    meta['rear_min_thresh']=mout['rear_min_thresh']
                     meta['version'] = version
                     if make_preproc == True:
                         raw_csv_to_preprocessed_csv(path.parent,
@@ -350,7 +147,15 @@ def raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace
                     print('\tNo preproc*.csv file found- Generating from Raw*.csv...')
                 raw,meta=csv_load(rawpath)
                 if isinstance(raw,pd.DataFrame):
+                    #Load DLC and make sure rear-detection is up-to-date
+                    rear_thresh=0.60
+                    min_thresh=0.55
+                    raw, meta = add_dlc_helper(raw,meta,path.parent,inc,exc,
+                                               rear_thresh=rear_thresh,
+                                               min_thresh=min_thresh,
+                                               force_replace=True)
                     preproc,meta=behavior.preproc_raw(raw,meta,win=win)
+                    
                     
                     #Write raw and meta to .csv files:
                     pnfn=path.parent.joinpath(preproc_file_name)
@@ -364,8 +169,130 @@ def raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace
             else:
                 # path_str=dataloc.path_to_description(path)
                 print('\t %s already EXISTS in %s.\n' % (preproc_file_name,path.parent))
-    print('Finished')   
+    print('Finished') 
     
+def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
+                   save=False,force_replace = False):
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        csv_paths=dataloc.raw_csv(basepath,inc,exc)
+        if isinstance(csv_paths,Path):
+            csv_paths=[csv_paths]
+        for ii,path in enumerate(csv_paths):            
+            # First, let's check if there is a dlc .h5 file in this folder:                 
+            dlc_path=dataloc.gen_paths_recurse(path.parent,inc,exc,'*dlc_analyze.h5')
+            if isinstance(dlc_path,Path):
+                file_exists = True
+            else:
+                file_exists = len(dlc_path) > 0
+
+            if (file_exists == True):       
+                if save == True:
+                    print('Inc[%d], file %d) %s adding to Raw*.csv ...' % (i,ii,dlc_path))
+                #Read raw and meta to .csv files:               
+                print('\tLoading %s\n' % path)
+                raw,meta= csv_load(path)
+                
+                #Check if DLC already added:
+                dlc_added = 'dlc_side_tail_base_x' in raw.columns
+                #If not, or if set to force replace:
+                if (dlc_added == False) or ((dlc_added==True) and (force_replace==True)):
+                    # Read in the DLC file:
+                    print('\tLoading DLC file...')
+                    dlc_outlier_thresh_sd=4
+                    dlc_likelihood_thresh=0.1
+                    dlc= behavior.load_and_clean_dlc_h5(dlc_path,dlc_outlier_thresh_sd,
+                                                        dlc_likelihood_thresh)
+                    meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
+                    meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
+                    
+                    #Add rearing to dlc:
+                    rear_thresh=0.60
+                    min_thresh=0.55
+                    _,_,_,dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
+                    meta['rear_thresh']=rear_thresh
+                    meta['rear_min_thresh']=min_thresh                
+                    
+                    # For each column in dlc, make a column in raw with collapsed name:
+                    for col in dlc.columns:                    
+                        if 'likelihood' not in col:
+                            new_col='dlc_%s_%s' % col[1:]
+                            raw[new_col]=dlc[col]
+                    if save == True:
+                        print('\t Saving updated Raw*.csv...')
+                        raw.to_csv(path)
+                        
+                        meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
+                        print('\tSaving updated meta*.csv %s\n' % meta_pnfn)
+                        meta.to_csv(meta_pnfn)
+                    else:
+                        return raw, meta
+                else:
+                    print('\t DLC content already added to Raw*.csv ... skipping.')
+                
+            else:
+                print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
+
+def add_dlc_helper(raw,meta,path,inc=[],exc=[],force_replace=False,rear_thresh=0.60,
+                   min_thresh=0.55):               
+    dlc_path=dataloc.gen_paths_recurse(path,inc,exc,'*dlc_analyze.h5')
+    if isinstance(dlc_path,Path):
+        file_exists = True
+    else:
+        file_exists = len(dlc_path) > 0
+
+    if (file_exists == True):       
+        
+        #Check if DLC already added:
+        dlc_added = 'dlc_side_tail_base_x' in raw.columns
+        
+        #If not, or if set to force replace:
+        if (dlc_added == False) or ((dlc_added==True) and (force_replace==True)):
+            # Read in the DLC file:
+            print('\tLoading DLC file...')
+            dlc_outlier_thresh_sd=4
+            dlc_likelihood_thresh=0.1
+            dlc= behavior.load_and_clean_dlc_h5(dlc_path,dlc_outlier_thresh_sd,
+                                                dlc_likelihood_thresh)
+            if isinstance(dlc,pd.DataFrame):                
+                meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
+                meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
+                
+                #Add rearing to dlc:
+                dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
+                meta['rear_thresh']=rear_thresh
+                meta['rear_min_thresh']=min_thresh                
+                meta['bad_dlc_tracking']=False
+                # For each column in dlc, make a column in raw with collapsed name:
+                
+                for col in dlc.columns:                    
+                    if 'likelihood' not in col:
+                        new_col='dlc_%s_%s' % col[1:]
+                        raw[new_col]=dlc[col]
+            else:
+                print('\t DLC exists but tracking is bad and should be re-done/examined.')
+                meta['dlc_outlier_thresh_sd'] =np.nan
+                meta['dlc_likelihood_thresh'] = np.nan
+                meta['rear_thresh']=np.nan
+                meta['rear_min_thresh']=np.nan   
+                meta['bad_dlc_tracking']=True
+        else:
+            print('\t DLC content already added to Raw*.csv ... skipping.')
+            meta['dlc_outlier_thresh_sd'] =np.nan
+            meta['dlc_likelihood_thresh'] = np.nan
+            meta['rear_thresh']=np.nan
+            meta['rear_min_thresh']=np.nan   
+            meta['bad_dlc_tracking']=False
+        
+    else:
+        print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
+        meta['dlc_outlier_thresh_sd'] =np.nan
+        meta['dlc_likelihood_thresh'] = np.nan
+        meta['rear_thresh']=np.nan
+        meta['rear_min_thresh']=np.nan   
+        meta['bad_dlc_tracking']=np.nan
+    return raw, meta
+
 def meta_sum_h5(basepath,conds_inc=[],conds_exc=[]):
     '''
         Generate a summary dataframe of metadata from .h5 files specified by

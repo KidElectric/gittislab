@@ -109,12 +109,13 @@ def preproc_raw(raw,meta,win=10):
     
     if 'dlc_is_rearing_logical' in raw.columns:
         preproc['rear']=raw['dlc_is_rearing_logical']
+        preproc['mouse_height']=raw['dlc_front_over_rear_length']
     else:
         preproc['rear']=np.ones(raw['x'].shape)*np.nan
         
     if 'dlc_top_head_x' in raw.columns:
         use_dlc = False #Always use ethovision by default?
-        meta['has_dlc']=True        
+        meta['has_dlc']=True       
     else:
         meta['has_dlc']=False
         use_dlc=False
@@ -663,16 +664,10 @@ def load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_th
         # x2=df[(exp,'rear_centroid','x')].values
         y2=df[(exp,'rear_centroid','y')].values
         
-        # mouse_length=[]
-        # for i,r in enumerate(x1):
-        #     mouse_length.append(signal.calculateDistance(x1[i],y1[i],x2[i],y2[i]))
-            
         # #Correct for distance from camera:
         # out=[]
         step=20
         x=df[(exp,'top_body_center','y')].values
-        # col=(exp,'body','length')
-        # df[col]=signal.max_correct(x,mouse_length,step,poly_order=2)
         
         # Front over rear and correct for distance from camera:
         newy=signal.max_correct(x,y2-y1,step,poly_order=2)
@@ -745,64 +740,67 @@ def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):
     dims=['x','y']
     col=(exp,'front_over_rear','length')
     mouse_height=df[col]
-    peaks,start_peak,stop_peak = signal.rear_peak_start_stop(mouse_height,height=rear_thresh,min_thresh=min_thresh)
+    
+    # start_peak,stop_peak = signal.thresh(mouse_height,rear_thresh,'Pos')
+    peaks,start_peak,stop_peak = signal.expand_peak_start_stop(mouse_height,height=rear_thresh,min_thresh=min_thresh)
     rear=np.zeros(mouse_height.shape)
-    for i,start in enumerate(start_peak):
-        rear[start:stop_peak[i]]=1
+    for start,stop in zip(start_peak,stop_peak):
+        rear[start:stop]=1
     df[(exp,'is_rearing','logical')]=rear
-    print("\u001b[36m Detected %d rears in this video \u001b[0m" % len(peaks))
+    print('Sanity check')
+    print("\u001b[36m Detected %d rears in this video \u001b[0m" % len(start_peak))
    
-    if save_figs==True:
-        vid_path=dataloc.video(dlc_h5_path.parent)
-        print(str(vid_path))
-        rear_dir=str(dlc_h5_path.parent) + '/Rears'
-        if os.path.exists(rear_dir)==False:
-            os.mkdir(rear_dir)
-            print('Made Path')
-        cap = cv2.VideoCapture(str(vid_path))
-        if (cap.isOpened()== False): 
-            print("Error opening video stream or file... skipping attempt")
-            return peaks,start_peak,stop_peak,df
-        else:
-            width  = cap.get(3) # Pixel width of video
-            height = cap.get(4) # Pixel height of video
-            fs = cap.get(5) # Sampling rate of video
-        for pp,peak in enumerate(peaks):
-            fig,ax=plt.subplots(1,4,figsize=(15,5))    
-            frames=[start_peak[pp], peak, stop_peak[pp]]
-            if any(np.array(frames)<0):
-                print('Negative frame requesteds')
-            parts=['head_centroid','rear_centroid']
-            dims=['x','y']
-            cols=['y.','b.']
-            for i,f in enumerate(frames):
-                cap.set(1,f)
-                ret, frame = cap.read()
-                if ret == True:
-                    ax[i].imshow(frame)
-                    ax[i].set_title('Frame %d, %2.1fs in' % (f,(f-peak)/fs))
-                    ax[i].set_xlim(width/2,width)
-                    if height <= 480:
-                        ax[i].set_ylim(0,height/2)
-                        ax[i].invert_yaxis()
-                    for pn,part in enumerate(parts):
-                        temp=np.zeros((2,1))
-                        for ii,dim in enumerate(dims):
-                            temp[ii]=df[(exp,part,dim)][f]
-                        ax[i].plot(temp[0],temp[1],cols[pn],markersize=3)
-                else:
-                    ax[i].set_title('No frame returned.')
-            ax[-1].plot(mouse_height[frames[0]:frames[2]],'r')
-            mid=frames[1]-frames[0]
-            ax[-1].plot(mid,mouse_height[frames[1]],'bo')
-            ax[-1].plot(0,mouse_height[frames[0]],'rx')
-            ax[-1].plot(frames[2]-frames[0],mouse_height[frames[2]],'gx')
-            plt.tight_layout()
-            plt.show(block=False)
-            plt.savefig(rear_dir + '/rear_%03d.png' % pp )
-            plt.close()
-        cap.release()
-    return peaks,start_peak,stop_peak,df
+    # if save_figs==True:
+    #     vid_path=dataloc.video(dlc_h5_path.parent)
+    #     print(str(vid_path))
+    #     rear_dir=str(dlc_h5_path.parent) + '/Rears'
+    #     if os.path.exists(rear_dir)==False:
+    #         os.mkdir(rear_dir)
+    #         print('Made Path')
+    #     cap = cv2.VideoCapture(str(vid_path))
+    #     if (cap.isOpened()== False): 
+    #         print("Error opening video stream or file... skipping attempt")
+    #         return peaks,start_peak,stop_peak,df
+    #     else:
+    #         width  = cap.get(3) # Pixel width of video
+    #         height = cap.get(4) # Pixel height of video
+    #         fs = cap.get(5) # Sampling rate of video
+    #     for pp,peak in enumerate(peaks):
+    #         fig,ax=plt.subplots(1,4,figsize=(15,5))    
+    #         frames=[start_peak[pp], peak, stop_peak[pp]]
+    #         if any(np.array(frames)<0):
+    #             print('Negative frame requesteds')
+    #         parts=['head_centroid','rear_centroid']
+    #         dims=['x','y']
+    #         cols=['y.','b.']
+    #         for i,f in enumerate(frames):
+    #             cap.set(1,f)
+    #             ret, frame = cap.read()
+    #             if ret == True:
+    #                 ax[i].imshow(frame)
+    #                 ax[i].set_title('Frame %d, %2.1fs in' % (f,(f-peak)/fs))
+    #                 ax[i].set_xlim(width/2,width)
+    #                 if height <= 480:
+    #                     ax[i].set_ylim(0,height/2)
+    #                     ax[i].invert_yaxis()
+    #                 for pn,part in enumerate(parts):
+    #                     temp=np.zeros((2,1))
+    #                     for ii,dim in enumerate(dims):
+    #                         temp[ii]=df[(exp,part,dim)][f]
+    #                     ax[i].plot(temp[0],temp[1],cols[pn],markersize=3)
+    #             else:
+    #                 ax[i].set_title('No frame returned.')
+    #         ax[-1].plot(mouse_height[frames[0]:frames[2]],'r')
+    #         mid=frames[1]-frames[0]
+    #         ax[-1].plot(mid,mouse_height[frames[1]],'bo')
+    #         ax[-1].plot(0,mouse_height[frames[0]],'rx')
+    #         ax[-1].plot(frames[2]-frames[0],mouse_height[frames[2]],'gx')
+    #         plt.tight_layout()
+    #         plt.show(block=False)
+    #         plt.savefig(rear_dir + '/rear_%03d.png' % pp )
+    #         plt.close()
+    #     cap.release()
+    return df
 
 def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
     ''' 
