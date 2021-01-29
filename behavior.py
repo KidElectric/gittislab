@@ -589,99 +589,106 @@ def load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_th
     
     # Clean up rows based on likelihood:
     like_thresh=dlc_likelihood_thresh
+    bad_detect=[]
     for col in df.columns:
         if col[2] == 'likelihood':
             ex = df[col] < like_thresh
             xcol=(col[0],col[1],'x')
             ycol=(col[0],col[1],'y')
+
             df[xcol][ex]=np.nan
             df[ycol][ex]=np.nan
+            if sum(ex) > (len(df[xcol])/2):
+                bad_detect.append(xcol)
+                print('\t Bad %s %s column' % xcol[1:])
     
-    # Cleanup rows based on outliers:
-    sd_thresh= dlc_outlier_thresh_sd #sd
-    for col in df.columns:
-        if col[2]=='x' or col[2]=='y':
-            m=np.nanmean(df[col])
-            sd=np.nanstd(df[col])
-            ex=(df[col] > (m + sd_thresh * sd))
-            df[col][ex]=np.nan
-            ex=(df[col] < (m - sd_thresh * sd))
-            df[col][ex]=np.nan
-    
-    print('Data loaded and cleaned')
-
-    # Calculate head, front and rear centroids (mean coord):
-    exp=df.columns[0][0]
-    dims=['x','y']
-    
-    # Head centroid:
-    use=['snout','side_head']
-    for dim in dims:
-        for i,part in enumerate(use):
-            col=(exp,part,dim)
-            if i ==0:
-                dat=df[col].values[...,None]
-            else:
-                dat=np.concatenate((dat,df[col].values[...,None]),axis=1)
-        new_col=(exp,'head_centroid',dim)
-        df[new_col]=np.nanmean(dat,axis=1)
-    
-    # Front centroid:
-    use=['snout','side_head','side_left_fore','side_right_fore']
-    for dim in dims:
-        for i,part in enumerate(use):
-            col=(exp,part,dim)
-            if i ==0:
-                dat=df[col].values[...,None]
-            else:
-                dat=np.concatenate((dat,df[col].values[...,None]),axis=1)
-        new_col=(exp,'front_centroid',dim)
-        df[new_col]=np.nanmean(dat,axis=1)
-    
-    # Rear centroid:
-    use=['side_tail_base','side_left_hind','side_right_hind']
-    for dim in dims:
-        for i,part in enumerate(use):
-            col=(exp,part,dim)
-            if i ==0:
-                dat=df[col].values[...,None]
-            else:
-                dat=np.concatenate((dat,df[col].values[...,None]),axis=1)
-        new_col=(exp,'rear_centroid',dim)
-        df[new_col]=np.nanmean(dat,axis=1)
-    
-    
-    # Mouse body length:
-    # x1=df[(exp,'head_centroid','x')].values
-    y1=df[(exp,'head_centroid','y')].values
-    # x2=df[(exp,'rear_centroid','x')].values
-    y2=df[(exp,'rear_centroid','y')].values
-    
-    # mouse_length=[]
-    # for i,r in enumerate(x1):
-    #     mouse_length.append(signal.calculateDistance(x1[i],y1[i],x2[i],y2[i]))
+    if len(bad_detect) < 1:    
+        # Cleanup rows based on outliers:
+        sd_thresh= dlc_outlier_thresh_sd #sd
+        for col in df.columns:
+            if col[2]=='x' or col[2]=='y':
+                m=np.nanmean(df[col])
+                sd=np.nanstd(df[col])
+                ex=(df[col] > (m + sd_thresh * sd))
+                df[col][ex]=np.nan
+                ex=(df[col] < (m - sd_thresh * sd))
+                df[col][ex]=np.nan
         
-    # #Correct for distance from camera:
-    # out=[]
-    step=20
-    x=df[(exp,'top_body_center','y')].values
-    # col=(exp,'body','length')
-    # df[col]=signal.max_correct(x,mouse_length,step,poly_order=2)
+        print('Data loaded and cleaned')
     
-    # Front over rear and correct for distance from camera:
-    newy=signal.max_correct(x,y2-y1,step,poly_order=2)
-    ind=np.array([i for i in range(0,len(newy))])
-    
-    # Spline-fitting smooth method (slow!):
-    print('Quadratic interpolation...')
-    ex=np.isnan(newy)
-    s=interp1d(ind[~ex],newy[~ex],kind='quadratic',bounds_error=False) 
-    smooth_y=s(ind)
-    print('\tfinished')
-    col=(exp,'front_over_rear','length')
-    df[col]=smooth_y
-    print('Mouse height added to dataframe')
-    
+        # Calculate head, front and rear centroids (mean coord):
+        exp=df.columns[0][0]
+        dims=['x','y']
+        
+        # Head centroid:
+        use=['snout','side_head']
+        for dim in dims:
+            for i,part in enumerate(use):
+                col=(exp,part,dim)
+                if i ==0:
+                    dat=df[col].values[...,None]
+                else:
+                    dat=np.concatenate((dat,df[col].values[...,None]),axis=1)
+            new_col=(exp,'head_centroid',dim)
+            df[new_col]=np.nanmean(dat,axis=1)
+        
+        # Front centroid:
+        use=['snout','side_head','side_left_fore','side_right_fore']
+        for dim in dims:
+            for i,part in enumerate(use):
+                col=(exp,part,dim)
+                if i ==0:
+                    dat=df[col].values[...,None]
+                else:
+                    dat=np.concatenate((dat,df[col].values[...,None]),axis=1)
+            new_col=(exp,'front_centroid',dim)
+            df[new_col]=np.nanmean(dat,axis=1)
+        
+        # Rear centroid:
+        use=['side_tail_base','side_left_hind','side_right_hind']
+        for dim in dims:
+            for i,part in enumerate(use):
+                col=(exp,part,dim)
+                if i ==0:
+                    dat=df[col].values[...,None]
+                else:
+                    dat=np.concatenate((dat,df[col].values[...,None]),axis=1)
+            new_col=(exp,'rear_centroid',dim)
+            df[new_col]=np.nanmean(dat,axis=1)
+        
+        
+        # Mouse body length:
+        # x1=df[(exp,'head_centroid','x')].values
+        y1=df[(exp,'head_centroid','y')].values
+        # x2=df[(exp,'rear_centroid','x')].values
+        y2=df[(exp,'rear_centroid','y')].values
+        
+        # mouse_length=[]
+        # for i,r in enumerate(x1):
+        #     mouse_length.append(signal.calculateDistance(x1[i],y1[i],x2[i],y2[i]))
+            
+        # #Correct for distance from camera:
+        # out=[]
+        step=20
+        x=df[(exp,'top_body_center','y')].values
+        # col=(exp,'body','length')
+        # df[col]=signal.max_correct(x,mouse_length,step,poly_order=2)
+        
+        # Front over rear and correct for distance from camera:
+        newy=signal.max_correct(x,y2-y1,step,poly_order=2)
+        ind=np.array([i for i in range(0,len(newy))])
+        
+        # Spline-fitting smooth method (slow!):
+        print('Quadratic interpolation...')
+        ex=np.isnan(newy)
+        s=interp1d(ind[~ex],newy[~ex],kind='quadratic',bounds_error=False) 
+        smooth_y=s(ind)
+        print('\tfinished')
+        col=(exp,'front_over_rear','length')
+        df[col]=smooth_y
+        print('Mouse height added to dataframe')
+    else:
+        df=[]
     return df
 
 def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):    

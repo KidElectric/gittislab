@@ -256,7 +256,7 @@ def max_correct(x,y,step,poly_order=2):
     Take max value of each bin of x, fit a polynomial, and divide y by the fitted max
     This is useful to correct object size as a function of distance from a camera, for example.
     ''' 
-    max_val=math.ceil(max(x))
+    max_val=math.ceil(np.nanmax(x))
     out=[]
     xtemp=np.array([i for i in range(0,max_val,step)])+step/2
     keep_x=[]

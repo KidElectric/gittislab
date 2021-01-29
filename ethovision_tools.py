@@ -150,10 +150,66 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
                 
             else:
                 print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
+
+def add_dlc_helper(raw,meta,path,inc,exc,force_replace=False):               
+    dlc_path=dataloc.gen_paths_recurse(path,inc,exc,'*dlc_analyze.h5')
+    if isinstance(dlc_path,Path):
+        file_exists = True
+    else:
+        file_exists = len(dlc_path) > 0
+
+    if (file_exists == True):       
+        
+        #Check if DLC already added:
+        dlc_added = 'dlc_side_tail_base_x' in raw.columns
+        
+        #If not, or if set to force replace:
+        if (dlc_added == False) or ((dlc_added==True) and (force_replace==True)):
+            # Read in the DLC file:
+            print('\tLoading DLC file...')
+            dlc_outlier_thresh_sd=4
+            dlc_likelihood_thresh=0.1
+            dlc= behavior.load_and_clean_dlc_h5(dlc_path,dlc_outlier_thresh_sd,
+                                                dlc_likelihood_thresh)
+            if isinstance(dlc,pd.DataFrame):                
+                meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
+                meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
+                
+                #Add rearing to dlc:
+                rear_thresh=0.65
+                min_thresh=0.25
+                _,_,_,dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
+                meta['rear_thresh']=rear_thresh
+                meta['rear_min_thresh']=min_thresh                
+                meta['bad_dlc_tracking']=False
+                # For each column in dlc, make a column in raw with collapsed name:
+                for col in dlc.columns:                    
+                    if 'likelihood' not in col:
+                        new_col='dlc_%s_%s' % col[1:]
+                        raw[new_col]=dlc[col]
+            else:
+                print('\t DLC exists but tracking is bad and should be re-done/examined.')
                 meta['dlc_outlier_thresh_sd'] =np.nan
                 meta['dlc_likelihood_thresh'] = np.nan
                 meta['rear_thresh']=np.nan
                 meta['rear_min_thresh']=np.nan   
+                meta['bad_dlc_tracking']=True
+        else:
+            print('\t DLC content already added to Raw*.csv ... skipping.')
+            meta['dlc_outlier_thresh_sd'] =np.nan
+            meta['dlc_likelihood_thresh'] = np.nan
+            meta['rear_thresh']=np.nan
+            meta['rear_min_thresh']=np.nan   
+            meta['bad_dlc_tracking']=False
+        
+    else:
+        print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
+        meta['dlc_outlier_thresh_sd'] =np.nan
+        meta['dlc_likelihood_thresh'] = np.nan
+        meta['rear_thresh']=np.nan
+        meta['rear_min_thresh']=np.nan   
+        meta['bad_dlc_tracking']=np.nan
+    return raw, meta
 
 def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                      force_replace=False, make_preproc=False, win=10):
@@ -180,18 +236,31 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
     None.
 
     '''
-    
+    version=3
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         xlsx_paths=dataloc.rawxlsx(basepath,inc,exc)
         if isinstance(xlsx_paths,Path):
             xlsx_paths=[xlsx_paths]
         for ii,path in enumerate(xlsx_paths):
-            # First, let's check if there is already a .h5 file in this folder:    
+            # First, let's check if there is already a Raw*.csv file in this folder:    
             new_file_name=dataloc.path_to_rawfn(path) + '.csv'
             file_exists=os.path.exists(path.parent.joinpath(new_file_name))
+            if file_exists == True:
+                metapnfn=dataloc.meta_csv(path.parent,inc,exc)
+                if isinstance(metapnfn,Path) > 0:
+                    pre_meta=meta_csv_load(metapnfn)
+                    if 'version' not in pre_meta.columns:
+                        found_ver=0
+                    else:
+                        found_ver = pre_meta['version'][0]
+                else:
+                    found_ver = 0
+                    
             print('Inc[%d], file %d) %s generation...' % (i,ii,new_file_name))
-            if (file_exists == False) or ((file_exists == True) and (force_replace == True)): 
+            if (version != found_ver) and (file_exists == False) \
+                or ((file_exists == True) and (force_replace == True) and (version != found_ver) ): 
+                    
                 xlsxpath=path
                 #If no .mat file exists, generate raw .csv from xlsx (slow)
                 if ((file_exists == True) and (force_replace == True)):
@@ -216,13 +285,13 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                     raw.to_csv(pnfn)
                     
                     # #Assume a Raw*.csv now exists and add deeplabcut tracking to this .h5:                  
-                    raw, mout = add_dlc_to_csv(path.parent,[inc],[exc],
-                                            force_replace=True)
+                    raw, mout = add_dlc_helper(raw,meta,path.parent,inc,exc,force_replace=False)
+                    
                     meta['dlc_outlier_thresh_sd'] = mout['dlc_outlier_thresh_sd']
                     meta['dlc_liklihood_thresh'] = mout['dlc_likelihood_thresh']                    
                     meta['rear_thresh']=mout['rear_thresh']
                     meta['rear_min_thresh']=mout['rear_min_thresh']
-                    
+                    meta['version'] = version
                     if make_preproc == True:
                         raw_csv_to_preprocessed_csv(path.parent,
                                                     force_replace=True,
@@ -900,7 +969,7 @@ def stim_from_xlsx(df,pn):
     else:
         stim['n']=0
     if ('mw' in proto) or ('mW' in proto):
-        temp_amp=proto.split('_')[1].split('m')[0]
+        temp_amp=proto.split('_')[-1].split('m')[0]
         if 'p' in temp_amp:
             use_amp = int(temp_amp.split('p')[1])/10
         else:

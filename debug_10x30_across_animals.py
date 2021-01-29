@@ -5,7 +5,7 @@ Created on Mon Jan 18 14:36:52 2021
 
 @author: brian
 """
-from gittislab import signal, behavior, dataloc, ethovision_tools, plots, profile_fun
+from gittislab import plots, signal, behavior, dataloc, ethovision_tools, plots, profile_fun
 import os
 from pathlib import Path
 import numpy as np
@@ -30,9 +30,25 @@ exc=[ex0,ex0,ex0]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 
-# %%
+# %% FoxP2
 
-
+ex0=['exclude','bad','Exclude','broken', 'Other XLS','Exclude',]
+# inc=[['AG','GPe','CAG','Arch','10x']]
+exc=[ex0]
+inc=[['AG','GPe','FoxP2','ChR2','10x10_20mW'],]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_raw_to_csv(basepath,
+                                  inc,exc,force_replace=False,
+                                  win=10)
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,
+                                             inc,exc,force_replace=False,
+                                             win=10)
+for ii,ee in zip(inc,exc):
+   pns=dataloc.raw_csv(basepath,ii,ee)
+   for pn in pns:
+       temp={}
+       raw,meta=ethovision_tools.csv_load(pn,method='preproc' )
+       plots.plot_openloop_day(raw,meta)
 # %%
 
 # def test_batch_analyze(inc,exc):
