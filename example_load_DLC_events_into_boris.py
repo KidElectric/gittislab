@@ -67,6 +67,7 @@ start_peak,stop_peak = signal.thresh(mouse_height,rear_thresh,'Pos')
 rear=np.zeros(mouse_height.shape)
 for start,stop in zip(start_peak,stop_peak):
     rear[start:stop]=1
+    
 # %% Examine rearing thresholding:
 dlc, meta = ethovision_tools.add_dlc_helper(raw,meta,
                                      raw_pnfn.parent,

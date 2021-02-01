@@ -209,7 +209,7 @@ def mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True,
     else:
         return ax, h
     
-def trial_part_position(raw,meta,ax=None):
+def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b'):
     '''
     
 
@@ -232,11 +232,25 @@ def trial_part_position(raw,meta,ax=None):
     if ax == None:
         fig,ax = plt.subplots(1,3)
         axflag=False #No axis handle passed in    
-    
+    arena_size=23
+    if highlight == 1:
+        #Highlight Zone 1
+        ax[1].fill_between([-arena_size,0],
+                           [-arena_size,-arena_size],
+                           [arena_size,arena_size],
+                           hl_color, alpha=0.3,edgecolor='none')
+    elif highlight ==2:
+        #Highlight Zone 2
+        ax[1].fill_between([0,arena_size],
+                           [-arena_size,-arena_size],
+                           [arena_size, arena_size],
+                           hl_color, alpha=0.3,edgecolor='none')
+        
     xx,yy=behavior.trial_part_position(raw,meta)
     for x,y,a in zip(xx,yy,ax):
         a.scatter(x,y,4,'k',marker='.',alpha=0.05)
         a.axis('equal')
+        a.set_xlim([-22,22])
         plt.sca(a)
         plt.xlabel('cm')
         plt.ylabel('cm')
@@ -385,7 +399,174 @@ def plot_openloop_day(raw,meta):
     plt.ylabel('Directed (cm/deg)')
     return fig
 
+def plot_zone_day(raw,meta):    
+    '''
+    
+
+    Parameters
+    ----------
+    raw : TYPE
+        DESCRIPTION.
+    meta : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    fig : TYPE
+        DESCRIPTION.
+
+    '''
+    #### Set up figure axes in desired pattern
+    fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
+    gs = fig.add_gridspec(6, 3)
+    f_row=list(range(gs.nrows))
+    f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)] #Position
+    f_row[1]=[fig.add_subplot(gs[1,0:3])] #% Time spent pre,dur,post
+    f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
+    f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
+    f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
+    
+    
+    #### Title
+    plt.sca(f_row[0][1])
+    plt.title('%s, %s   %s   %s %s %s' % (meta['anid'][0],
+                      meta['etho_exp_date'][0],
+                      meta['protocol'][0],
+                      meta['cell_type'][0],
+                      meta['opsin_type'][0],
+                      meta['stim_area'][0]));
+    
+    #### Row 0: Mouse position over trial parts 
+    zone = int(meta['zone'][0].split(' ')[-1])
+    ax_pos = trial_part_position(raw,meta,ax=f_row[0],highlight=zone)
+    
+
+    #### Row 1: %Time in zone 1 and 2:
+    percentage = lambda x: (np.nansum(x)/len(x))*100
+    if zone == 1:
+        use = 'iz1'
+    else:
+        use = 'iz2'
+        
+    t=[i for i in range(4)]
+    t[0]=0
+    t[1]=meta.task_start[0]
+    t[2]=meta.task_stop[0]
+    t[3]=meta.exp_end[0]
+    in_zone1=[]
+    for i in range(len(t)-1):
+        ind=(raw['time']>= t[i]) & (raw['time'] < t[i+1])
+        in_zone1.append(percentage(np.array(raw['iz1'].astype(int))[ind]))
+        
+    in_zone2=np.array([100,100,100])-np.array(in_zone1)
+    x = np.array([0,1,2])
+    width=0.35
+    labels=['Pre','Dur', 'Post']
+    f_row[1][0].bar(x - width/2,in_zone1,width,label='Zone 1')
+    f_row[1][0].bar(x + width/2,in_zone2,width,label='Zone 2')
+    f_row[1][0].set_ylabel('%Time in Zone')
+    f_row[1][0].set_xticks(x)
+    f_row[1][0].set_xticklabels(labels)
+    f_row[1][0].legend()
+    f_row[1][0].set_ylim([0,100])
+    
+    #### Calculate stim-triggered speed changes:
+    baseline= round(np.mean(meta['stim_dur']))
+    stim_dur= baseline
+    vel_clip=behavior.stim_clip_grab(raw,meta,y_col='vel',
+                                      stim_dur=stim_dur)
+    
+    clip_ave=behavior.stim_clip_average(vel_clip)
+    
+    # raw['m']=~raw['im']
+    # m_clip=behavior.stim_clip_grab(raw,meta,y_col='m', 
+    #                                stim_dur=stim_dur,
+    #                                summarization_fun=percentage)
+
+    #### Row 2: Speed related
+    ax_speedbar = mean_cont_plus_conf(clip_ave,
+                                      xlim=[-stim_dur,stim_dur*2],
+                                      highlight=[0,stim_dur,25],
+                                      ax=f_row[2][0])
+    plt.ylabel('Speed (cm/s)')
+    plt.xlabel('Time from stim (s)')
+    
+    ax_speed = mean_bar_plus_conf(vel_clip,['Pre','Dur','Post'],ax=f_row[2][1])
+    plt.ylabel('Speed (cm/s)')
+    plt.xlabel('Time from stim (s)')
+    
+    # #### Row 2: % Time mobile & (Rearing?)
+    # ax_im = mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
+    # plt.ylabel('% Time Mobile')
+    
+    # min_bout=1
+    # amb_bouts=behavior.bout_analyze(raw,meta,'ambulation',
+    #                                 stim_dur=stim_dur,
+    #                                 min_bout_dur_s=min_bout)
+    # im_bouts=behavior.bout_analyze(raw,meta,'im',
+    #                                stim_dur=stim_dur,
+    #                                min_bout_dur_s=min_bout)
+    
+    
+    # #### Row 3: Ambulation bout info
+    # #Rate
+    # ax_amb_bout_rate= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+    #                                            use_key='rate',ax=f_row[3][0])
+    # plt.ylabel('Amb. bouts / 30s')
+    
+    # #Duration
+    # ax_amb_bout_dur = mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+    #                                            use_key='dur',ax=f_row[3][1])
+    # plt.ylabel('Amb. dur (s)')
+    
+    # #Speed
+    # ax_amb_bout_speed= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+    #                                            use_key='speed',ax=f_row[3][2])
+    # plt.ylabel('Amb. speed (cm/s)')
+    
+    # #### Row 4: immobility bout info
+    # #Rate
+    # ax_im_bout_rate= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+    #                                            use_key='rate',ax=f_row[4][0])
+    # plt.ylabel('Im. bouts / 30s')
+    
+    # #Duration
+    # ax_im_bout_dur= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+    #                                            use_key='dur',ax=f_row[4][1])
+    # plt.ylabel('Im. dur (s)')
+    
+    # ax_im_bout_speed= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+    #                                            use_key='speed',ax=f_row[4][2])
+    # plt.ylabel('Im. speed (cm/s)')
+    
+    # #### Row 5: Meander/directedness (in progress)
+    # #Amb meander 
+    # ax_amb_meander= mean_bar_plus_conf(amb_bouts,
+    #                                          ['Pre','Dur','Post'],
+    #                                            use_key='meander',
+    #                                            ax=f_row[5][0])
+    # plt.ylabel('Ambulation meander (deg/cm)')
+    
+    # #All meander 
+    # #raw['meander']= behavior.measure_meander(raw,meta,use_dlc=False)
+    # # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='meander',
+    # #                                      stim_dur=stim_dur,
+    # #                                      summarization_fun = np.nanmedian)
+    # # ax_all_meander= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+    # #                                            ax=f_row[5][1])
+    # # plt.ylabel('Meadian meander (deg/cm)')
+    
+    # raw['directed']= 1/ raw['meander']
+    # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='directed',
+    #                                      stim_dur=stim_dur,
+    #                                      summarization_fun = np.nanmedian)
+    # ax_all_direct= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+    #                                            ax=f_row[5][2])
+    # plt.ylabel('Directed (cm/deg)')
+    return fig
 # Below 2 functions might be better in ethovision_tools ?
+
 def etho_check_sidecamera(vid_path,frame_array,plot_points=None):
     """
     Save sets of selected frames as a .pngs for closer inspection
