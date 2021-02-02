@@ -380,13 +380,16 @@ def measure_directedness(raw,meta):
     directed = (100*dist[1:]) / diff_angle # meter travel / change in direction
     return directed
 
-def stim_clip_grab(raw,meta,y_col,x_col='time',stim_dur=30,summarization_fun=np.nanmean):
+def stim_clip_grab(raw,meta,y_col,x_col='time',
+                   stim_dur=30, baseline = None,
+                   summarization_fun=np.nanmean):
     
     if isinstance(meta['fs'],float):
         fs=meta['fs']
     else:
         fs=meta['fs'][0]
-    baseline=stim_dur
+    if baseline == None: # Default: create symmetric around stimulus 30-30-30 : Pre-Dur-Post
+        baseline = stim_dur
     nsamps=math.ceil(((baseline*2) + stim_dur) * fs)
     ntrials=len(meta['stim_on'])
     cont_y_array=np.empty((nsamps,ntrials))

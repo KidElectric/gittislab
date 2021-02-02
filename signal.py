@@ -68,6 +68,7 @@ def outlier_to_nan(y,outlier_thresh=3):
     return y
 
 def thresh(y,thresh, sign='Pos'):
+    y=np.array(y)
     if len(y.shape) == 1:
         y=y[:,None]
     if sign =='Neg':
