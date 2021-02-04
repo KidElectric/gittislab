@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import math
 import yaml
-
+import pdb
 
 if os.name == 'posix':
     sep='/'
@@ -50,23 +50,22 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
             # First, let's check if there is already a Raw*.csv file in this folder:    
             new_file_name=dataloc.path_to_rawfn(path) + '.csv'
             file_exists=os.path.exists(path.parent.joinpath(new_file_name))
+            found_ver = 0
             if file_exists == True:
                 metapnfn=dataloc.meta_csv(path.parent,inc,exc)
                 if isinstance(metapnfn,Path) > 0:
                     pre_meta=meta_csv_load(metapnfn)
-                    if 'version' not in pre_meta.columns:
-                        found_ver=0
-                    else:
+                    if 'version' in pre_meta.columns:
                         found_ver = pre_meta['version'][0]
-                else:
-                    found_ver = 0
+                    
                     
             print('Inc[%d], file %d) %s generation...' % (i,ii,new_file_name))
+            # pdb.set_trace()
             if (version > found_ver) and (file_exists == False) \
-                or ((file_exists == True) and (force_replace == True) and (version != found_ver) ): 
+                or ((file_exists == True) and (force_replace == True)):  # (version > found_ver) 
                     
                 xlsxpath=path
-                #If no .mat file exists, generate raw .csv from xlsx (slow)
+                #If no .csv file exists, generate raw .csv from xlsx (slow)
                 if ((file_exists == True) and (force_replace == True)):
                     print('\t .csv found but force_replace == True so file will be updated.')
                 else:
@@ -89,8 +88,9 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                     raw.to_csv(pnfn)
                     
                     meta['version'] = version
+                    # pdb.set_trace()
                     if make_preproc == True:
-                        raw_csv_to_preprocessed_csv(path.parent,
+                        raw_csv_to_preprocessed_csv(path.parent,['.'],exc,
                                                     force_replace=True,
                                                     win=win)
                     

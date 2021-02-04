@@ -15,7 +15,7 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
-from gittislab import behavior, ethovision_tools
+from gittislab import behavior, ethovision_tools, signal
 from scipy.stats import ttest_rel
 from scipy.stats import t
 import pdb 
@@ -590,6 +590,197 @@ def plot_zone_day(raw,meta):
     f_row[4][1].set_ylim([0,2])
     
     return fig
+
+def zone_day_crossing_stats(raw,meta):
+    
+    ac_on,ac_off= signal.thresh(raw['iz1'].astype(int),0.5,'Pos')
+    min=meta['fs'][0] * 4 #4 seconds
+    all_cross=[]
+    for on,off in zip(ac_on,ac_off):
+        if (off-on) > min:
+            all_cross.append([on,off])
+    print('%d crossings detected.' % len(all_cross))
+    new_meta=meta
+    baseline=4 # seconds before / after crossing
+    for i,cross in enumerate(all_cross):
+        new_meta.loc[i,'stim_on']=raw['time'][cross[0]]
+        new_meta.loc[i,'stim_off']=raw['time'][cross[0]]
+    fs=meta['fs'][0]
+    on_time =raw['time'][np.array(all_cross)[:,0]].values
+    vel_cross=behavior.stim_clip_grab(raw,new_meta,'vel',x_col='time',
+                            stim_dur=0,baseline=baseline,summarization_fun=np.nanmean)
+    x_cross=behavior.stim_clip_grab(raw,new_meta,'x',x_col='time',
+                            stim_dur=0,baseline=baseline,summarization_fun=np.nanmean)
+    y_cross=behavior.stim_clip_grab(raw,new_meta,'y',x_col='time',
+                            stim_dur=0,baseline=baseline,summarization_fun=np.nanmean)
+    
+    t=[i for i in range(4)]
+    t[0]=0
+    t[1]=meta.task_start[0]
+    t[2]=meta.task_stop[0]
+    t[3]=meta.exp_end[0]
+    
+    fig = plt.figure(constrained_layout = True,figsize=(9.48, 7.98))
+    col_labs=['Pre','Dur','Post']
+    gs = fig.add_gridspec(6, 3)
+    f_row=list(range(gs.nrows))
+    f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
+    f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(3)]
+    f_row[2]=[fig.add_subplot(gs[2,i]) for i in range(3)]
+    f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
+    f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
+    
+    
+    #### Row 0: Plot trajectories overlayed
+    r=0
+    xtick_samps=np.array([x for x in range(0,x_cross['cont_y'].shape[0]+1,round(fs*2))])
+    xticklab=[str(round(x)) for x in (xtick_samps/fs)-baseline]
+    zero_samp=int(xtick_samps[-1]/2)
+    for i,a in enumerate(f_row[r]):
+        ind = (on_time > t[i]) & (on_time < t[i+1])
+        cross_x=x_cross['cont_y'][:,ind]
+        cross_y=y_cross['cont_y'][:,ind]
+        for x,y in zip(cross_x.T,cross_y.T):
+            b=y[zero_samp]
+            y= y-b
+            a.scatter(-x,y,2,alpha=0.05,facecolor='k',)
+            
+        a.plot([0,0],[-25,25],'--r')
+        a.set_xlabel('Dist (cm)')
+        a.set_xlim([-25,25])
+        a.set_title(col_labs[i])
+        
+    ####Row 1: histogram of X on crossings:
+    dist_bins=np.array([x for x in range(-22,22+1,2)])
+    ncross_tot=vel_cross['cont_y'].shape[1]
+    
+    width=1.5
+    r=1
+    for i,a in enumerate(f_row[r]):
+        ind = (on_time > t[i]) & (on_time < t[i+1])
+        cross_x=x_cross['cont_y'][:,ind]
+        ncross=sum(ind)
+        dist_mat=np.ones((ncross,len(dist_bins)-1))
+        ii=0
+        for dist in cross_x.T:
+            dist_mat[i,:],_ = np.histogram(-dist,dist_bins)
+            ii += 1
+            tot_hist=np.nansum(dist_mat,axis=0)
+            tot_hist = 100*(tot_hist/np.nansum(tot_hist))
+        a.bar(dist_bins[0:-1] - width/2,tot_hist,width,)    
+        a.set_ylabel('% of 8s Crossing')
+        a.set_xlabel('Dist (cm)')
+        a.set_ylim([0,10])
+    
+    
+    
+    ####Row 2 vel clips full colorscale:
+    r=2
+    xtick_samps=[x for x in range(0,vel_cross['cont_y'].shape[0]+1,round(fs*2))]
+    xticklab=[str(round(x)) for x in (xtick_samps/fs)-baseline]
+    
+    for i,a in enumerate(f_row[r]):
+        ind = (on_time > t[i]) & (on_time < t[i+1])
+        a.imshow(vel_cross['cont_y'][:,ind].T,
+                 aspect='auto')
+        plt.sca(a)
+        plt.xticks(xtick_samps,xticklab)
+        yticks=[x for x in range (0,sum(ind),5)]
+        yticklab=[str(y) for y in yticks]
+        plt.yticks(yticks,yticklab)
+        a.set_xlabel('Time (s)')
+        a.set_ylabel('Cross #')
+        
+        
+    ####Row 3: Plot beginning, middle, and late crossing mean velocity:
+    labels=['Early','Middle','Late']
+    keep=np.ones((xtick_samps[-1],3))
+    r=3
+    for i,a in enumerate(f_row[r]):
+        ind = (on_time > t[i]) & (on_time < t[i+1])
+        cross_period=vel_cross['cont_y'][:,ind]
+        ncross=sum(ind)
+        step=round(ncross/3)
+        eml =[x for x in range(0,ncross,step)]
+        eml = eml[0:3]
+        for ii,j in enumerate(eml):
+            vel_stage=cross_period[:,j:(j+step)]
+            x=vel_cross['cont_x']
+            y=np.mean(vel_stage,axis=1)
+            # if i > 0:
+            #      y = y - baseline_change
+            if i==0:
+                keep[:,ii]=y
+            a.plot(x,y,label=labels[ii])
+            a.set_ylim([0,30])
+        if i ==0:
+            baseline_change=np.mean(keep,axis=1)
+            # a.plot(x,np.mean(keep,axis=1),'--k')
+        if i == 2:    
+            a.legend()
+            
+        a.set_xlabel('Time (s)')
+        a.set_ylabel('Speed (cm/s)')
+    
+    #### Row 4: Speed vs. distance from crossing
+    r=4
+    # Bin velocity of cross by x-distance of cross:
+    dist_bins=[x for x in range(-16,16+1,2)]
+    ncross_tot=vel_cross['cont_y'].shape[1]
+    dist_mat=np.ones((ncross_tot,len(dist_bins)))
+    i=0
+    for dist,vel in zip(x_cross['cont_y'].T,vel_cross['cont_y'].T):
+        ind = np.digitize(-dist,dist_bins)
+        for x in range(np.min(ind),np.max(ind)):
+            use= ind == x
+            if any(use):
+                dist_mat[i,x]=np.median(vel[use])
+            else:
+                dist_mat[i,x]=np.nan
+        i += 1
+    xtick_samps=np.array([x for x in range(0,len(dist_bins),1)])
+    xticklab=[str(round(x)) for x in dist_bins]
+    
+    for i,a in enumerate(f_row[r]):
+        ind = (on_time > t[i]) & (on_time < t[i+1])
+        a.imshow(dist_mat[ind,:], aspect='auto')
+        plt.sca(a)
+        plt.xticks(xtick_samps,xticklab)
+        yticks=[x for x in range (0,sum(ind),5)]
+        yticklab=[str(y) for y in yticks]
+        plt.yticks(yticks,yticklab)
+        a.set_xlabel('Dist from SZ (cm)')
+        a.set_ylabel('Cross #')
+    
+    #### Row 5: Plot beginning, middle, and late crossing mean velocity:
+    labels=['Early','Middle','Late']
+    r=5
+    keep=np.ones((len(xtick_samps),3))
+    for i,a in enumerate(f_row[r]):
+        ind = (on_time > t[i]) & (on_time < t[i+1])
+        cross_period=dist_mat[ind,:]
+        ncross=sum(ind)
+        step=round(ncross/3)
+        eml =[x for x in range(0,ncross,step)]
+        eml = eml[0:3]
+        for ii,j in enumerate(eml):
+            vel_stage=cross_period[j:(j+step),:]
+            x=dist_bins
+            y=np.nanmean(vel_stage,axis=0)
+            if i==0:
+                keep[:,ii]=y
+            a.plot(x,y,label=labels[ii])
+            a.set_ylim([0,30])
+        # if i ==1:
+            # a.plot(x,np.mean(keep,axis=1),'--k')
+        if i == 2:    
+            a.legend()
+            
+        a.set_xlabel('Dist from SZ (cm)')
+        a.set_ylabel('Speed (cm/s)')
+    return fig
+
 # Below 2 functions might be better in ethovision_tools ?
 
 def etho_check_sidecamera(vid_path,frame_array,plot_points=None):

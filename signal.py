@@ -87,7 +87,6 @@ def thresh(y,thresh, sign='Pos'):
     elif offsets.size > onsets.size:
         dif= offsets.size - onsets.size
         offsets=offsets[dif:offsets.size]
-        print('test')
     if sign == 'Neg':
         y *= -1
     return onsets, offsets

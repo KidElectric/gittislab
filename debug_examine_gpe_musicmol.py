@@ -20,6 +20,40 @@ from scipy.signal import find_peaks
 from scipy.stats import circmean
 from statistics import mode
 import time
+
+# %% Process any new files:
+ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
+inc=[['AG','10x10_gpe_pbs']]
+make_preproc = True
+exc=[ex0]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_raw_to_csv(basepath, inc, exc,
+                                  force_replace=False,
+                                  win=10)
+
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
+                                             force_replace=False,win=10)
+summary=ethovision_tools.meta_sum_csv(basepath,inc,exc) 
+   
+print(summary.stim_dur)
+print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
+print('negative stim durs: %d' % sum((summary.stim_dur<0)))
+
+# %% 10x10 1mW w/ PBS in GPe
+ex0=['exclude','and_GPe','and_Str','Left','Right',
+     'Other XLS','Exclude','mW','mw']
+
+inc=[['AG','10x10_gpe_pbs',],]
+exc=[ex0]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+
+for ii,ee in zip(inc,exc):
+    pns=dataloc.raw_csv(basepath,ii,ee)
+    
+    for pn in pns:
+        temp={}
+        raw,meta=ethovision_tools.csv_load(pn,method='preproc')
+        plots.plot_openloop_day(raw,meta)
 # %% Look at mouse speed vs. time in each case:
     
 ex0=['exclude','and_GPe','and_Str','Left','Right',
