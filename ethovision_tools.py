@@ -437,6 +437,7 @@ def csv_load(exp_path,columns='All',method='raw'):
     
     meta_pnfn=exp_path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(exp_path)[4:])
     metadata=meta_csv_load(meta_pnfn)
+    metadata['pn'] = exp_path #put path where these files were loaded into metadata
     return raw, metadata
 
 def meta_csv_load(filename):

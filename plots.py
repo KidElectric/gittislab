@@ -265,7 +265,7 @@ def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b'):
     else:
         return ax
     
-def plot_openloop_day(raw,meta):    
+def plot_openloop_day(raw,meta,save=False, close=False):    
     '''
     
 
@@ -283,6 +283,7 @@ def plot_openloop_day(raw,meta):
 
     '''
     #### Set up figure axes in desired pattern
+    plt_ver = 3
     fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
     gs = fig.add_gridspec(6, 3)
     f_row=list(range(gs.nrows))
@@ -399,9 +400,20 @@ def plot_openloop_day(raw,meta):
     ax_all_direct= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
                                                ax=f_row[5][2])
     plt.ylabel('Directed (cm/deg)')
-    return fig
+    
+    #### Save image option:
+    if save == True:
+        path_dir = meta['pn'][0].parent
+        anid= meta['anid'][0]
+        proto=meta['etho_exp_type'][0]
+        plt.show(block=False)
+        plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,plt_ver))
+    if close == True:
+        plt.close()
+    else:
+        return fig
 
-def plot_zone_day(raw,meta):    
+def plot_zone_day(raw,meta,save=False,close = False):    
     '''
     
 
@@ -419,6 +431,7 @@ def plot_zone_day(raw,meta):
 
     '''
     #### Set up figure axes in desired pattern
+    plt_ver=3
     fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
     gs = fig.add_gridspec(6, 3)
     f_row=list(range(gs.nrows))
@@ -589,7 +602,18 @@ def plot_zone_day(raw,meta):
     f_row[4][1].set_xticklabels(labels)
     f_row[4][1].set_ylim([0,2])
     
-    return fig
+    #### Save image option:
+    if save == True:
+        path_dir = meta['pn'][0].parent
+        anid= meta['anid'][0]
+        proto=meta['etho_exp_type'][0]
+        plt.show(block=False)
+        plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,plt_ver))
+    
+    if close == True:
+        plt.close()
+    else:
+        return fig
 
 def zone_day_crossing_stats(raw,meta):
     
