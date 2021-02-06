@@ -293,43 +293,6 @@ def add_dlc_helper(raw,meta,path,inc=[],exc=[],force_replace=False,rear_thresh=0
         meta['bad_dlc_tracking']=np.nan
     return raw, meta
 
-def meta_sum_h5(basepath,conds_inc=[],conds_exc=[]):
-    '''
-        Generate a summary dataframe of metadata from .h5 files specified by
-        inclusion criteria.
-    '''
-    df=pd.DataFrame
-    for i,inc in enumerate(conds_inc):
-        exc=conds_exc[i]
-        h5_paths=dataloc.rawh5(basepath,inc,exc)
-        if isinstance(h5_paths,Path):
-            h5_paths=[h5_paths]
-        for ii,path in enumerate(h5_paths):
-            par=h5_load_par(path)
-            pardf=pd.DataFrame
-            pardf=pardf.from_dict(par,orient='index').T #
-            if ii==0:
-                df=pardf
-            else:
-                df=df.append(pardf)
-    cols_keep=['folder_anid',
-               'stim_area',
-               'cell_type',
-               'opsin_type',
-               'side',
-               'protocol',
-               'da_state',
-               'etho_sex',
-               'etho_arena',
-               'etho_stim_info',
-               'animal_id_mismatch',
-               'possible_retrack',
-               'experimenter',
-               'exp_room_number',
-               'etho_trial_number',
-               'etho_trial_control_settings',]
-    return df[cols_keep]
-
 def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
     '''
         Generate a summary dataframe of metadata from .csv files specified by
@@ -369,12 +332,16 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
                'experimenter',
                'exp_room_number',
                'etho_trial_number',
-               'etho_trial_control_settings',]
+               'etho_trial_control_settings',
+               'has_dlc',
+               'version',
+               'has_blink_state']
     df=df[cols_keep]
     df=df.reset_index().drop(['index'],axis=1)
     cols_rename=['anid','area','cell','opsin','side','proto','stim_n','stim_dur',
                  'da','sex','arena',
-                 'stim','id_err','retrack','exper','room','trial','settings']
+                 'stim','id_err','retrack','exper','room','trial','settings',
+                 'dlc','ver','blink']
     rename_dict={cols_keep[i] : cols_rename[i] for i in range(len(cols_rename))} 
     
     return df.rename(rename_dict,axis=1)
@@ -437,7 +404,7 @@ def csv_load(exp_path,columns='All',method='raw'):
     
     meta_pnfn=exp_path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(exp_path)[4:])
     metadata=meta_csv_load(meta_pnfn)
-    metadata['pn'] = exp_path #put path where these files were loaded into metadata
+    metadata['pn'] =pnfn #put path of raw .csv loaded into metadata
     return raw, metadata
 
 def meta_csv_load(filename):

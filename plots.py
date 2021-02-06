@@ -344,7 +344,14 @@ def plot_openloop_day(raw,meta,save=False, close=False):
                                    stim_dur=stim_dur,
                                    min_bout_dur_s=min_bout)
     
-    
+    #Rearing:
+    if meta['has_dlc'][0] == True:
+        rear_clip=behavior.stim_clip_grab(raw,meta,y_col='rear', 
+                               stim_dur=stim_dur,
+                               summarization_fun=percentage)
+        mean_bar_plus_conf(rear_clip,['Pre','Dur','Post'],ax=f_row[2][1])
+        plt.ylabel('% Time Rearing')
+
     #### Row 3: Ambulation bout info
     #Rate
     ax_amb_bout_rate= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
@@ -403,7 +410,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
     
     #### Save image option:
     if save == True:
-        path_dir = meta['pn'][0].parent
+        path_dir = str(meta['pn'][0].parent)
         anid= meta['anid'][0]
         proto=meta['etho_exp_type'][0]
         plt.show(block=False)
@@ -604,7 +611,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
     
     #### Save image option:
     if save == True:
-        path_dir = meta['pn'][0].parent
+        path_dir = str(meta['pn'][0].parent)
         anid= meta['anid'][0]
         proto=meta['etho_exp_type'][0]
         plt.show(block=False)
