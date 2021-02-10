@@ -53,7 +53,7 @@ for ii,ee in zip(inc,exc):
     for pn in pns:
         temp={}
         raw,meta=ethovision_tools.csv_load(pn,method='preproc')
-        plots.plot_openloop_day(raw,meta,save=True, close = True)
+        plots.plot_openloop_day(raw,meta,save=True, close = False)
 # %% Look at mouse speed vs. time in each case:
     
 ex0=['exclude','and_GPe','and_Str','Left','Right',

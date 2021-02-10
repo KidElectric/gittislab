@@ -4,6 +4,7 @@ import pdb
 import pandas as pd
 from scipy.signal import find_peaks
 from scipy.signal import butter, filtfilt
+from scipy.stats import t
 
 def butter_lowpass(cutoff, fs, order=5):
     nyq = 0.5 * fs
@@ -38,6 +39,14 @@ def pad_lowpass_unpad(data,cutoff,fs,order=5):
     
     #Return unpadded:
     return data[pad:-pad]
+
+def conf_int_on_matrix(y,axis=1,conf=0.95):
+    n=y.shape[axis]
+    ym=np.nanmean(y,axis=axis)
+    std_err = np.nanstd(y,axis=axis)/np.sqrt(n)
+    h = std_err * t.ppf((1 + conf) / 2, n - 1)
+    y_conf_int=np.array([ym-h, ym+h]).T
+    return y_conf_int
 
 def outlier_to_nan(y,outlier_thresh=3):
     if not isinstance(y,pd.core.series.Series):

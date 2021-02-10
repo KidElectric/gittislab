@@ -23,13 +23,15 @@ ex0=['exclude','and_GPe','and_Str','Left','Right',
      '_gpe_muscimol','_gpe_pbs','mW','mw']
 # inc=[['AG','GPe','CAG','Arch','10x']]
 # exc=[ex0]
-inc=[['AG','GPe','CAG','Arch','10x'],
-     ['AG','Str','A2A','Ai32','10x'],
-     ['AG','Str','A2A','ChR2','10x']]
+inc=[['AG','Str','A2A','Ai32','10x'],
+     ['AG','Str','A2A','ChR2','10x']] # ['AG','GPe','CAG','Arch','10x']
 exc=[ex0,ex0,ex0]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+data = behavior.open_loop_summary_collect(basepath,[inc[0]],[exc[0]])
 
+# %%
+fig=plots.plot_openloop_mouse_summary(data)
 # %% FoxP2
 
 ex0=['exclude','bad','Exclude','broken', 'Other XLS','Exclude',]

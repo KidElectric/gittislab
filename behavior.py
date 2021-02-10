@@ -10,6 +10,8 @@ from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 from scipy.stats import t
 from itertools import compress
+from pathlib import Path
+import pdb 
 
 def smooth_vel(raw,meta,win=10):
     '''
@@ -60,7 +62,7 @@ def preproc_raw(raw,meta,win=10):
     for col in keep_cols:
         if col in raw.columns:
             preproc[col]=raw[col]
-            
+    # pdb.set_trace()
     x_s=signal.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
     y_s=signal.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
 
@@ -98,8 +100,12 @@ def preproc_raw(raw,meta,win=10):
     if  is_zone or (is_openloop and ('iz1' in raw.columns)):
         #Normalize coordinates to zone-cross
         cross=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) > 0)).astype('bool')
-        zone_cross_x=np.nanmedian(x_s[cross])
-        x_s = x_s - zone_cross_x #so that 0 is defined as beginning of zone 1
+        if any(cross):
+            meta['iz1_center_zero']=True
+            zone_cross_x=np.nanmedian(x_s[cross])
+            x_s = x_s - zone_cross_x #so that 0 is defined as beginning of zone 1
+        else:
+            meta['iz1_center_zero']=False
         
     raw['x']=x_s
     raw['y']=y_s
@@ -453,15 +459,93 @@ def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
         out_ave['disc_m'][i]=m
         out_ave['disc_conf'][i]=h
     # out_ave['disc']=clip[discrete_key]
-    ym=np.mean(clip[continuous_y_key],axis=1)
+    y=clip[continuous_y_key]
+    ym=np.mean(y,axis=1)
     out_ave['cont_y']=ym
    
-    std_err = np.nanstd(clip[continuous_y_key],axis=1)/np.sqrt(n)
-    h = std_err * t.ppf((1 + confidence) / 2, n - 1)
-    out_ave['cont_y_conf']=np.array([ym-h, ym+h]).T
+    # std_err = np.nanstd(clip[continuous_y_key],axis=1)/np.sqrt(n)
+    # h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+    out_ave['cont_y_conf']=signal.conf_int_on_matrix(y)
     out_ave['cont_x']=clip[continous_x_key]
     
     return out_ave
+
+def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
+    '''
+    
+
+    Parameters
+    ----------
+    basepath : TYPE
+        DESCRIPTION.
+    conds_inc : TYPE, optional
+        DESCRIPTION. The default is [].
+    conds_exc : TYPE, optional
+        DESCRIPTION. The default is [].
+
+    Returns
+    -------
+    data : pandas.DataFrame()
+        Each row is an experiment day
+        Columns include all info relevant for plotting a summary day using:
+            gittislab.plots.plot_openloop_mouse_summary(data)
+        DESCRIPTION.
+
+    '''
+    min_bout= 0.5
+    
+    data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
+                              'stim_dur','vel_trace','amb_speed','amb_bouts','per_mobile'])
+    use_cols=['time','vel','im','dir','ambulation','meander']
+    #### Loop through experimental mice to load & process all data
+    version=3 #Version where versioning is formally implemented (all at version 3)
+    # version = 4 #Change rear threshold to 0.6 and min thresh to 0.55
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        csv_paths=dataloc.raw_csv(basepath,inc,exc)
+        if isinstance(csv_paths,Path):
+            csv_paths=[csv_paths]
+        for ii,path in enumerate(csv_paths):
+            temp={}
+            print('Inc[%d], file %d) %s loaded...' % (i,ii,str(path)))
+
+            raw,meta=ethovision_tools.csv_load(path,method='preproc')
+            temp['anid']=meta['anid'][0]
+            temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
+                                                     meta['stim_area'][0],
+                                                     meta['opsin_type'][0])
+            temp['proto']=meta['protocol'][0]
+            
+            #### Calculate stim-triggered speed changes:
+            baseline= round(np.mean(meta['stim_dur']))
+            stim_dur= baseline
+            temp['stim_dur']=stim_dur
+            vel_clip=stim_clip_grab(raw,meta,y_col='vel',
+                                             stim_dur=stim_dur)
+            
+            clip_ave=stim_clip_average(vel_clip)
+            temp['stim_speed']=clip_ave['disc_m'].T
+        
+            temp['vel_trace']=np.median(vel_clip['cont_y'],axis=1)
+            temp['x_trace']=clip_ave['cont_x']
+            
+            #### Calculate stim-triggered %time mobile:
+            percentage = lambda x: (np.nansum(x)/len(x))*100
+            raw['m']=~raw['im']
+            m_clip=stim_clip_grab(raw,meta,y_col='m', 
+                                           stim_dur=stim_dur,
+                                           summarization_fun=percentage)
+            temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
+            
+            amb_bouts=bout_analyze(raw,meta,'ambulation',
+                                stim_dur=stim_dur,
+                                min_bout_dur_s=min_bout)
+            temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
+            temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
+            
+            
+            data=data.append(temp,ignore_index=True)
+    return data
 
 def bout_analyze(raw,meta,y_col,stim_dur=30,
                  min_bout_dur_s=0.5,
