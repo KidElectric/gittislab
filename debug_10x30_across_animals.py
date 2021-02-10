@@ -20,7 +20,7 @@ import time
 # %%
 ex0=['exclude','and_GPe','and_Str','Left','Right',
      'Other XLS','Exclude',
-     '_gpe_muscimol','_gpe_pbs','mW','mw']
+     '_gpe_muscimol','_gpe_pbs','mW','mw','AG5769','AG5362','AG5477'] #Exclude Str + GPe fiber mice
 # inc=[['AG','GPe','CAG','Arch','10x']]
 # exc=[ex0]
 inc=[['AG','Str','A2A','Ai32','10x'],
@@ -32,6 +32,7 @@ data = behavior.open_loop_summary_collect(basepath,[inc[0]],[exc[0]])
 
 # %%
 fig=plots.plot_openloop_mouse_summary(data)
+
 # %% FoxP2
 
 ex0=['exclude','bad','Exclude','broken', 'Other XLS','Exclude',]

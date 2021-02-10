@@ -14,8 +14,9 @@ from pathlib import Path
 from gittislab import dataloc, ethovision_tools,signal
 import matplotlib.pyplot as plt
 
-fn1 = '/home/brian/Documents/rear_scoring.boris'
-fn = '/home/brian/Documents/template.boris'
+# fn1 = '/home/brian/Documents/rear_scoring.boris'
+# fn = '/home/brian/Documents/template.boris'
+fn = '/home/brian/Documents/AG6382_4_BI020421.boris'
 # reading the data from the file 
 with open(fn) as f: 
     data = f.read() 
@@ -25,19 +26,22 @@ js = json.loads(data)
   
 f.close()
 
-with open(fn1) as f:
-    data=f.read()
-js1 = json.loads(data)
+# with open(fn1) as f:
+#     data=f.read()
+# js1 = json.loads(data)
 # %%
 
 #Enter name of new event type to observe:
 obs_name='dlc_rear_detect' #Can have multiple observation types per file
-project_name = 'test_template' #Used in saving file: project_name.boris
+project_name = 'AG6382_4_BI020421' #Used in saving file: project_name.boris
 #Identify folder containing Raw*.csv file from noldus and original video:
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-expfolder='Str/Naive/A2A/Ai32/Bilateral/10x10_gpe_pbs/AG6382_3_BI020421/'
-video_fn=basepath +expfolder + 'Trial   237.mpg'
-pnfn=Path(video_fn)
+expfolder='Str/Naive/A2A/Ai32/Bilateral/10x10_gpe_pbs/' + project_name + '/'
+video_fn=dataloc.video(basepath+expfolder) #or manually: basepath + expfolder + 'Trial    257.mpg'
+if not isinstance(video_fn,Path):
+    pnfn=Path(video_fn) 
+else:
+    pnfn=video_fn
 
 
 #Import a template file to update with custom events:
@@ -52,7 +56,7 @@ f.close()
 # Create a new observation using the template and the name given above:
 js['observations'][obs_name]=js['observations']['new']
 js['observations'].pop('new') #Remove template observation
-js['observations'][obs_name]['file']['1'][0] = video_fn
+js['observations'][obs_name]['file']['1'][0] = str(video_fn)
 
 fn='/home/brian/Documents/dlc_rearing.boris'
 
@@ -62,33 +66,55 @@ raw,meta=ethovision_tools.csv_load(raw_pnfn,method='preproc')
 
 #If desired, include a copy of this or other columns to plot in boris:
 temp_fn=meta['pn'][0].parent.joinpath('boris_viz.csv')
-temp=raw.loc[:,('time','mouse_height','rear')] #columns 2,3,4 for boris purposes
+temp=raw.loc[:,('time','mouse_height','vel')] #columns 2,3,4 for boris purposes
+# temp['rear']=temp['rear'] * meta['rear_thresh'][0]
+vel_max=50
+for col in temp.columns:
+    isnan=np.isnan(temp[col])
+    if any(isnan):
+        temp.loc[isnan,col]=0 #For plotting purposes replace with 0
+    
+    if ('vel' in col):
+        mm=(temp[col] > vel_max)
+        temp.loc[mm,col]= 0 #For plotting purposes eliminate velocity artifacts
+        
 temp.to_csv(temp_fn, sep ='\t')
+js['subjects_conf']={'0': {'key': 'q', 'name': meta['anid'][0], 'description': ''}}
 
 #Add information on which data to plot from this temp file (boris will show this
 # sliding along with video to cross-check... useful to use continuous trace that event
 #-detection is based off of)
-js['observations'][obs_name]['plot_data']={"0":{'file_path': str(temp_fn),
+js['observations'][obs_name]['plot_data']={"0":{'file_path': str(temp_fn), #Raw signal to detect events off of
                                                 'columns': '2,3', #must always indicate time column and trace column by index sep by comma
-                                                'title' : '',
+                                                'title' : 'Norm. mouse height (px)', #Normalized mouse height (px)
                                                 "variable_name": "", 
                                                 "converters": {}, 
                                                 "time_interval": "60",
                                                 "time_offset": "0",
                                                 "substract_first_value": "True",
-                                                "color": "b-"}}
+                                                "color": "b-"},
+                                           
+                                           "1":{'file_path': str(temp_fn), #rear detect at thresh
+                                                'columns': '2,4', #must always indicate time column and trace column by index sep by comma
+                                                'title' : 'Norm. speed (cm/s)',
+                                                "variable_name": "", 
+                                                "converters": {}, 
+                                                "time_interval": "60",
+                                                "time_offset": "0",
+                                                "substract_first_value": "True",
+                                                "color": "g-"}}
 
 #Update media info to reflect video of interest (many can be added but just one shown here):
 med_info=js['observations'][obs_name]['media_info']
 for key in js['observations'][obs_name]['media_info'].keys():
     if 'length' == key:
-        med_info[key]={video_fn : raw['time'].values[-1]}
+        med_info[key]={str(video_fn) : raw['time'].values[-1]}
     if 'fps' == key:
-        med_info[key]={video_fn : round(meta['fs'][0],ndigits=2)}
+        med_info[key]={str(video_fn) : round(meta['fs'][0],ndigits=2)}
     if 'hasVideo' == key:
-        med_info[key]={video_fn : True}
+        med_info[key]={str(video_fn) : True}
     if 'hasAudio' == key:
-        med_info[key] = {video_fn : False}
+        med_info[key] = {str(video_fn) : False}
 js['observations'][obs_name]['media_info'] = med_info
 
 #Collect event onset and offset times in video from a custom data column:
@@ -100,8 +126,8 @@ event_times=[on_times,off_times]
 event_names=['rear_start_dlc','rear_stop_dlc'] #Custom event type names
 new_evt=[]
 for on,off in zip(on_times,off_times):
-    new_evt.append([on,'',event_names[0],'',''])
-    new_evt.append([off,'',event_names[1],'',''])
+    new_evt.append([on,meta['anid'][0],event_names[0],'',''])
+    new_evt.append([off,meta['anid'][0],event_names[1],'',''])
 js['observations'][obs_name]['events']=new_evt
 
 

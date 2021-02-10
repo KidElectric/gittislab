@@ -23,9 +23,9 @@ import time
 
 # %% Process any new files:
 ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
-inc=[['AG','10x10_gpe_pbs']]
+inc=[['AG','10x10_gpe_pbs'],['AG','10x10_gpe_muscimol']]
 make_preproc = True
-exc=[ex0]
+exc=[ex0,ex0]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_raw_to_csv(basepath, inc, exc,
                                   force_replace=False,
@@ -43,6 +43,8 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 ex0=['exclude','and_GPe','and_Str','Left','Right',
      'Other XLS','Exclude','mW','mw']
 
+# inc=[['AG','10x10_gpe_muscimol',],]
+
 inc=[['AG','10x10_gpe_pbs',],]
 exc=[ex0]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
@@ -54,6 +56,15 @@ for ii,ee in zip(inc,exc):
         temp={}
         raw,meta=ethovision_tools.csv_load(pn,method='preproc')
         plots.plot_openloop_day(raw,meta,save=True, close = False)
+        
+
+# %% Combine:
+inc=[['AG','10x10_gpe_pbs',],]
+exc=[['exclude','and_GPe','and_Str','Left','Right',
+     'Other XLS','Exclude','mW','mw','AG6343']]
+data = behavior.open_loop_summary_collect(basepath,[inc[0]],[exc[0]])
+# %%
+fig=plots.plot_openloop_mouse_summary(data)
 # %% Look at mouse speed vs. time in each case:
     
 ex0=['exclude','and_GPe','and_Str','Left','Right',

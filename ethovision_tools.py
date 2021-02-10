@@ -7,6 +7,7 @@ import numpy as np
 import math
 import yaml
 import pdb
+import json 
 
 if os.name == 'posix':
     sep='/'
@@ -1080,7 +1081,116 @@ def rename_xlsx_columns(df):
         df=df.drop('Result 1',axis=1)
     return df.rename(rename_dict,axis=1)
 
+def boris_prep(basepath,conds_inc=[],conds_exc=[],
+               template_path='/home/brian/Documents/template.boris',
+               plot_cols=['time','vel'], event_col='mouse_height',event_thresh=0.5,
+               method='preproc'):
+    
+    
+    obs_name='event_check' #Can have multiple observation types per file
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        csv_paths=dataloc.raw_csv(basepath,inc,exc)
+        if isinstance(csv_paths,Path):
+            csv_paths=[csv_paths]
+        for ii,path in enumerate(csv_paths):
+            video_fn=dataloc.video(path.parent) 
+            if isinstance(video_fn,Path):            
+                #Import a template file to update with custom events:
+                fn = template_path
+                # Read template.boris file:
+                with open(fn) as f: 
+                    data = f.read()   
+                # Reconstruct .boris file as a dictionary 
+                js = json.loads(data) 
+                f.close()
+                
+                # Create a new observation using the template and the name given above:
+                js['observations'][obs_name]=js['observations']['new']
+                js['observations'].pop('new') #Remove template observation
+                js['observations'][obs_name]['file']['1'][0] = str(video_fn)
+                
+                
+                #Load Raw ethovision tracking or other .csv to use for new event
+                # raw_pnfn=dataloc.raw_csv(path.parent) #Locate raw_pnfn .csv file
+                load_cols =np.unique(plot_cols + [event_col])
+                raw,meta= csv_load(path, columns= load_cols, method= method)
+                project_name = path.parent.parts[-1]
+                #If desired, include a copy of this or other columns to plot in boris:
+                temp_fn=path.parent.joinpath('boris_viz.csv')
+                temp=raw.loc[:,tuple(plot_cols)] #columns 2,3,4 for boris purposes
 
+                vel_max=50
+                for col in temp.columns:
+                    isnan=np.isnan(temp[col])
+                    if any(isnan):
+                        temp.loc[isnan,col]=0 #For plotting purposes replace with 0
+                    
+                    if ('vel' in col):
+                        mm=(temp[col] > vel_max)
+                        temp.loc[mm,col]= 0 #For plotting purposes eliminate velocity artifacts
+                        
+                temp.to_csv(temp_fn, sep ='\t')
+                js['subjects_conf']={'0': {'key': 'q', 'name': meta['anid'][0], 'description': ''}}
+                
+                #Add information on which data to plot from this temp file (boris will show this
+                # sliding along with video to cross-check... useful to use continuous trace that event
+                #-detection is based off of)
+                if len(plot_cols) == 2: # 2 = time, 3 = continuous variable to plot against time
+                    js['observations'][obs_name]['plot_data']={"0":{'file_path': str(temp_fn), #Raw signal to detect events off of
+                                                                    'columns': '2,3', #must always indicate time column and trace column by index sep by comma
+                                                                    'title' : 'Norm. mouse height (px)', #Normalized mouse height (px)
+                                                                    "variable_name": "", 
+                                                                    "converters": {}, 
+                                                                    "time_interval": "60",
+                                                                    "time_offset": "0",
+                                                                    "substract_first_value": "True",
+                                                                    "color": "b-"}}
+                if len(plot_cols) == 3: #currently the max
+                    js['observations'][obs_name]['plot_data']['1']={'file_path': str(temp_fn), #rear detect at thresh
+                                                                'columns': '2,4', #must always indicate time column and trace column by index sep by comma
+                                                                'title' : 'Norm. speed (cm/s)',
+                                                                "variable_name": "", 
+                                                                "converters": {}, 
+                                                                "time_interval": "60",
+                                                                "time_offset": "0",
+                                                                "substract_first_value": "True",
+                                                                "color": "g-"}
+                
+                #Update media info to reflect video of interest (many can be added but just one shown here):
+                med_info=js['observations'][obs_name]['media_info']
+                for key in js['observations'][obs_name]['media_info'].keys():
+                    if 'length' == key:
+                        med_info[key]={str(video_fn) : raw['time'].values[-1]}
+                    if 'fps' == key:
+                        med_info[key]={str(video_fn) : round(meta['fs'][0],ndigits=2)}
+                    if 'hasVideo' == key:
+                        med_info[key]={str(video_fn) : True}
+                    if 'hasAudio' == key:
+                        med_info[key] = {str(video_fn) : False}
+                js['observations'][obs_name]['media_info'] = med_info
+                
+                #Collect event onset and offset times in video from a custom data column:
+                on,off = signal.thresh(raw[event_col],event_thresh)
+                on_times=raw['time'].values[on]
+                off_times=raw['time'].values[off]
+                
+                event_times=[on_times,off_times]
+                event_names=['start_%s' % event_col, 'stop_%s' % event_col] #Custom event type names
+                new_evt=[]
+                for on,off in zip(on_times,off_times):
+                    new_evt.append([on,meta['anid'][0],event_names[0],'',''])
+                    new_evt.append([off,meta['anid'][0],event_names[1],'',''])
+                js['observations'][obs_name]['events']=new_evt
+                
+                
+                savefn=path.joinpath(project_name + '.boris')
+                
+                #Save this new file:
+                f = open(savefn,"w")
+                json.dump(js, f, sort_keys=True, indent=4)
+                f.close()
+                print('Saved.')
     
     
     # keep.fine_move= ~keep.ambulation & ~keep.im; %Note: keep.im is the ethovision 'immobile' output
