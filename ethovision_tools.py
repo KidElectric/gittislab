@@ -258,6 +258,7 @@ def add_dlc_helper(raw,meta,path,inc=[],exc=[],force_replace=False,rear_thresh=0
             if isinstance(dlc,pd.DataFrame):                
                 meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
                 meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
+                meta['has_dlc']=True
                 
                 #Add rearing to dlc:
                 dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
@@ -303,19 +304,19 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         paths=dataloc.meta_csv(basepath,inc,exc)
+        # pdb.set_trace()
         if isinstance(paths,Path):
             paths=[paths]
         if len(paths) > 0:
             for ii,path in enumerate(paths):
                 pardf=meta_csv_load(path).loc[[0]]
-                if ii==0:
+                if i==0 and ii == 0:
                     df=pardf
                 else:
                     df=pd.concat([df,pardf],axis=0)
         else:
-            df=pd.DataFrame()
             print('Warning, no paths found.')
-                
+    
     cols_keep=['folder_anid',
                'stim_area',
                'cell_type',
@@ -333,7 +334,7 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
                'experimenter',
                'exp_room_number',
                'etho_trial_number',
-               'etho_trial_control_settings',
+               'etho_trial_control_settings',    
                'has_dlc',
                'version',
                'has_blink_state']
@@ -1005,6 +1006,7 @@ def meta_from_xlsx(df,pn):
         'folder_date':str_pn.split(sep)[-2].split('_')[-1][2:],
         'animal_id_mismatch':anid_mismatch,
         'possible_retrack':possible_retrack,
+        'has_dlc':False, #Will be replaced as True when preproc run
         }
     if 'zone' in meta['protocol']:
         meta['zone']='%s %s' % (meta['protocol'].split('_')[0].capitalize(),
@@ -1113,7 +1115,7 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                 
                 #Load Raw ethovision tracking or other .csv to use for new event
                 # raw_pnfn=dataloc.raw_csv(path.parent) #Locate raw_pnfn .csv file
-                load_cols =np.unique(plot_cols + [event_col])
+                load_cols =list(np.unique(plot_cols + [event_col]))
                 raw,meta= csv_load(path, columns= load_cols, method= method)
                 project_name = path.parent.parts[-1]
                 #If desired, include a copy of this or other columns to plot in boris:
@@ -1136,16 +1138,16 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                 #Add information on which data to plot from this temp file (boris will show this
                 # sliding along with video to cross-check... useful to use continuous trace that event
                 #-detection is based off of)
-                if len(plot_cols) == 2: # 2 = time, 3 = continuous variable to plot against time
-                    js['observations'][obs_name]['plot_data']={"0":{'file_path': str(temp_fn), #Raw signal to detect events off of
-                                                                    'columns': '2,3', #must always indicate time column and trace column by index sep by comma
-                                                                    'title' : 'Norm. mouse height (px)', #Normalized mouse height (px)
-                                                                    "variable_name": "", 
-                                                                    "converters": {}, 
-                                                                    "time_interval": "60",
-                                                                    "time_offset": "0",
-                                                                    "substract_first_value": "True",
-                                                                    "color": "b-"}}
+                
+                js['observations'][obs_name]['plot_data']={"0":{'file_path': str(temp_fn), #Raw signal to detect events off of
+                                                                'columns': '2,3', #must always indicate time column and trace column by index sep by comma
+                                                                'title' : 'Norm. mouse height (px)', #Normalized mouse height (px)
+                                                                "variable_name": "", 
+                                                                "converters": {}, 
+                                                                "time_interval": "60",
+                                                                "time_offset": "0",
+                                                                "substract_first_value": "True",
+                                                                "color": "b-"}}
                 if len(plot_cols) == 3: #currently the max
                     js['observations'][obs_name]['plot_data']['1']={'file_path': str(temp_fn), #rear detect at thresh
                                                                 'columns': '2,4', #must always indicate time column and trace column by index sep by comma
@@ -1184,13 +1186,14 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                 js['observations'][obs_name]['events']=new_evt
                 
                 
-                savefn=path.joinpath(project_name + '.boris')
+                savefn=path.parent.joinpath(project_name + '.boris')
                 
                 #Save this new file:
                 f = open(savefn,"w")
                 json.dump(js, f, sort_keys=True, indent=4)
                 f.close()
                 print('Saved.')
+                return js, raw, meta
     
     
     # keep.fine_move= ~keep.ambulation & ~keep.im; %Note: keep.im is the ethovision 'immobile' output

@@ -100,6 +100,34 @@ def thresh(y,thresh, sign='Pos'):
         y *= -1
     return onsets, offsets
 
+def bin_analyze(x,y,bin_dur,fun = np.mean):
+    '''
+    
+
+    Parameters
+    ----------
+    x : 1D np.array of time
+    y : 1D np.array of varible to bin
+    bin_dur : Bin size in units of time used in x
+    fun : function to perform on each bin, Default: np.mean()
+
+    Returns
+    -------
+    bin_x : np.array of binned x
+    bin_out : np.array of binned y
+
+
+    '''    
+    s=0
+    bin_out=[]
+    bin_x = []
+    while s < x[-1]:
+        ind = (x > s) & (x < (s + bin_dur))
+        bin_out.append(fun(y[ind]))
+        bin_x.append(s)
+        s += bin_dur
+    return np.array(bin_x),np.array(bin_out)
+
 def chunk_by_x(x,y,x_points,x_range):
     '''
         Take x y arrays and make a matrix of data clips from y, centered on x_points, 

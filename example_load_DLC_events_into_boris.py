@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 # fn1 = '/home/brian/Documents/rear_scoring.boris'
 # fn = '/home/brian/Documents/template.boris'
-fn = '/home/brian/Documents/AG6382_4_BI020421.boris'
+fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/KA_rearing_observations.boris'
 # reading the data from the file 
 with open(fn) as f: 
     data = f.read() 
@@ -29,7 +29,119 @@ f.close()
 # with open(fn1) as f:
 #     data=f.read()
 # js1 = json.loads(data)
+
+# %% Ethovision function version of boris integration:
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/'
+inc=[['AG5362_3']]
+exc=[['exclude']]
+boris,raw,meta=ethovision_tools.boris_prep(basepath,inc,exc,plot_cols=['time','mouse_height','vel'], 
+                            event_col='rear',event_thresh=0.5, method='preproc')
+
+fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/KA_rearing_observations.boris'
+# reading the data from the file 
+with open(fn) as f: 
+    data = f.read() 
+       
+# reconstructing the data as a dictionary 
+js = json.loads(data) 
+  
+f.close()
+
+dlc_evts = boris['observations']['event_check']['events']
+ka_evts = js['observations']['AG5362_3_BIO22520']['events']
+
 # %%
+# KA vs. DLC event overlaps
+
+ka_rear=np.zeros(raw['rear'].values.shape).astype(bool)
+dur=[]
+for i in range(0,len(ka_evts),2):
+    start=ka_evts[i][0]
+    stop=ka_evts[i+1][0]
+    dur.append(stop-start)
+    ind= (raw['time'] >=start ) & (raw['time'] < stop)
+    ka_rear[ind]=True
+dlc_rear=raw['rear'].values.astype(bool)
+
+hit_rate = sum((dlc_rear==1) & (ka_rear==1)) / sum(ka_rear==1)
+miss_rate = sum((dlc_rear == 0) & (ka_rear ==1)) / sum(ka_rear==1)
+fa_rate= sum( (dlc_rear == 1) & (ka_rear == 0)) / sum(ka_rear==0)
+print('Raw: %1.3f Hit, %1.3f Miss, %1.3f FA ' % (hit_rate,miss_rate,fa_rate))
+
+#Per event, detect hits: 
+hit=[]
+for i in range(0,len(ka_evts),2):
+    start=ka_evts[i][0]
+    stop=ka_evts[i+1][0]
+    ind= (raw['time'] >=start ) & (raw['time'] < stop)
+    if any(ind & dlc_rear):
+        hit.append(1)
+    else:
+        hit.append(0)
+
+# Detect false alarms
+fa=[]
+for i in range(0,len(dlc_evts),2):
+    start=dlc_evts[i]
+    stop=dlc_evts[i+1]
+    ind= (raw['time'] >=start[0] ) & (raw['time'] < stop[0])
+    if any(ind & ka_rear):
+        fa.append(0)
+    else:
+        fa.append(1)
+        start[2]='fa_rear_onset'
+        stop[2]='fa_rear_offset'
+        dlc_evts[i]=start
+        dlc_evts[i+1]=stop
+        
+e_hit_rate=sum(hit)/len(hit)
+true_negative=len(hit) #WARNING: This needs to be examined & determined empirically 
+e_fa_rate=sum(fa)/true_negative
+print('Event: Hit: %1.3f, FA: %1.3f' % (e_hit_rate, e_fa_rate))
+
+
+add_events = true_negative - sum(fa)
+not_rear= ~ (ka_rear | dlc_rear)
+on,off=signal.thresh(not_rear,0.5,'Pos')
+onset=raw['time'][on].values
+offset=raw['time'][off].values
+if offset[0] < onset[0]:
+    offset=offset[1:]
+    
+# plt.figure(),plt.plot(raw['time'],not_rear),plt.plot(onset,np.ones((len(onset),1)),'ro'),plt.plot(offset,np.ones((len(offset),1)),'bo')
+added=0
+rear_dur=np.mean(dur)
+new_evt=[]
+# while added < add_events:
+
+for i,j in zip(onset,offset):
+    if ((j-i)> rear_dur*3 ) and (added < add_events):
+        dlc_evts.append([i+rear_dur,meta['anid'][0],'fa_rear_onset','',''])
+        dlc_evts.append([i+(rear_dur*2),meta['anid'][0],'fa_rear_offset','',''])
+        added += 1
+        new_end =i+(rear_dur*2)
+        if (j- new_end) > (rear_dur*3) and (added < add_events): #if there is space, add another one:
+            dlc_evts.append([new_end+rear_dur,meta['anid'][0],'fa_rear_onset','',''])
+            dlc_evts.append([new_end+(rear_dur*2),meta['anid'][0],'fa_rear_offset','',''])
+            added += 1
+
+# %% Integrating KA w/ DLC:
+# Go into KA observation and add DLC events:
+
+ka_evts = js['observations']['AG5362_3_BIO22520']['events']
+combo= dlc_evts + ka_evts
+
+# Need to sort by timing:
+temp = pd.DataFrame(combo).sort_values(by=0)
+
+js['observations']['AG5362_3_BIO22520']['events'] = temp.values.tolist()
+new_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/dlc_and_ka_rearing_obs_no_fa.boris'
+f = open(new_fn,"w")
+json.dump(js, f, sort_keys=True, indent=4)
+f.close()
+
+
+# %% Raw script code:
 
 #Enter name of new event type to observe:
 obs_name='dlc_rear_detect' #Can have multiple observation types per file
@@ -102,7 +214,8 @@ js['observations'][obs_name]['plot_data']={"0":{'file_path': str(temp_fn), #Raw 
                                                 "time_interval": "60",
                                                 "time_offset": "0",
                                                 "substract_first_value": "True",
-                                                "color": "g-"}}
+                                                "color": "g-"},
+                                           }
 
 #Update media info to reflect video of interest (many can be added but just one shown here):
 med_info=js['observations'][obs_name]['media_info']
@@ -138,7 +251,7 @@ f = open(fn,"w")
 json.dump(js, f, sort_keys=True, indent=4)
 f.close()
 print('Saved.')
-# %%
+# %% Plot
 rear_thresh=0.6
 mouse_height=dlc['dlc_front_over_rear_length']
 start_peak,stop_peak = signal.thresh(mouse_height,rear_thresh,'Pos')
@@ -147,7 +260,7 @@ rear=np.zeros(mouse_height.shape)
 for start,stop in zip(start_peak,stop_peak):
     rear[start:stop]=1
     
-# %% Examine rearing thresholding:
+# %% Examine rearing at different or same threshold:
 dlc, meta = ethovision_tools.add_dlc_helper(raw,meta,
                                      raw_pnfn.parent,
                                      force_replace=True,
@@ -162,22 +275,17 @@ plt.plot(x,raw['rear'])
 plt.plot(x[oo],0.5*np.ones(oo.shape),'og')
 plt.plot(x[ff],0.5*np.ones(oo.shape),'or')
 plt.plot([0,x[-1]], meta['rear_thresh'][0:2],'--g')
-plt.plot([0,x[-1]], meta['rear_min_thresh'][0:2],'--r')                    
-#%% Locating events in the dictionary:
+plt.plot([0,x[-1]], meta['rear_min_thresh'][0:2],'--r')                
+    
+# %% Ethovision function version
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10_gpe_pbs/'
+inc=[['AG6382_4']]
+exc=[['exclude']]
+ethovision_tools.boris_prep(basepath,inc,exc,plot_cols=['time','mouse_height','vel'], 
+                            event_col='mouse_height',event_thresh=0.5, method='preproc')
 
-events = js['observations']['test']['events']
-for e in events:
-    a=['rearstop' in str(x) for x in e]
-    if any(a):
-        print(e[0])
-
-# %% 
-with open(fn) as f:
-    data = f.read()
-js = json.loads(data)
-print(js)
-f.close()
-
+# %%
+ka_score='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/KA_rearing_observations.boris'
 # %% Rerun processing of rear detection on subset:
     
 ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
