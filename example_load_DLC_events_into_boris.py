@@ -37,7 +37,10 @@ exc=[['exclude']]
 boris,raw,meta=ethovision_tools.boris_prep(basepath,inc,exc,plot_cols=['time','mouse_height','vel'], 
                             event_col='rear',event_thresh=0.5, method='preproc')
 
-fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/KA_rearing_observations.boris'
+# fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/KA_rearing_observations.boris'
+
+#Confirmed True negatives:
+fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/dlc_and_ka_rearing_obs_with_fa_v3.boris'
 # reading the data from the file 
 with open(fn) as f: 
     data = f.read() 
@@ -49,18 +52,25 @@ f.close()
 
 dlc_evts = boris['observations']['event_check']['events']
 ka_evts = js['observations']['AG5362_3_BIO22520']['events']
-
+recoded=[]
+for evt in ka_evts:
+    if 'Recoded' in evt[4]:
+        recoded.append(evt)
 # %%
 # KA vs. DLC event overlaps
 
 ka_rear=np.zeros(raw['rear'].values.shape).astype(bool)
 dur=[]
-for i in range(0,len(ka_evts),2):
-    start=ka_evts[i][0]
-    stop=ka_evts[i+1][0]
-    dur.append(stop-start)
-    ind= (raw['time'] >=start ) & (raw['time'] < stop)
-    ka_rear[ind]=True
+for i in range(0,len(ka_evts)):
+    if ka_evts[i][2] == 'a':
+        k = i
+        while 'd' not in ka_evts[k][2]:
+            k +=1 
+        start=ka_evts[i][0]
+        stop=ka_evts[k][0]
+        dur.append(stop-start)
+        ind= (raw['time'] >=start ) & (raw['time'] < stop)
+        ka_rear[ind]=True
 dlc_rear=raw['rear'].values.astype(bool)
 
 hit_rate = sum((dlc_rear==1) & (ka_rear==1)) / sum(ka_rear==1)
@@ -70,21 +80,25 @@ print('Raw: %1.3f Hit, %1.3f Miss, %1.3f FA ' % (hit_rate,miss_rate,fa_rate))
 
 #Per event, detect hits: 
 hit=[]
-for i in range(0,len(ka_evts),2):
-    start=ka_evts[i][0]
-    stop=ka_evts[i+1][0]
-    ind= (raw['time'] >=start ) & (raw['time'] < stop)
-    if any(ind & dlc_rear):
-        hit.append(1)
-    else:
-        hit.append(0)
+for i in range(0,len(ka_evts)):
+    if ka_evts[i][2] == 'a':
+        k = i
+        while 'd' not in ka_evts[k][2]:
+            k +=1 
+        start=ka_evts[i][0]
+        stop=ka_evts[k][0]
+        ind= (raw['time'] >=start ) & (raw['time'] < stop)
+        if any(ind & dlc_rear):
+            hit.append(1)
+        else:
+            hit.append(0)
 
 # Detect false alarms
 fa=[]
 for i in range(0,len(dlc_evts),2):
     start=dlc_evts[i]
     stop=dlc_evts[i+1]
-    ind= (raw['time'] >=start[0] ) & (raw['time'] < stop[0])
+    ind= (raw['time'] >=start[0] ) & (raw['time'] <= stop[0])
     if any(ind & ka_rear):
         fa.append(0)
     else:
@@ -95,7 +109,7 @@ for i in range(0,len(dlc_evts),2):
         dlc_evts[i+1]=stop
         
 e_hit_rate=sum(hit)/len(hit)
-true_negative=len(hit) #WARNING: This needs to be examined & determined empirically 
+true_negative=len(hit) # This can be made to be true by adding confirmed true negative events (see below)
 e_fa_rate=sum(fa)/true_negative
 print('Event: Hit: %1.3f, FA: %1.3f' % (e_hit_rate, e_fa_rate))
 
@@ -113,34 +127,139 @@ added=0
 rear_dur=np.mean(dur)
 new_evt=[]
 # while added < add_events:
-
-for i,j in zip(onset,offset):
-    if ((j-i)> rear_dur*3 ) and (added < add_events):
-        dlc_evts.append([i+rear_dur,meta['anid'][0],'fa_rear_onset','',''])
-        dlc_evts.append([i+(rear_dur*2),meta['anid'][0],'fa_rear_offset','',''])
-        added += 1
-        new_end =i+(rear_dur*2)
-        if (j- new_end) > (rear_dur*3) and (added < add_events): #if there is space, add another one:
-            dlc_evts.append([new_end+rear_dur,meta['anid'][0],'fa_rear_onset','',''])
-            dlc_evts.append([new_end+(rear_dur*2),meta['anid'][0],'fa_rear_offset','',''])
+add_fa_events = False
+if add_fa_events == True:
+    for i,j in zip(onset,offset):
+        if ((j-i)> rear_dur*3 ) and (added < add_events):
+            dlc_evts.append([i+rear_dur,meta['anid'][0],'fa_rear_onset','',''])
+            dlc_evts.append([i+(rear_dur*2),meta['anid'][0],'fa_rear_offset','',''])
             added += 1
+            new_end =i+(rear_dur*2)
+            if (j- new_end) > (rear_dur*3) and (added < add_events): #if there is space, add another one:
+                dlc_evts.append([new_end+rear_dur,meta['anid'][0],'fa_rear_onset','',''])
+                dlc_evts.append([new_end+(rear_dur*2),meta['anid'][0],'fa_rear_offset','',''])
+                added += 1
 
 # %% Integrating KA w/ DLC:
 # Go into KA observation and add DLC events:
 
 ka_evts = js['observations']['AG5362_3_BIO22520']['events']
-combo= dlc_evts + ka_evts
+#Remove previous DLC from ka if necessary:
+keep = []
+for evt in ka_evts:
+    if ('a' == evt[2]) or ('d' == evt[2]) or ('s' == evt[2]):
+        keep.append(evt)
+combo= dlc_evts + keep
 
 # Need to sort by timing:
 temp = pd.DataFrame(combo).sort_values(by=0)
 
-js['observations']['AG5362_3_BIO22520']['events'] = temp.values.tolist()
-new_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/dlc_and_ka_rearing_obs_no_fa.boris'
+# js['observations']['AG5362_3_BIO22520']['events'] = temp.values.tolist()
+boris['observations']['event_check']['events']=  temp.values.tolist()
+new_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/dlc_and_ka_rearing_confirmed_fa_final.boris'
 f = open(new_fn,"w")
-json.dump(js, f, sort_keys=True, indent=4)
+json.dump(boris, f, sort_keys=True, indent=4)
 f.close()
 
+# %% Load TRUE NEGATIVE CONFIRMED boris file:
+fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/dlc_and_ka_rearing_confirmed_fa_final_v2.boris'
+f = open(fn,'r')
+fa_conf=  json.loads(f.read() )
+       
+fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/dlc_and_ka_rearing_obs_with_fa.boris'
+f = open(fn,"r")
+dlc_ka= json.loads(f.read())
 
+dlc_ka_v1_evts = dlc_ka['observations']['AG5362_3_BIO22520']['events']
+dlc_ka_v2_evts = fa_conf['observations']['event_check']['events']
+
+#Count nrear pre-post:
+pre_hit = 0
+for i in range(0,len(dlc_ka_v1_evts)):
+    if dlc_ka_v1_evts[i][2] == 'a':
+        pre_hit +=1
+
+post_hit = 0 
+
+for i in range(0,len(dlc_ka_v2_evts)):
+    if dlc_ka_v2_evts[i][2] == 'a':
+        post_hit +=1
+
+print('Before 2nd round: %d rears (KA), post: %d rears (+DLC, Confirmed by KA)' % (pre_hit,post_hit))
+
+ka_rear=np.zeros(raw['rear'].values.shape).astype(bool)
+dur=[]
+for i in range(0,len(dlc_ka_v2_evts)):
+    if dlc_ka_v2_evts[i][2] == 'a':
+        k = i
+        while 'd' not in dlc_ka_v2_evts[k][2]:
+            k +=1 
+        start=dlc_ka_v2_evts[i][0]
+        stop=dlc_ka_v2_evts[k][0]
+        dur.append(stop-start)
+        ind= (raw['time'] >=start ) & (raw['time'] < stop)
+        ka_rear[ind]=True
+dlc_rear=raw['rear'].values.astype(bool)
+
+hit_rate = sum((dlc_rear==1) & (ka_rear==1)) / sum(ka_rear==1)
+miss_rate = sum((dlc_rear == 0) & (ka_rear ==1)) / sum(ka_rear==1)
+fa_rate= sum( (dlc_rear == 1) & (ka_rear == 0)) / sum(ka_rear==0)
+print('Raw: %1.3f Hit, %1.3f Miss, %1.3f FA ' % (hit_rate, miss_rate, fa_rate))
+
+#Per event, detect hits: 
+hit=[]
+for i in range(0,len(dlc_ka_v2_evts)):
+    if dlc_ka_v2_evts[i][2] == 'a':
+        k = i
+        while 'd' not in dlc_ka_v2_evts[k][2]:
+            k += 1 
+        start=dlc_ka_v2_evts[i][0]
+        stop=dlc_ka_v2_evts[k][0]
+        ind= (raw['time'] >=start ) & (raw['time'] < stop)
+        if any(ind & dlc_rear):
+            hit.append(1)
+        else:
+            hit.append(0)
+
+# Detect false alarms
+fa=[]
+for i in range(0,len(dlc_ka_v2_evts)):
+    if dlc_ka_v2_evts[i][2] == 'start_rear':
+        k = i
+        while 'stop_rear' not in dlc_ka_v2_evts[k][2]:
+            k += 1 
+        start=dlc_ka_v2_evts[i]
+        stop=dlc_ka_v2_evts[k]
+        ind= (raw['time'] >=start[0] ) & (raw['time'] <= stop[0])
+        if any((ind == 1) & (ka_rear==1)):
+            fa.append(0)
+        else:
+            fa.append(1)
+
+e_hit_rate=sum(hit)/len(hit)
+true_negative=len(hit)-1 # This can be made to be true by adding confirmed true negative events (see below)
+e_fa_rate=sum(fa)/true_negative
+print('Event: Hit: %1.3f, FA: %1.3f' % (e_hit_rate, e_fa_rate))
+
+
+
+
+# n_negative = 
+# Detect false alarms
+# fa=[]
+# for i in range(0,len(dlc_evts),2):
+#     start=dlc_evts[i]
+#     stop=dlc_evts[i+1]
+#     ind= (raw['time'] >=start[0] ) & (raw['time'] < stop[0])
+#     if any(ind & ka_rear):
+#         fa.append(0)
+#     else:
+#         fa.append(1)
+#         start[2]='fa_rear_onset'
+#         stop[2]='fa_rear_offset'
+#         dlc_evts[i]=start
+#         dlc_evts[i+1]=stop
+        
 # %% Raw script code:
 
 #Enter name of new event type to observe:

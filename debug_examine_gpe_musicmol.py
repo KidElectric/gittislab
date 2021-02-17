@@ -23,9 +23,9 @@ import time
 
 # %% Process any new files:
 ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
-inc=[['AG','10x10_gpe_pbs'],['AG','10x10_gpe_muscimol']]
+inc=[['AG','10x10_gpe_pbs'],['AG','10x10_gpe_muscimol'],['60min_gpe_muscimol']]
 make_preproc = True
-exc=[ex0,ex0]
+exc=[ex0,ex0,ex0]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_raw_to_csv(basepath, inc, exc,
                                   force_replace=False,
@@ -67,7 +67,7 @@ data = behavior.open_loop_summary_collect(basepath,[inc[0]],[exc[0]])
 fig=plots.plot_openloop_mouse_summary(data)
 
 #%% Compare 60min after muscimol mobility vs. time w/ 10x10 Str mobility thresh:
-ex0=['exclude','Other XLS','Exclude','AG6343']
+ex0=['exclude','Other XLS','Exclude','AG6343','AG6382_2']
 inc=[['10x10_gpe_pbs'],['60min_gpe_muscimol']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 exc=[ex0,ex0]
@@ -78,7 +78,7 @@ for i,ii,ee in zip(count,inc,exc):
     if i == 0:
         data = behavior.open_loop_summary_collect(basepath,[ii],[ee])
 # %% CONTINUATION FROM ABOVE CELL-->
-ee=['exclude','Other XLS','Exclude','AG6343']
+ee=ex0
 ii=['60min_gpe_muscimol']
 pns=dataloc.raw_csv(basepath,ii,ee)
 cont=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
@@ -92,7 +92,7 @@ for pn in pns:
                                              meta['opsin_type'][0])
     temp['proto']=meta['protocol'][0]
     x,y =signal.bin_analyze(raw['time'].values,raw['m'].values,
-                            bin_dur=120,fun = percentage)
+                            bin_dur=(60*5),fun = percentage)
     # x,y =signal.bin_analyze(raw['time'].values,raw['vel'].values,
     #             bin_dur=60,)
     
@@ -105,6 +105,7 @@ for pn in pns:
     temp['thresh']=thresh
     plt.figure()
     plt.plot(x,y,'k')
+    plt.title(temp['anid'])
     plt.plot([0,x[-1]],np.ones((2,1))*thresh,'--r',label='Str A2a ChR2')
     plt.xlabel('Time from muscimol infusion (min)')
     plt.ylabel('%Time mobile')
