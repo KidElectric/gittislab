@@ -241,7 +241,7 @@ def add_dlc_helper(raw,meta,path,inc=[],exc=[],force_replace=False,rear_thresh=0
         file_exists = True
     else:
         file_exists = len(dlc_path) > 0
-
+    # pdb.set_trace()
     if (file_exists == True):       
         
         #Check if DLC already added:
@@ -255,6 +255,7 @@ def add_dlc_helper(raw,meta,path,inc=[],exc=[],force_replace=False,rear_thresh=0
             dlc_likelihood_thresh=0.1
             dlc= behavior.load_and_clean_dlc_h5(dlc_path,dlc_outlier_thresh_sd,
                                                 dlc_likelihood_thresh)
+            # pdb.set_trace()
             if isinstance(dlc,pd.DataFrame):                
                 meta['dlc_outlier_thresh_sd'] = dlc_outlier_thresh_sd
                 meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
@@ -1115,7 +1116,9 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                 
                 #Load Raw ethovision tracking or other .csv to use for new event
                 # raw_pnfn=dataloc.raw_csv(path.parent) #Locate raw_pnfn .csv file
-                load_cols =list(np.unique(plot_cols + [event_col]))
+                if not isinstance(event_col,list):
+                    event_col=[event_col]
+                load_cols =list(np.unique(plot_cols + event_col))
                 raw,meta= csv_load(path, columns= load_cols, method= method)
                 project_name = path.parent.parts[-1]
                 #If desired, include a copy of this or other columns to plot in boris:
@@ -1131,7 +1134,8 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                     if ('vel' in col):
                         mm=(temp[col] > vel_max)
                         temp.loc[mm,col]= 0 #For plotting purposes eliminate velocity artifacts
-                        
+                    temp[col] = temp[col].astype(float) #Avoid issues if value is boolean and gets written as 'True' 'False' strings
+                # pdb.set_trace()
                 temp.to_csv(temp_fn, sep ='\t')
                 js['subjects_conf']={'0': {'key': 'q', 'name': meta['anid'][0], 'description': ''}}
                 
@@ -1141,7 +1145,7 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                 
                 js['observations'][obs_name]['plot_data']={"0":{'file_path': str(temp_fn), #Raw signal to detect events off of
                                                                 'columns': '2,3', #must always indicate time column and trace column by index sep by comma
-                                                                'title' : 'Norm. mouse height (px)', #Normalized mouse height (px)
+                                                                'title' : plot_cols[1], #Normalized mouse height (px)
                                                                 "variable_name": "", 
                                                                 "converters": {}, 
                                                                 "time_interval": "60",
@@ -1151,7 +1155,7 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                 if len(plot_cols) == 3: #currently the max
                     js['observations'][obs_name]['plot_data']['1']={'file_path': str(temp_fn), #rear detect at thresh
                                                                 'columns': '2,4', #must always indicate time column and trace column by index sep by comma
-                                                                'title' : 'Norm. speed (cm/s)',
+                                                                'title' : plot_cols[2],
                                                                 "variable_name": "", 
                                                                 "converters": {}, 
                                                                 "time_interval": "60",
@@ -1173,17 +1177,21 @@ def boris_prep(basepath,conds_inc=[],conds_exc=[],
                 js['observations'][obs_name]['media_info'] = med_info
                 
                 #Collect event onset and offset times in video from a custom data column:
-                on,off = signal.thresh(raw[event_col],event_thresh)
-                on_times=raw['time'].values[on]
-                off_times=raw['time'].values[off]
-                
-                event_times=[on_times,off_times]
-                event_names=['start_%s' % event_col, 'stop_%s' % event_col] #Custom event type names
                 new_evt=[]
-                for on,off in zip(on_times,off_times):
-                    new_evt.append([on,meta['anid'][0],event_names[0],'',''])
-                    new_evt.append([off,meta['anid'][0],event_names[1],'',''])
-                js['observations'][obs_name]['events']=new_evt
+                for col in event_col:
+                    on,off = signal.thresh(raw[col],event_thresh)
+                    on_times=raw['time'].values[on]
+                    off_times=raw['time'].values[off]
+                    
+                    event_times=[on_times,off_times]
+                    event_names=['start_%s' % col, 'stop_%s' % col] #Custom event type names
+                    
+                    for on,off in zip(on_times,off_times):
+                        new_evt.append([on,meta['anid'][0],event_names[0],'',''])
+                        new_evt.append([off,meta['anid'][0],event_names[1],'',''])
+                    
+                new_evt = pd.DataFrame(new_evt).sort_values(by=0)
+                js['observations'][obs_name]['events']= new_evt.values.tolist()
                 
                 
                 savefn=path.parent.joinpath(project_name + '.boris')

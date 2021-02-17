@@ -50,7 +50,7 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 inc=['AG','Str','CAG','Arch','10x10_30mW',]
 exc=['exclude','_and_Str','Left','Right']
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-pns=dataloc.rawh5(basepath,inc,exc)
+pns=dataloc.raw_csv(basepath,inc,exc)
 df_raw,par_raw=ethovision_tools.h5_load(pns[0])
 
 # %% 10x10 or 10x30 Convert .xlsx to .csv, add in DLC rearing data, & generate preproc *.csv in one go:

@@ -122,6 +122,7 @@ plt.plot([0,x[-1]],np.ones((2,1))*thresh,'--r',label='Str A2a ChR2')
 plt.xlabel('Time from GPe muscimol infusion (0.25ul) (min)')
 plt.ylabel('%Time mobile')
 plt.legend()
+
 # %% Look at mouse speed vs. time in each case:
     
 ex0=['exclude','and_GPe','and_Str','Left','Right',

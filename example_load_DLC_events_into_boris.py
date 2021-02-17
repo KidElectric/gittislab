@@ -239,7 +239,8 @@ for i in range(0,len(dlc_ka_v2_evts)):
 e_hit_rate=sum(hit)/len(hit)
 true_negative=len(hit)-1 # This can be made to be true by adding confirmed true negative events (see below)
 e_fa_rate=sum(fa)/true_negative
-print('Event: Hit: %1.3f, FA: %1.3f' % (e_hit_rate, e_fa_rate))
+total_accuracy = (sum(hit) + sum(np.array(fa) == 0)) / (len(hit) + true_negative)
+print('Event: Hit: %1.3f, FA: %1.3f, Accuracy = %1.3f' % (e_hit_rate, e_fa_rate, total_accuracy))
 
 
 
