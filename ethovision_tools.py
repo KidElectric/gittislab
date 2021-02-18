@@ -296,7 +296,7 @@ def add_dlc_helper(raw,meta,path,inc=[],exc=[],force_replace=False,rear_thresh=0
         meta['bad_dlc_tracking']=np.nan
     return raw, meta
 
-def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
+def meta_sum_csv(basepath,conds_inc=[],conds_exc=[],extra_cols=[]):
     '''
         Generate a summary dataframe of metadata from .csv files specified by
         inclusion criteria.
@@ -339,12 +339,14 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[]):
                'has_dlc',
                'version',
                'has_blink_state']
+    cols_keep += extra_cols
     df=df[cols_keep]
     df=df.reset_index().drop(['index'],axis=1)
     cols_rename=['anid','area','cell','opsin','side','proto','stim_n','stim_dur',
                  'da','sex','arena',
                  'stim','id_err','retrack','exper','room','trial','settings',
                  'dlc','ver','blink']
+    cols_rename += extra_cols
     rename_dict={cols_keep[i] : cols_rename[i] for i in range(len(cols_rename))} 
     
     return df.rename(rename_dict,axis=1)

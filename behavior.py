@@ -57,16 +57,14 @@ def preproc_raw(raw,meta,win=10):
     fs=meta['fs'][0]
     cutoff=3 #Hz    
     if 'dlc_top_head_x' in raw.columns:
-        use_dlc = False #Always use ethovision by default?
-        meta['has_dlc']=True       
+        has_dlc = True #Always use ethovision by default?    
         im_thresh=0.5 #cm/s more stringent, used in combo with other DLC metrics
     else:
-        meta['has_dlc']=False
-        use_dlc=False
+        has_dlc =False
         im_thresh=1 #Velcity thresh in cm/s
-    
+    meta['has_dlc'] = has_dlc
     preproc=raw.loc[:,['time','x','y','vel','laserOn']]
-    keep_cols=['iz1','iz2','im','full_rot_cw', 'full_rot_ccw']
+    keep_cols=['iz1','iz2','full_rot_cw', 'full_rot_ccw']
     for col in keep_cols:
         if col in raw.columns:
             preproc[col]=raw[col]
@@ -100,10 +98,16 @@ def preproc_raw(raw,meta,win=10):
     # min_bout_dur=0.5; #0.5s used in Kravitz & Kreitzer 2010 #Implement in bout_analyze
     
 
-    preproc,meta=add_amb_to_raw(preproc,meta,
+    raw,meta=add_amb_to_raw(raw,meta,
                                 amb_thresh = thresh,
                                 im_thresh=im_thresh,                
-                                use_dlc=use_dlc) #Thresh and dur
+                                use_dlc=has_dlc) #Thresh and dur
+    add_cols=['im','im2','amb','amb2','fm', 'fm2']
+    
+    for col in add_cols:
+        if col in raw.columns:
+            preproc[col]=raw[col]
+    # pdb.set_trace()
     meta['amb_vel_thresh']=thresh
     meta['im_vel_thresh']=im_thresh
     
@@ -152,7 +156,12 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
     amb2=amb
     im = raw['im'].values.astype(float)
     if use_dlc == True:
-        amb2[raw['rear'] == True] = False
+        if 'rear' in raw.columns:
+            rear=raw['rear']
+        elif 'dlc_is_rearing_logical' in raw.columns:
+            rear = raw['dlc_is_rearing_logical']
+            
+        amb2[rear == True] = False
         meta['alt_im_method'] = 'dlc_pos_delta'
         im2 = np.zeros(im.shape,dtype=bool)
         
@@ -177,13 +186,16 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
 
         dlc_crit = 0.004 # For position normalized, determined to get good agreement / improvement over ethovision
         vel_crit = im_thresh
-        height=raw['mouse_height']
-        
-        new_crit = np.array((d < dlc_crit) & (vel < vel_crit) & (height < 0.2))
+        if 'mouse_height' in raw.columns:
+            height=raw['mouse_height']
+        elif 'dlc_front_over_rear_length' in raw.columns:
+            height = raw['dlc_front_over_rear_length']
+        # height_crit = 0.3 #Exclude for now
+        new_crit = np.array((d < dlc_crit) & (vel < vel_crit) ) # & (height < height_crit))
         smooth_crit = 0.2
         new_crit_temp = signal.boxcar_smooth(new_crit,round(meta['fs'][0]*0.5)) 
         im2 =  new_crit_temp >= smooth_crit
-        im2[raw['rear'] == True] = False # Say rearing is fine_movement
+        im2[rear == True] = False # Say rearing is fine_movement
     else:
         im2 = np.zeros(im.shape,dtype=bool)
         meta['alt_im_method'] = 'vel_thresh'        
@@ -203,7 +215,7 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
     raw['fm']= (raw['amb']==False) & (raw['im']==False)
     raw['fm2'] = (raw['im2']==False) & (raw['amb2'] == False)
     if use_dlc:
-        raw['fm2'].values[raw['rear'] == True ] = True
+        raw['fm2'].values[rear == True ] = True
         
     return raw, meta
 

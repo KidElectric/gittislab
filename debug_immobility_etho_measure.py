@@ -17,6 +17,30 @@ import pdb
 from itertools import compress
 from matplotlib import pyplot as plt
 from scipy import stats
+# %% Debugging code incorporated into preprocessing:
+ex0=['exclude','and_GPe','and_Str','Left','Right',
+     'Other XLS','Exclude','mW','mw']
+
+inc=[['AG','A2A','Ai32','10x10']]
+exc=[ex0,ex0,ex0]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,
+                                             inc,exc,force_replace=True,
+                                             win=10)
+# %% Plot comparing im & im2 (improved)
+
+inc=['AG','Str','A2A','Ai32','10x10',]
+exc=['exclude','gpe_','mw']
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+pns=dataloc.raw_csv(basepath,inc,exc)
+use=1
+# fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG6343_5_BI120220/Raw_AG6343_5_BI120220.csv'
+raw,meta=ethovision_tools.csv_load(pns[use],method='preproc')
+
+plt.figure()
+plt.plot(raw['time'],raw['im'])
+plt.plot(raw['time'],raw['im2'])
+
 # %%  Compare ethovision immobility measurement to using DLC side camera stats
 # and or velocity threshold.
 
