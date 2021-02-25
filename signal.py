@@ -287,12 +287,36 @@ def log_modulus(x):
     
     return np.sign(x) * np.log10(np.abs(x)+1)
 
-def max_correct(x,y,step,poly_order=2):
+def scale_per_dist(x,head_xy,tail_xy,mouse_height,step=2,poly_order = 2):
+    x = x - np.nanmin(x)
+    max_dist=math.ceil(np.nanmax(x))  
+    xtemp=np.array([i for i in range(0,max_dist,step)]) + step / 2
+    keep_x = []
+    out = []
+    for i, dist in enumerate(range(0, max_dist, step)):
+        subx=np.argwhere((x>dist) & (x< (dist + step)))        
+        if any(subx):
+            mouse_length= np.nanmax(abs(head_xy[subx,0] - tail_xy[subx,0]))
+            out.append(mouse_length) #Take max value of each bin of x
+            keep_x.append(xtemp[i])
+    #Remove nan:
+    out= np.array(out).flatten()
+    keep_x=np.array(keep_x)
+    ind = np.isnan(out) == False
+    keep_x=keep_x[ind]
+    out=out[ind]
+    # pdb.set_trace()
+    p=np.poly1d(np.polyfit(keep_x,out,poly_order))
+    scale = p(x)/p(0)
+    return mouse_height * scale
+
+def max_normalize_per_dist(x,y,step=2,poly_order=2):
     '''
     Normalize local maximum values of y as a (polynomial) function of x.
     Take max value of each bin of x, fit a polynomial, and divide y by the fitted max
     This is useful to correct object size as a function of distance from a camera, for example.
     ''' 
+    
     max_val=math.ceil(np.nanmax(x))
     out=[]
     xtemp=np.array([i for i in range(0,max_val,step)])+step/2
@@ -301,8 +325,9 @@ def max_correct(x,y,step,poly_order=2):
         subx=np.argwhere((x>=ind) & (x< (ind + step)))
         suby=y[subx]
         if any(suby):
-            out.append(max(suby)) #Take max value of each bin of x
+            out.append(np.nanmax(suby)) #Take max value of each bin of x
             keep_x.append(xtemp[i])
+    
     #Remove nan:
     out= np.array(out).flatten()
     keep_x=np.array(keep_x)
@@ -311,4 +336,12 @@ def max_correct(x,y,step,poly_order=2):
     out=out[ind]
     
     p=np.poly1d(np.polyfit(keep_x,out,poly_order))
-    return y/p(x)
+    # pdb.set_trace()
+    norm_factor = p(x)
+    if np.mean(norm_factor) < 25:
+        # Suspect no rears in video
+        norm_factor = norm_factor * 3
+    
+        
+    norm_height = y / norm_factor
+    return norm_height

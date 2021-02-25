@@ -133,7 +133,7 @@ def raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace
         exc=conds_exc[i]
         csv_paths=dataloc.raw_csv(basepath,inc,exc)
         if isinstance(csv_paths,Path):
-            xlsx_paths=[csv_paths]
+            csv_paths=[csv_paths]
         for ii,path in enumerate(csv_paths):
             # First, let's check if there is already a .csv file in this folder:    
             preproc_file_name=dataloc.path_to_preprocfn(path) + '.csv'
@@ -234,9 +234,9 @@ def add_dlc_to_csv(basepath,conds_inc=[[]],conds_exc=[[]],
             else:
                 print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
 
-def add_dlc_helper(raw,meta,path,inc=[],exc=[],force_replace=False,rear_thresh=0.60,
+def add_dlc_helper(raw,meta,basepath,inc=[],exc=[],force_replace=False,rear_thresh=0.60,
                    min_thresh=0.55):               
-    dlc_path=dataloc.gen_paths_recurse(path,inc,exc,'*dlc_analyze.h5')
+    dlc_path=dataloc.gen_paths_recurse(basepath,inc,exc,'*dlc_analyze.h5')
     if isinstance(dlc_path,Path):
         file_exists = True
     else:

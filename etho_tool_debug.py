@@ -31,8 +31,8 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% RUN AFTER DLC:
-ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
-inc=[['AG','60min_gpe_muscimol',]]
+ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS','mW']
+inc=[['AG','A2A','Ai32','10x10']]
 make_preproc = True
 exc=[ex0]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
@@ -72,10 +72,10 @@ ex0=['exclude','and_GPe','and_Str','Left','Right',
      'Other XLS','Exclude','zone_1_d1r',
      '_gpe_muscimol','_gpe_pbs','mW','mw']
 
-inc=[['AG','GPe','CAG','Arch','zone_1'],
-     ['AG','Str','A2A','Ai32','zone_1'],
-     ['AG','Str','A2A','ChR2','zone_1']]
-
+# inc=[['AG','GPe','CAG','Arch','zone_1'],
+#      ['AG','Str','A2A','Ai32','zone_1'],
+#      ['AG','Str','A2A','ChR2','zone_1']]
+inc=[['AG','A2A','Ai32','10x10']]
 exc=[ex0,ex0,ex0]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.raw_csv_to_preprocessed_csv(basepath,

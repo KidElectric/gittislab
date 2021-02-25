@@ -977,7 +977,8 @@ def zone_day_crossing_stats(raw,meta):
 
 # Below 2 functions might be better in ethovision_tools ?
 
-def etho_check_sidecamera(vid_path,frame_array,plot_points=None):
+def etho_check_sidecamera(vid_path,frame_array,plot_points=None,
+                          part_colors=['.r']):
     """
     Save sets of selected frames as a .pngs for closer inspection
 
@@ -1033,8 +1034,8 @@ def etho_check_sidecamera(vid_path,frame_array,plot_points=None):
                     ax[i].invert_yaxis()
                 if plot_points != None:
                     parts=plot_points[ii][i]
-                    for part in parts:
-                        ax[i].plot(part[0],part[1],'.r',markersize=3)
+                    for color,part in zip(part_colors,parts):
+                        ax[i].plot(part[0],part[1],color,markersize=3)
             else:
                 ax[i].set_title('No frame returned.')
         plt.tight_layout()
@@ -1043,7 +1044,7 @@ def etho_check_sidecamera(vid_path,frame_array,plot_points=None):
         plt.close()
     cap.release()
     
-def gen_sidecam_plot_points(df,parts,framesets):
+def gen_sidecam_plot_points(df,parts,framesets,raw_dlc_file=False):
     """
     Generate list of points to plot on frames for plots.etho_check_sidecamera()
 
@@ -1063,22 +1064,41 @@ def gen_sidecam_plot_points(df,parts,framesets):
             see: plots.etho_check_sidecamera() for useage
 
     """
-   
-    valid_parts=np.unique([col[1] for col in df.columns])
-    dims=['x','y']
     plot_points=[]
-    for frameset in framesets:
-        frame_points=[]
-        for frame in frameset:
-            plot_part=[]
-            for part in parts:  
-                if part not in valid_parts:
-                    print('Invalid part %s requested.' % part)
-                else:
+    if raw_dlc_file == True:
+        valid_parts=np.unique([col[1] for col in df.columns])
+        dims=['x','y']
+        for frameset in framesets:
+            frame_points=[]
+            for frame in frameset:
+                plot_part=[]
+                for part in parts:  
+                    if part not in valid_parts:
+                        print('Invalid part %s requested.' % part)
+                    else:
+                        point=[] #Each ROW of temp will be a point plotted on each frame of frameset
+                        for dim in dims:
+                            point.append(df[(df.columns[0][0],part,dim)][frame])
+                        plot_part.append(point)
+                frame_points.append(plot_part)
+            plot_points.append(frame_points)
+    else:
+        valid_parts = np.unique([col for col in df.columns])
+        dims=['x','y']
+        for frameset in framesets:
+            frame_points=[]
+            for frame in frameset:
+                plot_part=[]
+                for p in parts:
                     point=[] #Each ROW of temp will be a point plotted on each frame of frameset
                     for dim in dims:
-                        point.append(df[(df.columns[0][0],part,dim)][frame])
+                        part='%s_%s' % (p,dim)
+                        if part not in valid_parts:
+                            print('Invalid part %s requested.' % part)
+                        else:
+                            point.append(df.loc[frame,part])
                     plot_part.append(point)
-            frame_points.append(plot_part)
-        plot_points.append(frame_points)
+                frame_points.append(plot_part)
+            plot_points.append(frame_points)
+
     return plot_points

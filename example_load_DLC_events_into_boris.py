@@ -14,6 +14,19 @@ from pathlib import Path
 from gittislab import dataloc, ethovision_tools,signal
 import matplotlib.pyplot as plt
 
+
+
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/'
+inc=[['AG5362_3']]
+exc=[['exclude']]
+ethovision_tools.unify_raw_to_csv(basepath,inc,exc,
+                     force_replace=False, make_preproc=True, win=10)
+pns=dataloc.raw_csv(basepath,inc[0],exc[0])
+raw,meta=ethovision_tools.csv_load(pns,method='preproc')
+ethovision_tools.boris_prep(basepath,inc,exc,plot_cols=['time','mouse_height','vel'], 
+                            event_col='mouse_height',event_thresh=0.5, method='preproc')
+
+# %%
 # fn1 = '/home/brian/Documents/rear_scoring.boris'
 # fn = '/home/brian/Documents/template.boris'
 fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/KA_rearing_observations.boris'
@@ -224,9 +237,9 @@ for i in range(0,len(dlc_ka_v2_evts)):
 # Detect false alarms
 fa=[]
 for i in range(0,len(dlc_ka_v2_evts)):
-    if dlc_ka_v2_evts[i][2] == 'start_rear':
+    if (dlc_ka_v2_evts[i][2] == 'start_rear') or (dlc_ka_v2_evts[i][2] == 'fa_rear_onset'):
         k = i
-        while 'stop_rear' not in dlc_ka_v2_evts[k][2]:
+        while ('stop_rear' not in dlc_ka_v2_evts[k][2]) and ('fa_rear_offset' not in dlc_ka_v2_evts[k][2]):
             k += 1 
         start=dlc_ka_v2_evts[i]
         stop=dlc_ka_v2_evts[k]
@@ -247,7 +260,7 @@ print('Event: Hit: %1.3f, FA: %1.3f, Accuracy = %1.3f' % (e_hit_rate, e_fa_rate,
 
 # n_negative = 
 # Detect false alarms
-# fa=[]
+# fa=[]/
 # for i in range(0,len(dlc_evts),2):
 #     start=dlc_evts[i]
 #     stop=dlc_evts[i+1]

@@ -179,7 +179,7 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
         x=raw['dlc_top_body_center_y'].values 
         for c in feats:
             dat = raw[c].values
-            dat=signal.max_correct(x,dat,step,poly_order=2) #Correct for distance from camera
+            dat=signal.max_normalize_per_dist(x,dat,step,poly_order=2) #Correct for distance from camera
             dd = abs(np.diff(np.hstack((dat[0],dat))))
             d=np.vstack((d,dd))
         d=np.nanmax(d,axis=0)
@@ -807,7 +807,7 @@ def load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_th
         x=df[(exp,'top_body_center','y')].values
         
         # Front over rear and correct for distance from camera:
-        newy=signal.max_correct(x,y2-y1,step,poly_order=2)
+        newy=signal.max_normalize_per_dist(x,y2-y1,step,poly_order=2)
         ind=np.array([i for i in range(0,len(newy))])
         
         # Spline-fitting smooth method (slow!):
