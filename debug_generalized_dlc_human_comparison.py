@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 
 
 
-# basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/'
-# inc=[['AG5477_4']]
-basepath = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/CAG/Arch/Right/5x30/'
-inc=[['AG4486_1']]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10/'
+inc=[['AG5477_4']]
+# basepath = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/CAG/Arch/Right/5x30/'
+# inc=[['AG4486_1']]
 exc=[['exclude']]
 ethovision_tools.unify_raw_to_csv(basepath,inc,exc)
 ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,force_replace=True)
@@ -26,13 +26,30 @@ raw,meta=ethovision_tools.csv_load(pns,method='preproc')
 ethovision_tools.boris_prep(basepath,inc,exc,plot_cols=['time','mouse_height','vel'], 
                             event_col='rear',event_thresh=0.5, method='preproc')
 
-
-# %% Plot some questionable frames [update: they look good!]:
 dlc=ethovision_tools.add_dlc_helper(raw,meta,pns.parent,force_replace = True)
 dlc=dlc[0]
+mouse_height=(dlc['dlc_rear_centroid_y']-dlc['dlc_front_centroid_y'])
+head_xy=np.array(dlc.loc[:,('dlc_front_centroid_x','dlc_front_centroid_y')])
+tail_xy=np.array(dlc.loc[:,('dlc_rear_centroid_x','dlc_rear_centroid_y')])
+x=raw['x']
+mh=signal.scale_per_dist(x,head_xy,tail_xy,mouse_height,step=2,poly_order = 2)
+mhh=signal.max_normalize_per_dist(x,mouse_height,step=2,poly_order=2)
+plt.figure()
+plt.plot(raw['time'],mh/100)
+plt.plot(raw['time'],mhh)
+
+# %% Plot some questionable frames [update: they look good!]:
+
 parts=['dlc_front_centroid','dlc_rear_centroid',]
 part_colors = ['.c','.y']
-framesets=[[7550,7560,7570],[7208,7218,7228]]
+framesets=[]
+on,off=signal.thresh(mh,30, sign='Pos')
+for o,f in zip(on,off):
+    if o > f:
+        print('o > f')
+    m=round((o + f)/2)
+    framesets.append([o,m,f])
+# framesets=[[8349,8359,8369],[6327, 6337, 6347],[6159,6169,6179],[3356, 3366, 3376]]
 plot_points=plots.gen_sidecam_plot_points(dlc,parts,framesets)
 
 plots.etho_check_sidecamera(dataloc.video(pns.parent),framesets,
@@ -40,10 +57,11 @@ plots.etho_check_sidecamera(dataloc.video(pns.parent),framesets,
 
 # %% Different rear approach scaling mouse_height to body len
 x = raw['x'].values
-mouse_height=raw['mouse_height'].values
-head_xy=np.array(dlc.loc[:,('dlc_head_centroid_x','dlc_head_centroid_y')])
-tail_xy=np.array(dlc.loc[:,('dlc_rear_centroid_x','dlc_rear_centroid_y')])
-mh=signal.scale_per_dist(x,head_xy,tail_xy,mouse_height,step=20,poly_order = 2)
+
+
+plt.figure()
+plt.plot(raw['time'],mouse_height,'k')
+plt.plot(raw['time'],mh,'--r')
 # %%
 
 #Load in human scoring:

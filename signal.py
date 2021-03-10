@@ -77,20 +77,35 @@ def outlier_to_nan(y,outlier_thresh=3):
     return y
 
 def thresh(y,thresh, sign='Pos'):
+    #Fill in nans using pandas:
+    if not isinstance(y,pd.core.series.Series):
+        y=pd.core.series.Series(y.flatten())
+        
+    y=y.interpolate(method='pad').astype(np.float)
     y=np.array(y)
     if len(y.shape) == 1:
         y=y[:,None]
     if sign =='Neg':
         y *=-1
         thresh *=-1
-    ind_list=np.concatenate(([0],np.argwhere(y[:,0] > thresh)[:,0]))
-    d=np.diff(ind_list) 
-    onsets=ind_list[np.argwhere(d > 1) + 1]
-    ind_list=np.concatenate(([0],np.argwhere(y < thresh)[:,0]))
-    d=np.diff(ind_list)
-    offsets=ind_list[np.argwhere(d > 1)+1 ]
+    on_cross = np.argwhere(y[:,0] >= thresh)[:,0]
+    ind_list=np.concatenate(([0],on_cross))
+    d_on=np.diff(ind_list) 
+    # pdb.set_trace()
+    onsets=ind_list[np.argwhere(d_on > 1) + 1]
+    off_cross = np.argwhere(y <= thresh)[:,0]
+    ind_list=np.concatenate(([0],off_cross))
+    d_off=np.diff(ind_list)
+    offsets=ind_list[np.argwhere(d_off > 1) + 1]
     onsets=onsets[:,0]
     offsets=offsets[:,0]
+    if any((offsets - onsets) < 0):
+        print('Warning! signal.thresh() performing in unexpected way!')
+        from matplotlib import pyplot as plt
+        plt.figure(),plt.plot(y,'k')
+        plt.plot(onsets,y[onsets],'or')
+        plt.plot(offsets,y[offsets],'og')
+        
     if onsets.size > offsets.size:
         onsets=onsets[0:offsets.size]
     elif offsets.size > onsets.size:
@@ -277,7 +292,7 @@ def expand_peak_start_stop(y,distance=30,height=0.6,width=10, min_thresh=0.2):
     return peaks,np.array(start_peak),np.array(stop_peak)
 
 def calculateDistance(x1,y1,x2,y2): 
-    dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)  
+    dist = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)  
     return dist 
 
 def log_modulus(x):
@@ -294,7 +309,7 @@ def scale_per_dist(x,head_xy,tail_xy,mouse_height,step=2,poly_order = 2):
     keep_x = []
     out = []
     for i, dist in enumerate(range(0, max_dist, step)):
-        subx=np.argwhere((x>dist) & (x< (dist + step)))        
+        subx=(x>dist) & (x< (dist + step))        
         if any(subx):
             mouse_length= np.nanmax(abs(head_xy[subx,0] - tail_xy[subx,0]))
             out.append(mouse_length) #Take max value of each bin of x
@@ -322,7 +337,7 @@ def max_normalize_per_dist(x,y,step=2,poly_order=2):
     xtemp=np.array([i for i in range(0,max_val,step)])+step/2
     keep_x=[]
     for i,ind in enumerate(range(0,max_val,step)):
-        subx=np.argwhere((x>=ind) & (x< (ind + step)))
+        subx=(x>=ind) & (x< (ind + step))
         suby=y[subx]
         if any(suby):
             out.append(np.nanmax(suby)) #Take max value of each bin of x

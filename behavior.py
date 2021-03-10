@@ -939,6 +939,22 @@ def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):
     #     cap.release()
     return df
 
+def boris_to_logical_vector(raw,boris,obs_name,evt_start,evt_stop):
+    out=np.zeros(raw['time'].values.shape).astype(bool)
+    evts=boris['observations'][obs_name]['events']
+    dur=[]
+    for i in range(0,len(evts)):
+        if evts[i][2] == evt_start:
+            k = i
+            while evt_stop not in evts[k][2]:
+                k +=1 
+            start=evts[i][0]
+            stop=evts[k][0]
+            dur.append(stop-start)
+            ind= (raw['time'] >=start ) & (raw['time'] < stop)
+            out[ind]=True
+    return out
+
 def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
     ''' 
     prob_rear_dict() uses behavior.detect_rear() to calculate the probability 
