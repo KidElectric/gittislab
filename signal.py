@@ -5,6 +5,7 @@ import pandas as pd
 from scipy.signal import find_peaks
 from scipy.signal import butter, filtfilt
 from scipy.stats import t
+import librosa 
 
 def butter_lowpass(cutoff, fs, order=5):
     nyq = 0.5 * fs
@@ -13,8 +14,12 @@ def butter_lowpass(cutoff, fs, order=5):
     return b, a
 
 def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
+    if not isinstance(data,pd.core.series.Series):
+        data=pd.core.series.Series(data)
+    data.fillna(method='ffill',inplace=True)
+    data.fillna(method='bfill',inplace=True)
     b, a = butter_lowpass(cutoff, fs, order=order)
-    y = filtfilt(b, a, data)
+    y = filtfilt(b, a, data.values)
     return y
 
 def pad_lowpass_unpad(data,cutoff,fs,order=5):
@@ -185,6 +190,26 @@ def chunk_by_x(x,y,x_points,x_range):
             clip=y[use_x]
             output.append(clip)
     return output
+
+def get_spectral_band_power(y,fs,low,high):
+    if not isinstance(y,pd.core.series.Series):
+        y=pd.core.series.Series(y.flatten())
+    y.fillna(method='ffill',inplace=True)
+    y.fillna(method='bfill',inplace=True)
+    n_fft = 256
+    hop_length=round(fs/3) 
+    freqs = np.arange(0, 1 + n_fft / 2) * fs / n_fft
+    S = librosa.feature.melspectrogram(y=y.values, sr=fs, n_fft= n_fft, hop_length=hop_length)
+    ind=(freqs[0:-1] > low) & (freqs[0:-1] < high)
+    dm= np.mean(S[ind,:],axis=0)
+    
+    #resample to original sampling rate of y:
+    i=0
+    out=np.ones(y.shape)
+    for h in dm:
+        out[i:(i+hop_length)]=h
+        i=i+hop_length
+    return out
 
 def boxcar_smooth(y,samps):
     '''
