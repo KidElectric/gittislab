@@ -34,17 +34,32 @@ test_video_pn=[basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/', #L
 
 test_video_boris_obs = ['AG4486_3', 'event_check']
 
-use_cols =   ['vel','area', 'delta_area', 'elon', # 'dlc_front_over_rear_length'
+use_cols =   ['vel','area', 'delta_area', # 'dlc_front_over_rear_length'
               'dlc_side_head_x','dlc_side_head_y',
               'dlc_front_centroid_x','dlc_front_centroid_y',
               'dlc_rear_centroid_x','dlc_rear_centroid_y',
               'dlc_snout_x', 'dlc_snout_y',
+              'dlc_side_left_fore_x','dlc_side_left_fore_y', 
+              'dlc_side_right_fore_x', 'dlc_side_right_fore_y', 
+              'dlc_side_left_hind_x', 'dlc_side_left_hind_y',
+              'dlc_side_right_hind_x', 'dlc_side_right_hind_y',
               'dlc_top_head_x', 'dlc_top_head_y',
               'dlc_top_body_center_x', 'dlc_top_body_center_y',
               'dlc_top_tail_base_x','dlc_top_tail_base_y',
-              'video_resolution','human_scored_rear','head_hind_px_height',
-              'front_hind_px_height','side_length_px',
-              'top_length_px','head_hind_5hz_pw']
+              'video_resolution','human_scored_rear',
+              'side_length_px',
+              'head_hind_5hz_pw',
+              'snout_hind_px_height',
+              'snout_hind_px_height_detrend',
+              'front_hind_px_height_detrend',
+              'side_length_px_detrend','dlc_front_over_rear_length',]
+
+
+valid_video_pn=[basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/', #Low res, File that prev method struggled with (only 1 rear)
+               basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/', # File from high res, Multiple rounds of refinement, file same as dlc_and_ka_rearing_confirmed_fa_final_v2.boris
+               ]
+
+test_video_boris_obs = ['AG4486_3', 'event_check']
 
 # %% IF needed:
 pn=dataloc.raw_csv(test_video_pn[0])
@@ -53,14 +68,25 @@ raw,meta = ethovision_tools.add_dlc_helper(raw,meta,pn.parent)
 
 # %% Create training and test data from rear_scored videos:
 train = model.combine_raw_csv_for_modeling(train_video_pn,train_video_boris_obs,
-                                  use_cols,rescale = False)
-# train.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Train.csv')
+                                  use_cols,rescale = True, 
+                                  avg_model_detrend = True,
+                                  z_score_x_y  = True,
+                                  flip_y = True)
 
 test =  model.combine_raw_csv_for_modeling(test_video_pn,test_video_boris_obs,
-                                 use_cols,rescale = True)
-# test.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Test.csv')
+                                 use_cols,rescale = True,
+                                 avg_model_detrend = True,
+                                 z_score_x_y = True,
+                                 flip_y = True)
+
+
+plt.figure(),plt.plot(train['snout_hind_px_height'])
 plt.figure(),plt.plot(train['dlc_snout_y'])
 
+
+train.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Train_v2.csv')
+test.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Test_v2.csv')
+print('\n\nFinished')
 #%% NOTE: Currently the random forest model is in the fastai folder as a notebook on tabular data
 # 'bi_tabular_rearing_model_experiments.ipynb'
 
@@ -220,17 +246,20 @@ plt.plot(time_s,pred['pred']*30,'r')
 plt.plot(time_s,obs['human_scored_rear']*40,'k')
 # %% Random Forest method predictions on validation ('Test.csv') set:
 obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_valid_rear.csv')
-pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/pred_valid_rear.csv')
-
+# pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/pred_valid_rear.csv')
+pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_pred_valid_rear.csv')
+pred_ens_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_rf_ens_pred_valid_rear.csv')
 # obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_train_rear.csv')
 # pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/pred_train_rear.csv')
 
 obs= pd.read_csv(obs_path)
 pred= pd.read_csv(pred_path)
+pred_ens=pd.read_csv(pred_ens_path)
 plt.figure()
 plt.plot(obs['human_scored_rear'],'k')
 plt.plot(pred['pred'],'r')
-thresh=0.6
+plt.plot(pred_ens['pred'],'g')
+thresh=0.7
 plt.plot([0,len(pred),],[thresh,thresh],'--b')
 plt.plot((pred['pred'] > thresh)*1.25, '--b')
 
@@ -247,9 +276,9 @@ use_cols =   ['time','vel','area', 'delta_area', 'elon', # 'dlc_front_over_rear_
               'dlc_top_head_x', 'dlc_top_head_y',
               'dlc_top_body_center_x', 'dlc_top_body_center_y',
               'dlc_top_tail_base_x','dlc_top_tail_base_y',
-              'video_resolution','human_scored_rear','head_hind_px_height',
+              'video_resolution','human_scored_rear',
               'front_hind_px_height','side_length_px',
-              'top_length_px',]
+              ]
 test =  model.combine_raw_csv_for_modeling(test_video_pn,test_video_boris_obs,
                                  use_cols)
 # %%

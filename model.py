@@ -18,7 +18,9 @@ def combine_raw_csv_for_modeling(raw_pns,
                                  use_cols,
                                  uniform_boris_fn='Rearing Observations.boris',
                                  rescale = False,
-                                 avg_model_detrend = False):
+                                 avg_model_detrend = False,
+                                 z_score_x_y = False,
+                                 flip_y = False):
     
     combined = pd.DataFrame([],columns=use_cols)
 
@@ -61,36 +63,47 @@ def combine_raw_csv_for_modeling(raw_pns,
                              
         dlc['video_resolution'] = vid_res
         dlc['human_scored_rear'] = human_scored_rearing
-        dlc['head_hind_px_height']= dlc ['dlc_rear_centroid_y'] - dlc['dlc_side_head_y']
-        dlc['head_hind_5hz_pw'] = signal.get_spectral_band_power(dlc['head_hind_px_height'],
-                                                                 meta['fs'][0],4.5,6.5)
-        
+        # dlc['head_hind_px_height']= dlc ['dlc_rear_centroid_y'] - dlc['dlc_side_head_y']
+
         dlc['front_hind_px_height'] = dlc ['dlc_rear_centroid_y'] - dlc['dlc_front_centroid_y']
+        dlc['head_hind_5hz_pw'] = signal.get_spectral_band_power(dlc['front_hind_px_height'],
+                                                                 meta['fs'][0],4.5,6.5)
         dlc['snout_hind_px_height'] = dlc ['dlc_rear_centroid_y'] - dlc['dlc_snout_y']
         dlc['side_length_px']=signal.calculateDistance(dlc['dlc_front_centroid_x'].values,
                                                        dlc['dlc_front_centroid_y'].values,
                                                        dlc ['dlc_rear_centroid_x'].values,
                                                        dlc ['dlc_rear_centroid_y'].values)
-        dlc['top_length_px']=signal.calculateDistance(dlc['dlc_top_head_x'].values,
-                                                       dlc['dlc_top_head_y'].values,
-                                                       dlc ['dlc_top_tail_base_x'].values,
-                                                       dlc ['dlc_top_tail_base_y'].values)
+        # dlc['top_length_px']=signal.calculateDistance(dlc['dlc_top_head_x'].values,
+        #                                                dlc['dlc_top_head_y'].values,
+        #                                                dlc ['dlc_top_tail_base_x'].values,
+        #                                                dlc ['dlc_top_tail_base_y'].values)
         #Detrend effect of mouse distance from camera using an average pre-fitted
         #z-score approach:
         if avg_model_detrend == True:
-            detrend_cols=['head_hind_px_height',
-                          'snout_hind_px_height',
+            detrend_cols=['snout_hind_px_height',
                           'front_hind_px_height',
-                          'side_length_px',
-                          'top_length_px']
+                          'side_length_px']
             for col in detrend_cols:
                 y=dlc[col]
                 x=dlc['x']
-                dlc[col]=average_z_score(x,y)
+                dlc[col+'_detrend'] = average_z_score(x,y)
+        
+        if z_score_x_y == True:
+            for col in dlc.columns:
+                if ('dlc' in col) and (('x' in col) or ('y' in col)):
+                    temp=dlc[col].values 
+                    temp = temp - np.nanmean(temp)
+                    temp = temp / np.nanstd(temp)
+                    dlc[col] = temp
 
+        if flip_y == True:
+            for col in dlc.columns:
+                if ('dlc' in col) and  ('y' in col):
+                    dlc[col] = -1 * dlc[col]
+                    # dlc[col] = dlc[col] - np.nanmin(dlc[col])
         temp=dlc[use_cols]    
         combined = pd.concat([combined,temp])
-
+        
     #Add time lags (?)
     combined.reset_index(drop=True, inplace=True)
     return combined
@@ -114,3 +127,36 @@ def average_z_score(x,y,avg_mean_model = None,avg_std_model = None):
     y=y-avg_mean_model(x)
     y=y/avg_std_model(x) # Predicted std. as opposed to actual
     return y
+
+def binary_vector_score_accuracy(target,pred):
+    hit_rate = sum((pred ==1) & (target==1)) / sum(target==1)
+    miss_rate = sum((pred == 0) & (target ==1)) / sum(target==1)
+    fa_rate= sum( (pred == 1) & (target == 0)) / sum(target==0)
+    print('Raw: %1.3f Hit, %1.3f Miss, %1.3f FA ' % (hit_rate, miss_rate, fa_rate))
+    
+    #Per target event, detect prediction hits: 
+    hit=[]
+    on,off=signal.thresh(target,0.5)
+    for o,f in zip(on,off):
+        ind= pred[o:f]
+        if any(ind):
+            hit.append(1)
+        else:
+            hit.append(0)
+    
+    # Detect false alarms
+    fa=[]
+    on,off=signal.thresh(pred,0.5)
+    for o,f in zip(on,off):
+        ind = target[o:f]
+        if not(any(ind)):
+            fa.append(1)
+        else:
+            fa.append(0)
+    
+    e_hit_rate=sum(hit)/len(hit)
+    true_negative=len(hit) # This can be made to be true by adding confirmed true negative events (see below)
+    e_fa_rate=sum(fa)/true_negative
+    total_accuracy = (sum(hit) + sum(np.array(fa) == 0)) / (len(hit) + true_negative)
+    print('Event: Hit: %1.3f, FA: %1.3f, Accuracy = %1.3f' % (e_hit_rate, e_fa_rate, total_accuracy))
+    return e_hit_rate, e_fa_rate, total_accuracy
