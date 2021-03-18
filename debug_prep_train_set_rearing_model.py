@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import json 
 import librosa 
 import librosa.display
-
+from sklearn import metrics
 basepath = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 
 
@@ -247,8 +247,8 @@ plt.plot(time_s,obs['human_scored_rear']*40,'k')
 # %% Random Forest method predictions on validation ('Test.csv') set:
 obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_valid_rear.csv')
 # pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/pred_valid_rear.csv')
-pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_pred_valid_rear.csv')
-pred_ens_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_rf_ens_pred_valid_rear.csv')
+pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_pred_valid_rear_v2.csv')
+pred_ens_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_rf_ens_pred_valid_rear_v2.csv')
 # obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_train_rear.csv')
 # pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/pred_train_rear.csv')
 
@@ -263,7 +263,8 @@ thresh=0.7
 plt.plot([0,len(pred),],[thresh,thresh],'--b')
 plt.plot((pred['pred'] > thresh)*1.25, '--b')
 
-#%% Re-split validation set  
+#%% Re-split validation set:
+    
 test_video_pn=[basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/', #Low res, File that prev method struggled with (only 1 rear)
                basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/', # File from high res, Multiple rounds of refinement, file same as dlc_and_ka_rearing_confirmed_fa_final_v2.boris
                ]
@@ -281,6 +282,8 @@ use_cols =   ['time','vel','area', 'delta_area', 'elon', # 'dlc_front_over_rear_
               ]
 test =  model.combine_raw_csv_for_modeling(test_video_pn,test_video_boris_obs,
                                  use_cols)
+
+
 # %%
 
 p=pred['pred'].values
@@ -301,3 +304,39 @@ for df in d:
     mng = plt.get_current_fig_manager()
     mng.window.activateWindow()
     # mng.window.raise_()
+# %% Explore thresholds:
+thresh = np.array([x for x in range(4,10,1)])/10
+kfa=[]
+kh=[]
+ka=[]
+targ=df1['human_scored_rear']
+for t in thresh:
+    print('\nThresh = %1.1f' % t)
+    pred=df1['rf_rear_pred']>t
+    hit,fa,cr,miss=model.binary_vector_score_event_accuracy(targ,pred)
+    kfa.append(fa/(cr+fa))
+    kh.append(hit/(hit+miss))
+
+plt.figure()
+plt.plot(kfa,kh,'-.k')
+
+#%% ROC ?
+c=metrics.roc_curve(targets.values,df['rf_rear_pred'].values)
+# %% Evaluate performance:
+ka=[]
+for df in d:
+    targets = df['human_scored_rear']
+    thresh = 
+    pred=df['rf_rear_pred']>thresh
+    hit,fa,cr,miss=model.binary_vector_score_event_accuracy(targets,pred,est_tn=True)
+    targ = hit + miss
+    lures = fa + cr
+    e_hit_rate=hit/targ
+    e_fa_rate=fa/lures
+    total_accuracy = (hit + cr) / (targ + lures)
+    ka.append(total_accuracy)
+    bs = metrics.brier_score_loss(targets,df['rf_rear_pred'])
+    print('Event: Hit: %1.3f (%d/%d), FA: %1.3f (%d/%d), %1.3f tot. Bs = %1.3f' % \
+          (e_hit_rate,hit,targ, e_fa_rate, fa, lures, total_accuracy,bs))
+        
+print('Mean accuracy %1.2f' % np.mean(ka))

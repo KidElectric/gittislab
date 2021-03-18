@@ -128,7 +128,7 @@ def average_z_score(x,y,avg_mean_model = None,avg_std_model = None):
     y=y/avg_std_model(x) # Predicted std. as opposed to actual
     return y
 
-def binary_vector_score_accuracy(target,pred):
+def binary_vector_score_event_accuracy(target,pred, est_tn = True):
     hit_rate = sum((pred ==1) & (target==1)) / sum(target==1)
     miss_rate = sum((pred == 0) & (target ==1)) / sum(target==1)
     fa_rate= sum( (pred == 1) & (target == 0)) / sum(target==0)
@@ -144,6 +144,7 @@ def binary_vector_score_accuracy(target,pred):
         else:
             hit.append(0)
     
+    mean_dur = np.mean(off - on)
     # Detect false alarms
     fa=[]
     on,off=signal.thresh(pred,0.5)
@@ -154,9 +155,13 @@ def binary_vector_score_accuracy(target,pred):
         else:
             fa.append(0)
     
-    e_hit_rate=sum(hit)/len(hit)
-    true_negative=len(hit) # This can be made to be true by adding confirmed true negative events (see below)
-    e_fa_rate=sum(fa)/true_negative
-    total_accuracy = (sum(hit) + sum(np.array(fa) == 0)) / (len(hit) + true_negative)
-    print('Event: Hit: %1.3f, FA: %1.3f, Accuracy = %1.3f' % (e_hit_rate, e_fa_rate, total_accuracy))
-    return e_hit_rate, e_fa_rate, total_accuracy
+    
+    if est_tn == True:
+        true_negative = round( np.sum(target==0) / mean_dur)
+    else:
+        true_negative=len(hit)  # This can be made to be true by adding confirmed true negative events (see below)
+    # e_hit_rate=sum(hit)/len(hit)
+    # e_fa_rate=sum(fa)/true_negative
+    cr = true_negative - sum(fa)
+    miss = np.sum(np.array(hit)==0)
+    return sum(hit), sum(fa), cr, miss
