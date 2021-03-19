@@ -12,6 +12,8 @@ from gittislab import dataloc, ethovision_tools, signal, plots, behavior
 import matplotlib.pyplot as plt
 import json 
 import pdb
+import fastai.tabular.all as fasttab
+from sklearn import metrics
 
 def combine_raw_csv_for_modeling(raw_pns,
                                  boris_obs_names,
@@ -160,8 +162,19 @@ def binary_vector_score_event_accuracy(target,pred, est_tn = True):
         true_negative = round( np.sum(target==0) / mean_dur)
     else:
         true_negative=len(hit)  # This can be made to be true by adding confirmed true negative events (see below)
-    # e_hit_rate=sum(hit)/len(hit)
-    # e_fa_rate=sum(fa)/true_negative
     cr = true_negative - sum(fa)
     miss = np.sum(np.array(hit)==0)
     return sum(hit), sum(fa), cr, miss
+
+def tabular_predict_from_nn(tab_fn,weights_fn, xs=None):
+     #learner = load_learner(model_fn)
+     to_nn=fasttab.load_pickle(tab_fn)
+     dls = to_nn.dataloaders(1024)
+     learn = fasttab.tabular_learner(dls, metrics=fasttab.accuracy) #BrierScore doesn't seem to work with lr_find()
+     learn.load(weights_fn)
+     if not isinstance(xs, pd.DataFrame):
+         return learn
+     
+     dl = learn.dls.test_dl(xs, bs=64) # apply transforms
+     preds,  _ = learn.get_preds(dl=dl) # get prediction
+     return preds

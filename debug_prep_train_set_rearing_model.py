@@ -15,6 +15,7 @@ import json
 import librosa 
 import librosa.display
 from sklearn import metrics
+
 basepath = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 
 
@@ -29,10 +30,12 @@ train_video_boris_obs=['AG5363_2_BI121719',
                        ]
 
 test_video_pn=[basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/', #Low res, File that prev method struggled with (only 1 rear)
-               basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/', # File from high res, Multiple rounds of refinement, file same as dlc_and_ka_rearing_confirmed_fa_final_v2.boris
-               ]
+               basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/',] # File from high res, Multiple rounds of refinement, file same as dlc_and_ka_rearing_confirmed_fa_final_v2.boris
+               #basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520']
 
-test_video_boris_obs = ['AG4486_3', 'event_check']
+test_video_boris_obs = ['AG4486_3', 
+                        'event_check',]
+                        #'AG5769_1']
 
 use_cols =   ['vel','area', 'delta_area', # 'dlc_front_over_rear_length'
               'dlc_side_head_x','dlc_side_head_y',
@@ -55,11 +58,9 @@ use_cols =   ['vel','area', 'delta_area', # 'dlc_front_over_rear_length'
               'side_length_px_detrend','dlc_front_over_rear_length',]
 
 
-valid_video_pn=[basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/', #Low res, File that prev method struggled with (only 1 rear)
-               basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/', # File from high res, Multiple rounds of refinement, file same as dlc_and_ka_rearing_confirmed_fa_final_v2.boris
-               ]
+valid_video_pn = test_video_pn
 
-test_video_boris_obs = ['AG4486_3', 'event_check']
+test_video_boris_obs = test_video_boris_obs
 
 # %% IF needed:
 pn=dataloc.raw_csv(test_video_pn[0])
@@ -84,8 +85,8 @@ plt.figure(),plt.plot(train['snout_hind_px_height'])
 plt.figure(),plt.plot(train['dlc_snout_y'])
 
 
-train.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Train_v2.csv')
-test.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Test_v2.csv')
+# train.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Train_v2.csv')
+# test.to_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Test_v2.csv')
 print('\n\nFinished')
 #%% NOTE: Currently the random forest model is in the fastai folder as a notebook on tabular data
 # 'bi_tabular_rearing_model_experiments.ipynb'
@@ -244,7 +245,33 @@ plt.plot(time_s,np.log10(dm) * 10 )
 plt.plot(time_s,test['head_hind_px_height'])
 plt.plot(time_s,pred['pred']*30,'r')
 plt.plot(time_s,obs['human_scored_rear']*40,'k')
-# %% Random Forest method predictions on validation ('Test.csv') set:
+
+# %% Load and examine preidctions on the training set itself:
+    
+obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_train_rear.csv')
+pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_train_pred_rear_v2.csv')
+obs= pd.read_csv(obs_path)
+pred= pd.read_csv(pred_path)
+plt.figure()
+plt.plot(obs['human_scored_rear'],'k')
+plt.plot(pred['pred'],'r')
+thresh=0.9
+plt.plot([0,len(pred),],[thresh,thresh],'--b')
+plt.plot((pred['pred'] > thresh)*1.25, '--b')
+
+# %% Training set ROC:
+targets =obs['human_scored_rear'].values.astype(np.int16)
+fpr,tpr,thr =metrics.roc_curve(targets,pred['pred'].values)
+plt.figure()
+plt.plot(fpr,tpr,'k')
+plt.xlabel('False Alarm Rate')
+plt.ylabel('Hit Rate')
+fr_rate_desired = 0.05
+ok_thresh = thr[fpr<fr_rate_desired][-1]
+hit_at_thr=tpr[fpr<fr_rate_desired][-1]
+plt.plot([fr_rate_desired,fr_rate_desired],[0,1],'--k')
+plt.title('Thresh at %1.3f, hit rate = %1.3f' % (ok_thresh,hit_at_thr))
+# %% Load and examine predictions on validation set:
 obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_valid_rear.csv')
 # pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/pred_valid_rear.csv')
 pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_pred_valid_rear_v2.csv')
@@ -259,7 +286,7 @@ plt.figure()
 plt.plot(obs['human_scored_rear'],'k')
 plt.plot(pred['pred'],'r')
 plt.plot(pred_ens['pred'],'g')
-thresh=0.7
+thresh=0.9
 plt.plot([0,len(pred),],[thresh,thresh],'--b')
 plt.plot((pred['pred'] > thresh)*1.25, '--b')
 
@@ -293,7 +320,7 @@ df1.loc[:,'rf_rear_pred']=p[ind[0]]
 ind = np.where(test['video_resolution'] == 1280)
 df2=test.iloc[ind[0],:]
 df2['rf_rear_pred']=p[ind[0]]
-thresh=0.6
+thresh=0.758
 d=[df1, df2]
 for df in d:
     fig = plt.figure()
@@ -326,7 +353,7 @@ c=metrics.roc_curve(targets.values,df['rf_rear_pred'].values)
 ka=[]
 for df in d:
     targets = df['human_scored_rear']
-    thresh = 
+    thresh = 0.758
     pred=df['rf_rear_pred']>thresh
     hit,fa,cr,miss=model.binary_vector_score_event_accuracy(targets,pred,est_tn=True)
     targ = hit + miss
@@ -336,7 +363,46 @@ for df in d:
     total_accuracy = (hit + cr) / (targ + lures)
     ka.append(total_accuracy)
     bs = metrics.brier_score_loss(targets,df['rf_rear_pred'])
-    print('Event: Hit: %1.3f (%d/%d), FA: %1.3f (%d/%d), %1.3f tot. Bs = %1.3f' % \
-          (e_hit_rate,hit,targ, e_fa_rate, fa, lures, total_accuracy,bs))
+    auroc = metrics.roc_auc_score(targets.values.astype(np.int16),df['rf_rear_pred'].values)
+    print('Event: Hit: %1.3f (%d/%d), FA: %1.3f (%d/%d), %1.3f tot. auroc = %1.3f' % \
+          (e_hit_rate,hit,targ, e_fa_rate, fa, lures, total_accuracy,auroc))
         
 print('Mean accuracy %1.2f' % np.mean(ka))
+
+# %% Load in data, run through TRAINED neural network model and check predictions against grown truth:
+df=pd.read_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Train_v2.csv')
+df.drop('Unnamed: 0',axis = 1, inplace =True)
+df.fillna(method = 'ffill',inplace = True)
+
+weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2'
+tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
+pred = model.tabular_predict_from_nn(tab_fn,weights_fn, xs=df)
+plt.figure()
+plt.plot(df['human_scored_rear'],'k')
+plt.plot(pred[:,1],'r')
+
+# %% Perform above process with data I have never looked at before:
+ffn=basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520'
+raw,meta = ethovision_tools.csv_load(dataloc.raw_csv(ffn),method='preproc')
+boris_obs='AG5769_1'
+boris_fn = Path(ffn).joinpath('Rearing Observations.boris')
+f = open(boris_fn,"r")
+boris= json.loads(f.read())
+f.close()
+dat =  model.combine_raw_csv_for_modeling([ffn],[boris_obs],
+                                 use_cols,rescale = True,
+                                 avg_model_detrend = True,
+                                 z_score_x_y = True,
+                                 flip_y = True)
+if 'Unnamed: 0' in dat.columns:
+    dat.drop('Unnamed: 0',axis = 1, inplace =True)
+dat.fillna(method = 'ffill',inplace = True)
+
+weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2'
+tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
+pred = model.tabular_predict_from_nn(tab_fn,weights_fn, xs=dat)
+
+human_rear_score = behavior.boris_to_logical_vector(raw,boris,boris_obs,'a','d')
+plt.figure()
+plt.plot(human_rear_score,'k')
+plt.plot(pred[:,1],'r')
