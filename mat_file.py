@@ -2,10 +2,9 @@ from scipy.io import loadmat
 import numpy as np
 import os
 from gittislab import dataloc
-if os.name == 'posix':
-    sep='/'
-else:
-    sep='\\'
+import pandas as pd
+
+
 def load(path,verbose=True):
     '''
     mat_file.load() - a wrapper for scipy.io.loadmat()
@@ -26,11 +25,28 @@ def load(path,verbose=True):
     
     if verbose == True:
         path_str=dataloc.path_to_description(path)
-        print('\tLoading ~%s_Raw.mat...' % path_str)
+        print('\tLoading ~%s.mat...' % path_str)
     mat=loadmat(path)
     if verbose == True:
         print('\t\tFinished')
     return mat
+
+def array_of_arrays_to_flat_df(dfa):
+    if not isinstance(dfa,pd.DataFrame):
+        dfa=pd.DataFrame(dfa)
+    column_headers=[x[0] for x in dfa.loc[0,:]]
+    new_df={}
+    for i,col in enumerate(column_headers):
+        test_val=dfa.loc[1,i]
+        if len(test_val) ==1:
+            if len(test_val[0])==1:
+                values=[x[0][0] for x in dfa.loc[1:,i]]
+            else:
+                values=[x.flatten() for x in dfa.loc[1:,i]]
+        else:
+            values=[x.flatten() for x in dfa.loc[1:,i]]
+        new_df[col]=values
+    return pd.DataFrame(new_df)
 
 def dtype_array_to_dict(mat,field):
     '''
