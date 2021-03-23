@@ -382,9 +382,10 @@ plt.plot(df['human_scored_rear'],'k')
 plt.plot(pred[:,1],'r')
 
 # %% Perform above process with data I have never looked at before:
-ffn=basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520'
+# ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520'
+ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_1_BI052819'
 raw,meta = ethovision_tools.csv_load(dataloc.raw_csv(ffn),method='preproc')
-boris_obs='AG5769_1'
+boris_obs='AG4486_1'
 boris_fn = Path(ffn).joinpath('Rearing Observations.boris')
 f = open(boris_fn,"r")
 boris= json.loads(f.read())
@@ -404,5 +405,12 @@ pred = model.tabular_predict_from_nn(tab_fn,weights_fn, xs=dat)
 
 human_rear_score = behavior.boris_to_logical_vector(raw,boris,boris_obs,'a','d')
 plt.figure()
-plt.plot(human_rear_score,'k')
-plt.plot(pred[:,1],'r')
+plt.plot(raw['time'],human_rear_score,'k')
+plt.plot(raw['time'],pred[:,1],'r')
+
+# 
+raw['human_scored']=human_rear_score
+raw['nn_pred'] = pred[:,1]
+b,r,m = ethovision_tools.boris_prep_from_df(raw, meta, plot_cols=['time','nn_pred','human_scored'],
+                                    event_col=['nn_pred'],event_thresh=0.758,
+               )
