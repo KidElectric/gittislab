@@ -178,3 +178,68 @@ def tabular_predict_from_nn(tab_fn,weights_fn, xs=None):
      dl = learn.dls.test_dl(xs, bs=64) # apply transforms
      preds,  _ = learn.get_preds(dl=dl) # get prediction
      return preds
+ 
+def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758, 
+                       weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2',
+                       tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
+                       ):
+    '''
+        Specify an experiment folder (ffn) and the observation name to use in the
+        Rearing observations.boris file with human scored rearing data in that folder.
+        Assumes many other files are in that folder (raw csv, metatdata, etc,) 
+        and that videos have already been both: 1) scored by a human observer and 2)
+        pre-processed with deeplabcut.
+    '''
+    
+    use_cols =   ['vel','area', 'delta_area', # 'dlc_front_over_rear_length'
+              'dlc_side_head_x','dlc_side_head_y',
+              'dlc_front_centroid_x','dlc_front_centroid_y',
+              'dlc_rear_centroid_x','dlc_rear_centroid_y',
+              'dlc_snout_x', 'dlc_snout_y',
+              'dlc_side_left_fore_x','dlc_side_left_fore_y', 
+              'dlc_side_right_fore_x', 'dlc_side_right_fore_y', 
+              'dlc_side_left_hind_x', 'dlc_side_left_hind_y',
+              'dlc_side_right_hind_x', 'dlc_side_right_hind_y',
+              'dlc_top_head_x', 'dlc_top_head_y',
+              'dlc_top_body_center_x', 'dlc_top_body_center_y',
+              'dlc_top_tail_base_x','dlc_top_tail_base_y',
+              'video_resolution','human_scored_rear',
+              'side_length_px',
+              'head_hind_5hz_pw',
+              'snout_hind_px_height',
+              'snout_hind_px_height_detrend',
+              'front_hind_px_height_detrend',
+              'side_length_px_detrend','dlc_front_over_rear_length',]
+
+    
+
+    raw,meta = ethovision_tools.csv_load(dataloc.raw_csv(ffn),method='preproc')
+    boris_fn = Path(ffn).joinpath('Rearing Observations.boris')
+    f = open(boris_fn,"r")
+    boris= json.loads(f.read())
+    f.close()
+    dat =  combine_raw_csv_for_modeling([ffn],[boris_obs],
+                                     use_cols,rescale = True,
+                                     avg_model_detrend = True,
+                                     z_score_x_y = True,
+                                     flip_y = True)
+    if 'Unnamed: 0' in dat.columns:
+        dat.drop('Unnamed: 0',axis = 1, inplace =True)
+    dat.fillna(method = 'ffill',inplace = True)
+    
+    weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2'
+    tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
+    pred = tabular_predict_from_nn(tab_fn,weights_fn, xs=dat)
+    
+    human_rear_score = behavior.boris_to_logical_vector(raw,boris,boris_obs,'a','d')
+    
+    # 
+    raw['human_scored']=human_rear_score
+    raw['nn_pred'] = pred[:,1]
+    b,r,m = ethovision_tools.boris_prep_from_df(raw, meta, plot_cols=['time','nn_pred','human_scored'],
+                                        event_col=['nn_pred'],event_thresh=prob_thresh,
+                   )
+    auroc = metrics.roc_auc_score(raw['human_scored'].values.astype(np.int16),
+                                  raw['nn_pred'].values)
+    print('%1.5f AUROC' % auroc)
+    return auroc, pred[:,1], human_rear_score

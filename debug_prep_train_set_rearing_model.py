@@ -246,7 +246,7 @@ plt.plot(time_s,test['head_hind_px_height'])
 plt.plot(time_s,pred['pred']*30,'r')
 plt.plot(time_s,obs['human_scored_rear']*40,'k')
 
-# %% Load and examine preidctions on the training set itself:
+# %% Load and examine predictions on the training set itself:
     
 obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_train_rear.csv')
 pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_train_pred_rear_v2.csv')
@@ -255,7 +255,7 @@ pred= pd.read_csv(pred_path)
 plt.figure()
 plt.plot(obs['human_scored_rear'],'k')
 plt.plot(pred['pred'],'r')
-thresh=0.9
+thresh=0.758
 plt.plot([0,len(pred),],[thresh,thresh],'--b')
 plt.plot((pred['pred'] > thresh)*1.25, '--b')
 
@@ -270,7 +270,8 @@ fr_rate_desired = 0.05
 ok_thresh = thr[fpr<fr_rate_desired][-1]
 hit_at_thr=tpr[fpr<fr_rate_desired][-1]
 plt.plot([fr_rate_desired,fr_rate_desired],[0,1],'--k')
-plt.title('Thresh at %1.3f, hit rate = %1.3f' % (ok_thresh,hit_at_thr))
+plt.title('Thresh at %1.3f, hit rate = %1.3f, fa rate = %1.3f' % (ok_thresh,hit_at_thr,fr_rate_desired))
+
 # %% Load and examine predictions on validation set:
 obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_valid_rear.csv')
 # pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/pred_valid_rear.csv')
@@ -289,6 +290,25 @@ plt.plot(pred_ens['pred'],'g')
 thresh=0.9
 plt.plot([0,len(pred),],[thresh,thresh],'--b')
 plt.plot((pred['pred'] > thresh)*1.25, '--b')
+
+# %% ROC performance on validation set:
+obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_valid_rear.csv')
+pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_pred_valid_rear_v2.csv')
+obs= pd.read_csv(obs_path)
+pred= pd.read_csv(pred_path)
+
+targets =obs['human_scored_rear'].values.astype(np.int16)
+fpr,tpr,thr =metrics.roc_curve(targets,pred['pred'].values)
+plt.figure()
+plt.plot(fpr,tpr,'k')
+plt.xlabel('False Alarm Rate')
+plt.ylabel('Hit Rate')
+# fr_rate_desired = 0.05
+ok_thresh = 0.758
+fr_rate_given_train_thresh = fpr[thr>ok_thresh][-1]
+hit_at_thr=tpr[thr>ok_thresh][-1]
+plt.plot([fr_rate_given_train_thresh ,fr_rate_given_train_thresh ],[0,1],'--r')
+plt.title('Thresh at %1.3f, hit rate = %1.3f, fa rate = %1.3f' % (ok_thresh,hit_at_thr,fr_rate_given_train_thresh))
 
 #%% Re-split validation set:
     
@@ -315,10 +335,10 @@ test =  model.combine_raw_csv_for_modeling(test_video_pn,test_video_boris_obs,
 
 p=pred['pred'].values
 ind = np.where(test['video_resolution'].values==704)
-df1=test.iloc[ind[0],:]
+df1=test.loc[ind[0],:]
 df1.loc[:,'rf_rear_pred']=p[ind[0]]
 ind = np.where(test['video_resolution'] == 1280)
-df2=test.iloc[ind[0],:]
+df2=test.loc[ind[0],:]
 df2['rf_rear_pred']=p[ind[0]]
 thresh=0.758
 d=[df1, df2]
@@ -382,35 +402,22 @@ plt.plot(df['human_scored_rear'],'k')
 plt.plot(pred[:,1],'r')
 
 # %% Perform above process with data I have never looked at before:
-# ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520'
-ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_1_BI052819'
-raw,meta = ethovision_tools.csv_load(dataloc.raw_csv(ffn),method='preproc')
-boris_obs='AG4486_1'
-boris_fn = Path(ffn).joinpath('Rearing Observations.boris')
-f = open(boris_fn,"r")
-boris= json.loads(f.read())
-f.close()
-dat =  model.combine_raw_csv_for_modeling([ffn],[boris_obs],
-                                 use_cols,rescale = True,
-                                 avg_model_detrend = True,
-                                 z_score_x_y = True,
-                                 flip_y = True)
-if 'Unnamed: 0' in dat.columns:
-    dat.drop('Unnamed: 0',axis = 1, inplace =True)
-dat.fillna(method = 'ffill',inplace = True)
 
-weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2'
-tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
-pred = model.tabular_predict_from_nn(tab_fn,weights_fn, xs=dat)
+# ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/'
+# boris_obs = 'AG4486_3'
 
-human_rear_score = behavior.boris_to_logical_vector(raw,boris,boris_obs,'a','d')
+ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/'
+boris_obs = 'event_check'
+
+#WARNING: Human scored times are currently delayed /offset:
+# ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520' 
+# boris_obs='AG5769_1'
+
+# ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_1_BI052819' #Very few actual rears in this video
+# boris_obs='AG4486_1'
+
+auroc,nn_pred,human_scored = model.rear_nn_auroc_perf(ffn,boris_obs)
 plt.figure()
-plt.plot(raw['time'],human_rear_score,'k')
-plt.plot(raw['time'],pred[:,1],'r')
-
-# 
-raw['human_scored']=human_rear_score
-raw['nn_pred'] = pred[:,1]
-b,r,m = ethovision_tools.boris_prep_from_df(raw, meta, plot_cols=['time','nn_pred','human_scored'],
-                                    event_col=['nn_pred'],event_thresh=0.758,
-               )
+plt.plot(nn_pred,'r')
+plt.plot(human_scored,'k')
+plt.title('%s AUROC: %1.4f' % (boris_obs,auroc))
