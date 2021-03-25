@@ -96,20 +96,19 @@ def thresh(y,thresh, sign='Pos'):
         def eval_thresh(v,thresh):
             return v < thresh
     onsets=[]
-    i=0
+    i=-1
     offsets=[]
-    while i <  len(y):
+    while i <  (len(y)-1):
+        i+=1
         v=y[i]        
         if eval_thresh(v,thresh) == True:
             onsets.append(i)
-            while (eval_thresh(v,thresh)==True) and (i < len(y)):
-                i=i+1
+            while (eval_thresh(v,thresh)==True) and (i < (len(y)-1)):
+                i=i+1     
                 v=y[i] 
             offsets.append(i)
-        else:
-            i += 1
-            
     return onsets, offsets
+
 def bin_analyze(x,y,bin_dur,fun = np.mean):
     '''
     
