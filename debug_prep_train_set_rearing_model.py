@@ -403,9 +403,11 @@ plt.plot(pred[:,1],'r')
 
 # %% Perform above process with data I have never looked at before:
 
-ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4700_5_BI090519/'
-boris_obs = 'AG4700_5'
+# ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4700_5_BI090519/'
+# boris_obs = 'AG4700_5'
 
+ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4109_2_BI060519/'
+boris_obs = 'AG4109_2'
 
 # ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/'
 # boris_obs = 'AG4486_3'

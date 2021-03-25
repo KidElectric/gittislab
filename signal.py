@@ -57,15 +57,13 @@ def outlier_to_nan(y,outlier_thresh=3):
     if not isinstance(y,pd.core.series.Series):
         y=pd.core.series.Series(y)
         
-    y=y.interpolate(method='pad').astype(np.float)
+    y=y.fillna(method='ffill').astype(np.float)
+    y=y.fillna(method='bfill').astype(np.float)
     y=np.array(y.values.astype(float))
     
     # y[np.isnan(y)]=0
     dy=np.diff(np.concatenate(([y[0]],y)))
-    # pdb.set_trace()
-    # sd_thresh=np.nanstd(dy)*sd
-    # pdb.set_trace()
-    on, _ = thresh(dy, outlier_thresh,'Pos')
+    on, _ = thresh(dy, outlier_thresh,'Pos') # Find onset of outlier
     _, off =thresh(dy, outlier_thresh,'Neg')
     if (len(on) > 0) and (len(off) >0):
         for i,j in zip(on,off):
@@ -85,45 +83,33 @@ def thresh(y,thresh, sign='Pos'):
     #Fill in nans using pandas:
     if not isinstance(y,pd.core.series.Series):
         y=pd.core.series.Series(y.flatten())
-        
-    y=y.interpolate(method='pad').astype(np.float)
-    y=np.array(y)
-    if len(y.shape) == 1:
-        y=y[:,None]
-    if sign =='Neg':
-        y *=-1
-        thresh *=-1
-    on_cross = np.argwhere(y[:,0] >= thresh)[:,0]
-    ind_list=np.concatenate(([0],on_cross))
-    d_on=np.diff(ind_list) 
-    # pdb.set_trace()
-    onsets=ind_list[np.argwhere(d_on > 1) + 1]
-    off_cross = np.argwhere(y <= thresh)[:,0]
-    ind_list=np.concatenate(([0],off_cross))
-    d_off=np.diff(ind_list)
-    offsets=ind_list[np.argwhere(d_off > 1) + 1]
-    onsets=onsets[:,0]
-    offsets=offsets[:,0]
-
-        
-    if onsets.size > offsets.size:
-        onsets=onsets[0:offsets.size]
-    elif offsets.size > onsets.size:
-        dif= offsets.size - onsets.size
-        offsets=offsets[dif:offsets.size]
-     
-    if any((offsets - onsets) < 0):        
-        print('Warning! signal.thresh() performing in unexpected way!')
-        from matplotlib import pyplot as plt
-        plt.figure(),plt.plot(y,'k')
-        plt.plot(onsets,y[onsets],'or')
-        plt.plot(offsets,y[offsets],'og')
-        pdb.set_trace()
     
-    if sign == 'Neg':
-        y *= -1
-    return onsets, offsets
 
+    y=y.fillna(method='ffill').astype(np.float)
+    y=y.fillna(method='bfill').astype(np.float)
+    y=np.array(y)
+
+    if sign == 'Pos':
+        def eval_thresh(v,thresh):
+            return v > thresh
+    elif sign == 'Neg':
+        def eval_thresh(v,thresh):
+            return v < thresh
+    onsets=[]
+    i=0
+    offsets=[]
+    while i <  len(y):
+        v=y[i]        
+        if eval_thresh(v,thresh) == True:
+            onsets.append(i)
+            while (eval_thresh(v,thresh)==True) and (i < len(y)):
+                i=i+1
+                v=y[i] 
+            offsets.append(i)
+        else:
+            i += 1
+            
+    return onsets, offsets
 def bin_analyze(x,y,bin_dur,fun = np.mean):
     '''
     
