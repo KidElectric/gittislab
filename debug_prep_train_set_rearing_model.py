@@ -259,9 +259,12 @@ pred_ens_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Exampl
 
 obs= pd.read_csv(obs_path)
 pred= pd.read_csv(pred_ens_path)
+use_pred =pred['pred'].values
+#See if smoothing / low-pass filtering improves:
+use_pred =  signal.pad_lowpass_unpad(use_pred,1,29.97)
 
 targets =obs['human_scored_rear'].values.astype(np.int16)
-fpr,tpr,thr =metrics.roc_curve(targets,pred['pred'].values)
+fpr,tpr,thr =metrics.roc_curve(targets,use_pred)
 plt.figure()
 plt.plot(fpr,tpr,'k')
 plt.xlabel('False Alarm Rate')
@@ -279,93 +282,23 @@ obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/t
 pred_ens_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_rf_ens_pred_valid_rear_v3.csv')
 obs= pd.read_csv(obs_path)
 pred= pd.read_csv(pred_ens_path)
+use_pred =pred['pred'].values
+#See if smoothing / low-pass filtering improves:
+use_pred =  signal.pad_lowpass_unpad(use_pred,1,29.97)
 
 targets =obs['human_scored_rear'].values.astype(np.int16)
-fpr,tpr,thr =metrics.roc_curve(targets,pred['pred'].values)
+fpr,tpr,thr =metrics.roc_curve(targets,use_pred)
 plt.figure()
 plt.plot(fpr,tpr,'k')
 plt.xlabel('False Alarm Rate')
 plt.ylabel('Hit Rate')
 # fr_rate_desired = 0.05
-ok_thresh = 0.295
+ok_thresh = 0.296
 fr_rate_given_train_thresh = fpr[thr>ok_thresh][-1]
 hit_at_thr=tpr[thr>ok_thresh][-1]
 plt.plot([fr_rate_given_train_thresh ,fr_rate_given_train_thresh ],[0,1],'--r')
 plt.title('Thresh at %1.3f, hit rate = %1.3f, fa rate = %1.3f' % (ok_thresh,hit_at_thr,fr_rate_given_train_thresh))
 
-#%% Re-split validation set:
-    
-test_video_pn=[basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/', #Low res, File that prev method struggled with (only 1 rear)
-               basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/', # File from high res, Multiple rounds of refinement, file same as dlc_and_ka_rearing_confirmed_fa_final_v2.boris
-               ]
-
-use_cols =   ['time','vel','area', 'delta_area', 'elon', # 'dlc_front_over_rear_length'
-              'dlc_side_head_x','dlc_side_head_y',
-              'dlc_front_centroid_x','dlc_front_centroid_y',
-              'dlc_rear_centroid_x','dlc_rear_centroid_y',
-              'dlc_snout_x', 'dlc_snout_y',
-              'dlc_top_head_x', 'dlc_top_head_y',
-              'dlc_top_body_center_x', 'dlc_top_body_center_y',
-              'dlc_top_tail_base_x','dlc_top_tail_base_y',
-              'video_resolution','human_scored_rear',
-              'front_hind_px_height','side_length_px',
-              ]
-test =  model.combine_raw_csv_for_modeling(test_video_pn,test_video_boris_obs,
-                                 use_cols)
-
-
-# %%
-
-p=pred['pred'].values
-ind = np.where(test['video_resolution'].values==704)
-df1=test.loc[ind[0],:]
-df1.loc[:,'rf_rear_pred']=p[ind[0]]
-ind = np.where(test['video_resolution'] == 1280)
-df2=test.loc[ind[0],:]
-df2['rf_rear_pred']=p[ind[0]]
-thresh=0.758
-d=[df1, df2]
-for df in d:
-    fig = plt.figure()
-    
-    plt.plot(df['time'],df['human_scored_rear'],'k')
-    plt.plot(df['time'],df['rf_rear_pred'],'r')
-    plt.plot(df['time'],(df['rf_rear_pred']>thresh)*1.25,'b')
-    mng = plt.get_current_fig_manager()
-    mng.window.activateWindow()
-    # mng.window.raise_()
-
-# %% Evaluate performance:
-ka=[]
-for df in d:
-    targets = df['human_scored_rear']
-    thresh = 0.758
-    pred=df['rf_rear_pred']>thresh
-    hit,fa,cr,miss=model.binary_vector_score_event_accuracy(targets,pred,est_tn=True)
-    targ = hit + miss
-    lures = fa + cr
-    e_hit_rate=hit/targ
-    e_fa_rate=fa/lures
-    total_accuracy = (hit + cr) / (targ + lures)
-    ka.append(total_accuracy)
-    bs = metrics.brier_score_loss(targets,df['rf_rear_pred'])
-    auroc = metrics.roc_auc_score(targets.values.astype(np.int16),df['rf_rear_pred'].values)
-    print('Event: Hit: %1.3f (%d/%d), FA: %1.3f (%d/%d), %1.3f tot. auroc = %1.3f' % \
-          (e_hit_rate,hit,targ, e_fa_rate, fa, lures, total_accuracy,auroc))
-        
-print('Mean accuracy %1.2f' % np.mean(ka))
-
-# %% Load in data, run through TRAINED neural network model and check predictions against grown truth:
-df=pd.read_csv('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/Train_v2.csv')
-df.drop('Unnamed: 0',axis = 1, inplace =True)
-df.fillna(method = 'ffill',inplace = True)
-
-weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2'
-tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
-pred = model.tabular_predict_from_nn(tab_fn,weights_fn, xs=df)
-plt.figure()
-plt.plot(df['human_scored_rear'],'k')
-plt.plot(pred[:,1],'r')
 
 # %% Perform above process with data I have never looked at before:
 
@@ -392,6 +325,8 @@ rf_model_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/tra
 weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv3'
 tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv3.pkl'
 auroc,pred,human_scored = model.rear_nn_auroc_perf(ffn,boris_obs,
+                                                       prob_thresh = 0.295,
+                                                       low_pass_freq=1,
                                                       tab_fn = tab_fn,
                                                       weights_fn = weights_fn,
                                                       rf_model_fn = rf_model_fn,
@@ -400,3 +335,26 @@ plt.figure()
 plt.plot(pred,'r')
 plt.plot(human_scored,'k')
 plt.title('%s AUROC: %1.4f' % (boris_obs,auroc))
+
+# %% Calculate average AUROC for training set:
+
+ka=[]
+kp=[]
+kh=[]
+
+for ffn,boris_obs in zip(test_video_pn,test_video_boris_obs):
+    rf_model_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/rf_model_v3.joblib'
+    weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv3'
+    tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv3.pkl'
+    auroc,pred,human_scored = model.rear_nn_auroc_perf(ffn,boris_obs,
+                                                       prob_thresh = 0.296,
+                                                       low_pass_freq=1,
+                                                      tab_fn = tab_fn,
+                                                      weights_fn = weights_fn,
+                                                      rf_model_fn = rf_model_fn,
+                                                      )
+    ka.append(auroc)
+    kp.append(pred)
+    kh.append(human_scored)
+    
+print(np.mean(ka))

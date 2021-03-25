@@ -185,7 +185,7 @@ def tabular_predict_from_rf(rf_model_fn,xs):
     pred = m.predict(xs)
     return pred
 
-def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758, 
+def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.5,low_pass_freq=None, 
                        weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2',
                        tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl',
                        rf_model_fn = None
@@ -244,9 +244,10 @@ def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758,
     else:
         ensembling = False
     # pdb.set_trace()
-    human_rear_score = behavior.boris_to_logical_vector(raw,boris,boris_obs,'a','d')
+
     
     # 
+    human_rear_score = behavior.boris_to_logical_vector(raw,boris,boris_obs,'a','d')
     raw['human_scored']=human_rear_score
     raw['nn_pred'] = pred[:,1]
     
@@ -255,7 +256,14 @@ def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758,
     else:
         raw['final_pred'] = raw['nn_pred']
         
-    b,r,m = ethovision_tools.boris_prep_from_df(raw, meta, plot_cols=['time','nn_pred','human_scored'],
+    #Lowpass filter prediction:
+    if not (low_pass_freq == None):
+        raw['final_pred']= signal.pad_lowpass_unpad(raw['final_pred'],
+                                                    low_pass_freq,
+                                                    meta['fs'][0])
+    
+
+    b,r,m = ethovision_tools.boris_prep_from_df(raw, meta, plot_cols=['time','final_pred','human_scored'],
                                         event_col=['final_pred'],event_thresh=prob_thresh,
                    )
     auroc = metrics.roc_auc_score(raw['human_scored'].values.astype(np.int16),
