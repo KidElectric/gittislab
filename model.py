@@ -14,6 +14,7 @@ import json
 import pdb
 import fastai.tabular.all as fasttab
 from sklearn import metrics
+import joblib
 
 def combine_raw_csv_for_modeling(raw_pns,
                                  boris_obs_names,
@@ -178,10 +179,16 @@ def tabular_predict_from_nn(tab_fn,weights_fn, xs=None):
      dl = learn.dls.test_dl(xs, bs=64) # apply transforms
      preds,  _ = learn.get_preds(dl=dl) # get prediction
      return preds
- 
+def tabular_predict_from_rf(rf_model_fn,xs):
+    m=joblib.load(rf_model_fn)
+    # pdb.set_trace()
+    pred = m.predict(xs)
+    return pred
+
 def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758, 
                        weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2',
-                       tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
+                       tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl',
+                       rf_model_fn = None
                        ):
     '''
         Specify an experiment folder (ffn) and the observation name to use in the
@@ -209,10 +216,10 @@ def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758,
               'snout_hind_px_height',
               'snout_hind_px_height_detrend',
               'front_hind_px_height_detrend',
-              'side_length_px_detrend','dlc_front_over_rear_length',]
+              'side_length_px_detrend',]
 
     
-
+    dep_var = 'human_scored_rear'
     raw,meta = ethovision_tools.csv_load(dataloc.raw_csv(ffn),columns=['time'],method='raw')
     boris_fn = Path(ffn).joinpath('Rearing Observations.boris')
     f = open(boris_fn,"r")
@@ -226,20 +233,32 @@ def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758,
     if 'Unnamed: 0' in dat.columns:
         dat.drop('Unnamed: 0',axis = 1, inplace =True)
     dat.fillna(method = 'ffill',inplace = True)
-    
-    weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2'
-    tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl'
+    dat.fillna(method = 'bfill',inplace = True)
     pred = tabular_predict_from_nn(tab_fn,weights_fn, xs=dat)
     
+    if isinstance(rf_model_fn,str):
+        ensembling = True
+        xs = dat.drop(dep_var,axis = 1)
+        rf_pred = tabular_predict_from_rf(rf_model_fn, xs)
+        raw['rf_pred']=rf_pred
+    else:
+        ensembling = False
+    # pdb.set_trace()
     human_rear_score = behavior.boris_to_logical_vector(raw,boris,boris_obs,'a','d')
     
     # 
     raw['human_scored']=human_rear_score
     raw['nn_pred'] = pred[:,1]
+    
+    if ensembling == True:
+        raw['final_pred'] = ( raw['nn_pred'] + raw['rf_pred']) / 2
+    else:
+        raw['final_pred'] = raw['nn_pred']
+        
     b,r,m = ethovision_tools.boris_prep_from_df(raw, meta, plot_cols=['time','nn_pred','human_scored'],
-                                        event_col=['nn_pred'],event_thresh=prob_thresh,
+                                        event_col=['final_pred'],event_thresh=prob_thresh,
                    )
     auroc = metrics.roc_auc_score(raw['human_scored'].values.astype(np.int16),
-                                  raw['nn_pred'].values)
+                                  raw['final_pred'].values)
     print('%1.5f AUROC' % auroc)
-    return auroc, pred[:,1], human_rear_score
+    return auroc, raw['final_pred'], human_rear_score
