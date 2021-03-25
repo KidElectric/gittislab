@@ -213,7 +213,7 @@ def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.758,
 
     
 
-    raw,meta = ethovision_tools.csv_load(dataloc.raw_csv(ffn),method='preproc')
+    raw,meta = ethovision_tools.csv_load(dataloc.raw_csv(ffn),columns=['time'],method='raw')
     boris_fn = Path(ffn).joinpath('Rearing Observations.boris')
     f = open(boris_fn,"r")
     boris= json.loads(f.read())

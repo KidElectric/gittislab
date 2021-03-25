@@ -104,18 +104,22 @@ def thresh(y,thresh, sign='Pos'):
     offsets=ind_list[np.argwhere(d_off > 1) + 1]
     onsets=onsets[:,0]
     offsets=offsets[:,0]
-    if any((offsets - onsets) < 0):
-        print('Warning! signal.thresh() performing in unexpected way!')
-        from matplotlib import pyplot as plt
-        plt.figure(),plt.plot(y,'k')
-        plt.plot(onsets,y[onsets],'or')
-        plt.plot(offsets,y[offsets],'og')
+
         
     if onsets.size > offsets.size:
         onsets=onsets[0:offsets.size]
     elif offsets.size > onsets.size:
         dif= offsets.size - onsets.size
         offsets=offsets[dif:offsets.size]
+     
+    if any((offsets - onsets) < 0):        
+        print('Warning! signal.thresh() performing in unexpected way!')
+        from matplotlib import pyplot as plt
+        plt.figure(),plt.plot(y,'k')
+        plt.plot(onsets,y[onsets],'or')
+        plt.plot(offsets,y[offsets],'og')
+        pdb.set_trace()
+    
     if sign == 'Neg':
         y *= -1
     return onsets, offsets

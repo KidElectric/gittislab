@@ -136,7 +136,7 @@ def preproc_raw(raw,meta,win=10):
     else:
         raw['dlc_dir']=np.ones(raw['x'].shape)*np.nan
         
-    preproc['meander'] = measure_meander(raw,meta,use_dlc=False)
+    # preproc['meander'] = measure_meander(raw,meta,use_dlc=False)
     return preproc,meta
 
 def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):

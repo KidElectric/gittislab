@@ -403,11 +403,15 @@ plt.plot(pred[:,1],'r')
 
 # %% Perform above process with data I have never looked at before:
 
+ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4700_5_BI090519/'
+boris_obs = 'AG4700_5'
+
+
 # ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/'
 # boris_obs = 'AG4486_3'
 
-ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/'
-boris_obs = 'event_check'
+# ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/'
+# boris_obs = 'event_check'
 
 #WARNING: Human scored times are currently delayed /offset:
 # ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520' 

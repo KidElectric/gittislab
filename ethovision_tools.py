@@ -9,7 +9,7 @@ import yaml
 import pdb
 import json 
 
-if os.name == 'posix':
+if os.name == 'posix': #This shouldn't be necessary with pathlib Path--> phase this out
     sep='/'
 else:
     sep='\\'
@@ -384,8 +384,10 @@ def h5_load(filename):
 def csv_load(exp_path,columns='All',method='raw'):
     if method == 'raw':
         rawfn=dataloc.path_to_rawfn(exp_path) + '.csv'
-    else:
+    elif method == 'preproc':
         rawfn=dataloc.path_to_preprocfn(exp_path) + '.csv'
+    else: 
+        print('Invalid method: valid methods are "raw" and "preproc"')
     pnfn=exp_path.parent.joinpath(rawfn)
     print('Loading %s\n' % pnfn)
     a=pd.read_csv(pnfn,nrows=1)
