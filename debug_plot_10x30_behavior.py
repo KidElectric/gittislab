@@ -18,19 +18,21 @@ from scipy.stats import sem, t
 import pdb
 import math
 import time
+
 # %% Plot one 10x30 experiment day
-inc=[['AG','GPe','CAG','Arch','10x30']]
+inc=[['AG','Str','A2A','Ai32','hm4di_cno','10x10']]
 exc=[['exclude','_and_Str','Left','Right','Other XLS','Exclude']]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 pns=dataloc.raw_csv(basepath,inc[0],exc[0])
-a=time.time()
-df,meta=ethovision_tools.csv_load(pns[1],columns='All',method='preproc' )
-b=time.time()
+# a=time.time()
+df,meta=ethovision_tools.csv_load(pns[2],columns='All',method='raw' )
+df,meta = behavior.preproc_raw(df,meta)
+# b=time.time()
 print('%2.2f seconds to load' % (b-a))
 # raw=ethovision_tools.add_amb_to_raw(raw,meta)
 
 #The magic:
-plots.plot_openloop_day(df,meta)
+plots.plot_openloop_day(df,meta,save=True)
 
 # %% Debug new metric: meander
 #DLC Measure:

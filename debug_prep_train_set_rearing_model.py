@@ -275,6 +275,10 @@ hit_at_thr=tpr[fpr<fr_rate_desired][-1]
 plt.plot([fr_rate_desired,fr_rate_desired],[0,1],'--k')
 plt.title('Thresh at %1.3f, hit rate = %1.3f, fa rate = %1.3f' % (ok_thresh,hit_at_thr,fr_rate_desired))
 
+#Optimal threshold using Youlden's J-statistic
+ix=np.argmax(tpr-fpr)
+print('Youlden J optimal thresh hit = %1.3f, fa = %1.3f, thresh = %.3f'\
+      % (tpr[ix],fpr[ix],thr[ix]))
 
 # %% ROC performance on validation set:
 obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_valid_rearv3.csv')
@@ -288,6 +292,9 @@ use_pred =  signal.pad_lowpass_unpad(use_pred,1,29.97)
 
 targets =obs['human_scored_rear'].values.astype(np.int16)
 fpr,tpr,thr =metrics.roc_curve(targets,use_pred)
+ix=np.argmax(tpr-fpr)
+print('Youlden J optimal thresh hit = %1.3f, fa = %1.3f, thresh = %.3f'\
+      % (tpr[ix],fpr[ix],thr[ix]))
 plt.figure()
 plt.plot(fpr,tpr,'k')
 plt.xlabel('False Alarm Rate')

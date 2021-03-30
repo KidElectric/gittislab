@@ -18,7 +18,7 @@ from itertools import compress
 
 # %% RUN BEFORE DLC:
 ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
-inc=[['AG','60min_gpe_muscimol',]]
+inc=[['AG','hm4di','Str','A2A','Ai32']]
 make_preproc = False
 exc=[ex0]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'

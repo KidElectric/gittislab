@@ -600,7 +600,8 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
 def bout_analyze(raw,meta,y_col,stim_dur=30,
                  min_bout_dur_s=0.5,
                  min_bout_spacing_s=0.1,
-                 use_dlc=False):
+                 use_dlc=False,
+                 calc_meander = False):
 
     y_col_bout=y_col + '_bout'
     dat=raw[y_col].astype(int) #Note: discretely smoothed by signal.join_gaps
@@ -674,21 +675,22 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
     clip['rate']=clip['count']/stim_dur
     
     #Add in a measure of meandering:
-    meander=np.empty(dur.shape)
-    meander[:]=np.nan
-    directedness=meander
-    full_meander = raw['meander']
-    for on,off in zip(onset_samps,offset_samps):
-        meander[on:off]=full_meander[on:off]
-        directedness[on:off]=1/full_meander[on:off]
-    raw['bout_meander']=meander
-    raw['bout_directed']=directedness
-    bout_meander=stim_clip_grab(raw,meta,'bout_meander',stim_dur=stim_dur,
-                                summarization_fun=np.nanmedian)
-    bout_directed=stim_clip_grab(raw,meta,'bout_directed',stim_dur=stim_dur,
-                                summarization_fun=np.nanmedian)
-    clip['meander']=bout_meander['disc']
-    clip['directed']=bout_directed['disc']
+    if calc_meander == True:
+        meander=np.empty(dur.shape)
+        meander[:]=np.nan
+        directedness=meander
+        full_meander = raw['meander']
+        for on,off in zip(onset_samps,offset_samps):
+            meander[on:off]=full_meander[on:off]
+            directedness[on:off]=1/full_meander[on:off]
+        raw['bout_meander']=meander
+        raw['bout_directed']=directedness
+        bout_meander=stim_clip_grab(raw,meta,'bout_meander',stim_dur=stim_dur,
+                                    summarization_fun=np.nanmedian)
+        bout_directed=stim_clip_grab(raw,meta,'bout_directed',stim_dur=stim_dur,
+                                    summarization_fun=np.nanmedian)
+        clip['meander']=bout_meander['disc']
+        clip['directed']=bout_directed['disc']
     
     #Add in a measure of speed:
     speed=np.empty(dur.shape)
@@ -696,9 +698,9 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
     for on,off in zip(onset_samps,offset_samps):
         speed[on:off]=raw['vel'][on:off]
     raw['bout_speed']=speed
-    bout_meander=stim_clip_grab(raw,meta,'bout_speed',stim_dur=stim_dur,
+    bout_speed=stim_clip_grab(raw,meta,'bout_speed',stim_dur=stim_dur,
                                 summarization_fun=np.nanmedian)
-    clip['speed']=bout_meander['disc']
+    clip['speed']=bout_speed['disc']
     
     return clip
 

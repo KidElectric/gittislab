@@ -339,7 +339,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
     plt.ylabel('% Time Mobile')
     
     min_bout=1
-    amb_bouts=behavior.bout_analyze(raw,meta,'ambulation',
+    amb_bouts=behavior.bout_analyze(raw,meta,'amb',
                                     stim_dur=stim_dur,
                                     min_bout_dur_s=min_bout)
     im_bouts=behavior.bout_analyze(raw,meta,'im',
@@ -386,12 +386,12 @@ def plot_openloop_day(raw,meta,save=False, close=False):
     plt.ylabel('Im. speed (cm/s)')
     
     #### Row 5: Meander/directedness (in progress)
-    #Amb meander 
-    ax_amb_meander= mean_bar_plus_conf(amb_bouts,
-                                             ['Pre','Dur','Post'],
-                                               use_key='meander',
-                                               ax=f_row[5][0])
-    plt.ylabel('Ambulation meander (deg/cm)')
+    #Amb meander -- exclude for now
+    # ax_amb_meander= mean_bar_plus_conf(amb_bouts,
+    #                                          ['Pre','Dur','Post'],
+    #                                            use_key='meander',
+    #                                            ax=f_row[5][0])
+    # plt.ylabel('Ambulation meander (deg/cm)')
     
     #All meander 
     #raw['meander']= behavior.measure_meander(raw,meta,use_dlc=False)
@@ -402,13 +402,13 @@ def plot_openloop_day(raw,meta,save=False, close=False):
     #                                            ax=f_row[5][1])
     # plt.ylabel('Meadian meander (deg/cm)')
     
-    raw['directed']= 1/ raw['meander']
-    meander_clip=behavior.stim_clip_grab(raw,meta,y_col='directed',
-                                         stim_dur=stim_dur,
-                                         summarization_fun = np.nanmedian)
-    ax_all_direct= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
-                                               ax=f_row[5][2])
-    plt.ylabel('Directed (cm/deg)')
+    # raw['directed']= 1/ raw['meander']
+    # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='directed',
+    #                                      stim_dur=stim_dur,
+    #                                      summarization_fun = np.nanmedian)
+    # ax_all_direct= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+    #                                            ax=f_row[5][2])
+    # plt.ylabel('Directed (cm/deg)')
     
     #### Save image option:
     if save == True:
