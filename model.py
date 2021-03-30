@@ -23,7 +23,8 @@ def combine_raw_csv_for_modeling(raw_pns,
                                  rescale = False,
                                  avg_model_detrend = False,
                                  z_score_x_y = False,
-                                 flip_y = False):
+                                 flip_y = False,
+                                 meta_to_raw = []):
     
     combined = pd.DataFrame([],columns=use_cols)
 
@@ -104,6 +105,10 @@ def combine_raw_csv_for_modeling(raw_pns,
                 if ('dlc' in col) and  ('y' in col):
                     dlc[col] = -1 * dlc[col]
                     # dlc[col] = dlc[col] - np.nanmin(dlc[col])
+                    
+        for col in meta_to_raw:
+            dlc[col]=meta[col][0]
+            
         temp=dlc[use_cols]    
         combined = pd.concat([combined,temp])
         

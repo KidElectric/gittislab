@@ -1,11 +1,11 @@
-from gittislab import dataloc, mat_file, signal, ethovision_tools
+from gittislab import dataloc, mat_file, signals, ethovision_tools
 import numpy as np
 import os
 import math
 from matplotlib import pyplot as plt
 import pandas as pd
 # import modin.pandas as pd
-import cv2
+#import cv2
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
 from scipy.stats import t, pearsonr

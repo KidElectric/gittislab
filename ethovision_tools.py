@@ -1,11 +1,10 @@
 import pandas as pd
 # import modin.pandas as pd
-from gittislab import dataloc, signal, behavior, mat_file
+from gittislab import dataloc, signals, behavior, mat_file
 import os #To help us check if a file exists
 from pathlib import Path
 import numpy as np
 import math
-import yaml
 import pdb
 import json 
 
