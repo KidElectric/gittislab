@@ -40,15 +40,15 @@ def smooth_vel(raw,meta,win=10):
     x[0:5]=np.nan
     y=raw['y']
     y[0:5]=np.nan
-    x_s=signal.pad_lowpass_unpad(x,cutoff,fs,order=5)
-    y_s=signal.pad_lowpass_unpad(y,cutoff,fs,order=5)
+    x_s=signals.pad_lowpass_unpad(x,cutoff,fs,order=5)
+    y_s=signals.pad_lowpass_unpad(y,cutoff,fs,order=5)
 
     #Calculate distance between smoothed (x,y) points for smoother velocity
     for i,x2 in enumerate(x_s):
         x1=x_s[i-1]
         y1=y_s[i-1]
         y2=y_s[i]
-        dist=signal.calculateDistance(x1,y1,x2,y2)
+        dist=signals.calculateDistance(x1,y1,x2,y2)
         vel.append(dist / (1/fs))
     return np.array(vel)
 
@@ -69,8 +69,8 @@ def preproc_raw(raw,meta,win=10):
         if col in raw.columns:
             preproc[col]=raw[col]
     
-    x_s=signal.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
-    y_s=signal.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
+    x_s=signals.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
+    y_s=signals.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
 
     #Calculate distance between smoothed (x,y) points for smoother velocity
     vel=[]
@@ -79,7 +79,7 @@ def preproc_raw(raw,meta,win=10):
         x1=x_s[i-1]
         y1=y_s[i-1]
         y2=y_s[i]
-        dist_temp=signal.calculateDistance(x1,y1,x2,y2)
+        dist_temp=signals.calculateDistance(x1,y1,x2,y2)
         dist.append(dist_temp)
         vel.append(dist_temp / (1/fs))
     preproc['dist']=dist
@@ -179,7 +179,7 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
         x=raw['dlc_top_body_center_y'].values 
         for c in feats:
             dat = raw[c].values
-            dat=signal.max_normalize_per_dist(x,dat,step,poly_order=2) #Correct for distance from camera
+            dat=signals.max_normalize_per_dist(x,dat,step,poly_order=2) #Correct for distance from camera
             dd = abs(np.diff(np.hstack((dat[0],dat))))
             d=np.vstack((d,dd))
         d=np.nanmax(d,axis=0)
@@ -193,7 +193,7 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
         # height_crit = 0.3 #Exclude for now
         new_crit = np.array((d < dlc_crit) & (vel < vel_crit) ) # & (height < height_crit))
         smooth_crit = 0.2
-        new_crit_temp = signal.boxcar_smooth(new_crit,round(meta['fs'][0]*0.5)) 
+        new_crit_temp = signals.boxcar_smooth(new_crit,round(meta['fs'][0]*0.5)) 
         im2 =  new_crit_temp >= smooth_crit
         im2[rear == True] = False # Say rearing is fine_movement
     else:
@@ -283,7 +283,7 @@ def z2_to_z1_cross_detect(raw,meta,start_cross_dist=15,stop_cross_dist=10,
     facing_z1=((raw['dir'] > 155) | (raw['dir'] < -165))
     close_or_crossing= (raw['x'] < start_cross_dist) & (raw['x'] >-stop_cross_dist)
     facing_close= facing_z1 & close_or_crossing  # & z2 #& raw['ambulation']
-    start,stop = signal.thresh(facing_close.astype(int),0.5, sign='Pos')
+    start,stop = signals.thresh(facing_close.astype(int),0.5, sign='Pos')
     cross=[]
     no_cross=[]
     for i,j in zip(start,stop):
@@ -291,7 +291,7 @@ def z2_to_z1_cross_detect(raw,meta,start_cross_dist=15,stop_cross_dist=10,
         xj=raw['x'][j]
         fullx=raw['x'][i:j]
         dur = (j-i)/meta['fs'][0]
-        dist=signal.calculateDistance(xi,0,xj,0)
+        dist=signals.calculateDistance(xi,0,xj,0)
         good_dur=((dur < max_cross_dur) and (dur > 0.5))
         if (dist > min_total_dist) and (xi > 0) and good_dur:
             if (xj < 0) or any(fullx < -min_cross_dist):
@@ -371,7 +371,7 @@ def measure_meander(raw,meta,use_dlc=False):
     fs=meta['fs'][0]
     # dir = smooth_direction(raw,meta,use_dlc=use_dlc)
     dir=raw['dir']
-    diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
+    diff_angle=signals.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
     dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
     dist[0:3]=np.nan
     meander = diff_angle / (dist[1:])
@@ -411,15 +411,15 @@ def smooth_direction(raw,meta,
     #Interpolate NaNs with nearyby values and convert to floats:
     cutoff= 3 #Hz
     fs=meta['fs'][0]
-    x_n=signal.pad_lowpass_unpad(raw[head_tail[0]],cutoff,fs,order=5)
-    y_n=signal.pad_lowpass_unpad(raw[head_tail[1]],cutoff,fs,order=5)
-    x_t=signal.pad_lowpass_unpad(raw[head_tail[2]],cutoff,fs,order=5)
-    y_t=signal.pad_lowpass_unpad(raw[head_tail[3]],cutoff,fs,order=5)
+    x_n=signals.pad_lowpass_unpad(raw[head_tail[0]],cutoff,fs,order=5)
+    y_n=signals.pad_lowpass_unpad(raw[head_tail[1]],cutoff,fs,order=5)
+    x_t=signals.pad_lowpass_unpad(raw[head_tail[2]],cutoff,fs,order=5)
+    y_t=signals.pad_lowpass_unpad(raw[head_tail[3]],cutoff,fs,order=5)
     
     #Calculate distance between smoothed (x,y) points for smoother body angle
     angle=[]
     for x1,y1,x2,y2 in zip(x_n,y_n,x_t,y_t):
-        angle.append(signal.one_line_angle(x2,y2,x1,y1))
+        angle.append(signals.one_line_angle(x2,y2,x1,y1))
     
     return np.array(angle)*multiplier
 def measure_directedness(raw,meta):
@@ -429,7 +429,7 @@ def measure_directedness(raw,meta):
     '''
     fs=meta['fs'][0]
     dir = raw['dir']
-    diff_angle=signal.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
+    diff_angle=signals.angle_vector_delta(dir[0:-1],dir[1:],thresh=20,fs=fs)
 
     dist = raw['vel'] * (1 / meta.fs[0]) #Smoothed version of distance
     dist[0:3]=np.nan
@@ -456,11 +456,11 @@ def stim_clip_grab(raw,meta,y_col,x_col='time',
     for i,on_time in enumerate(meta['stim_on']):
         # Array containing continuous part of analysis:
         off_time=meta['stim_off'][i]
-        base_samp= round((on_time - baseline) * fs)
-        on_samp = round(on_time * fs)
-        on_time_samp= round((on_time + stim_dur) * fs)
-        off_samp = round(off_time * fs)
-        post_samp = round((off_time + baseline) * fs)
+        base_samp= int(round((on_time - baseline) * fs))
+        on_samp = int(round(on_time * fs))
+        on_time_samp= int(round((on_time + stim_dur) * fs))
+        off_samp = int(round(off_time * fs))
+        post_samp = int(round((off_time + baseline) * fs))
         intervals=[[base_samp,on_samp],
                    [on_samp,on_time_samp],
                    [off_samp,post_samp]]
@@ -515,7 +515,7 @@ def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
    
     # std_err = np.nanstd(clip[continuous_y_key],axis=1)/np.sqrt(n)
     # h = std_err * t.ppf((1 + confidence) / 2, n - 1)
-    out_ave['cont_y_conf']=signal.conf_int_on_matrix(y)
+    out_ave['cont_y_conf']=signals.conf_int_on_matrix(y)
     out_ave['cont_x']=clip[continous_x_key]
     
     return out_ave
@@ -604,7 +604,7 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
                  calc_meander = False):
 
     y_col_bout=y_col + '_bout'
-    dat=raw[y_col].astype(int) #Note: discretely smoothed by signal.join_gaps
+    dat=raw[y_col].astype(int) #Note: discretely smoothed by signals.join_gaps
     
     bout_onset = np.concatenate((np.array([0]),np.diff(dat)>0))
     onset_samps = list(compress(range(len(bout_onset)),bout_onset))
@@ -621,14 +621,14 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
     
     #Filter bouts for obeying a minimum bout spacing apart (by default 0.25s):
     min_bout_spacing_samps=round(meta.fs[0]*min_bout_spacing_s)
-    new_on,new_off=signal.join_gaps(onset_samps,offset_samps,min_bout_spacing_samps)
+    new_on,new_off=signals.join_gaps(onset_samps,offset_samps,min_bout_spacing_samps)
     
     #Also remove detected bouts from bout_onset arrays:
     # bout_onset[[x for x in onset_samps if x not in new_on]]=0 #quite slow
     # bout_offset[[x for x in offset_samps if x not in new_off]]=0
-    ind=signal.ismember(new_on, onset_samps) #could this improve speed?
+    ind=signals.ismember(new_on, onset_samps) #could this improve speed?
     bout_onset[onset_samps[~ind]]=0
-    ind=signal.ismember(new_off,offset_samps) #could this improve speed?
+    ind=signals.ismember(new_off,offset_samps) #could this improve speed?
     bout_offset[offset_samps[~ind]]=0
     
     
@@ -809,7 +809,7 @@ def load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_th
         x=df[(exp,'top_body_center','y')].values
         
         # Front over rear and correct for distance from camera:
-        newy=signal.max_normalize_per_dist(x,y2-y1,step,poly_order=2)
+        newy=signals.max_normalize_per_dist(x,y2-y1,step,poly_order=2)
         ind=np.array([i for i in range(0,len(newy))])
         
         # Spline-fitting smooth method (slow!):
@@ -838,11 +838,11 @@ def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):
             'side_tail_base','side_left_hind','side_right_hind'
     rear_thresh : Integer, optional
         DESCRIPTION. Threshold distance of mouse front over mouse hind 
-            used to detect rearing events in mice via gittislab.signal.peak_start_stop() 
+            used to detect rearing events in mice via gittislab.signals.peak_start_stop() 
             The default is 0.65.
     min_thresh : Integer, optional
         DESCRIPTION. Threshold distance of mouse front over mouse hind
-            used to detect when rearing starts/stops via gittislab.signal.peak_start_stop() 
+            used to detect when rearing starts/stops via gittislab.signals.peak_start_stop() 
             The default is 0.25.
     save_figs : Boolean, optional
         DESCRIPTION. Save a figure of rear detection. The default is False.
@@ -880,8 +880,8 @@ def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):
     col=(exp,'front_over_rear','length')
     mouse_height=df[col]
     
-    # start_peak,stop_peak = signal.thresh(mouse_height,rear_thresh,'Pos')
-    peaks,start_peak,stop_peak = signal.expand_peak_start_stop(mouse_height,height=rear_thresh,min_thresh=min_thresh)
+    # start_peak,stop_peak = signals.thresh(mouse_height,rear_thresh,'Pos')
+    peaks,start_peak,stop_peak = signals.expand_peak_start_stop(mouse_height,height=rear_thresh,min_thresh=min_thresh)
     rear=np.zeros(mouse_height.shape)
     for start,stop in zip(start_peak,stop_peak):
         rear[start:stop]=1

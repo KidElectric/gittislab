@@ -5,7 +5,7 @@ Created on Thu May 28 11:37:06 2020
 
 @author: brian
 """
-import cv2
+# import cv2
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,7 +15,7 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
-from gittislab import behavior, ethovision_tools, signal, dataloc
+from gittislab import behavior, ethovision_tools, signals, dataloc
 from scipy.stats import ttest_rel
 from scipy.stats import t
 import pdb 

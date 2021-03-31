@@ -287,7 +287,7 @@ def add_dlc_helper(raw,meta,basepath,inc=[],exc=[],force_replace=False,rear_thre
             meta['bad_dlc_tracking']=False
         
     else:
-        print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',path.parent))
+        print('\t %s does not exist in %s.\n' % ('dlc_analyze.h5',basepath))
         meta['dlc_outlier_thresh_sd'] =np.nan
         meta['dlc_likelihood_thresh'] = np.nan
         meta['rear_thresh']=np.nan
@@ -337,14 +337,14 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[],extra_cols=[]):
                'etho_trial_control_settings',    
                'has_dlc',
                'version',
-               'has_blink_state']
+               'has_blink_state',]
     cols_keep += extra_cols
     df=df[cols_keep]
     df=df.reset_index().drop(['index'],axis=1)
     cols_rename=['anid','area','cell','opsin','side','proto','stim_n','stim_dur',
                  'da','sex','arena',
                  'stim','id_err','retrack','exper','room','trial','settings',
-                 'dlc','ver','blink']
+                 'has_dlc','ver','blink']
     cols_rename += extra_cols
     rename_dict={cols_keep[i] : cols_rename[i] for i in range(len(cols_rename))} 
     

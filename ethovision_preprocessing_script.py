@@ -6,7 +6,7 @@ Created on Tue Mar 30 16:18:56 2021
 """
 
 
-from gittislab import signals, behavior, dataloc, ethovision_tools 
+from gittislab import signals, behavior, dataloc, ethovision_tools, plots
 import os
 from pathlib import Path
 import numpy as np
@@ -28,10 +28,18 @@ else:
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
+
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,force_replace=False,win=10)
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
 print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
+
+# %% Plot 10x10 days:
+pns=dataloc.raw_csv(basepath,inc[0],ex0)
+for pn in pns:
+    df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
+    plots.plot_openloop_day(df,meta,save=True, close=False)
 
 # %% RUN AFTER DLC:
 ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS','mW']

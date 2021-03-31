@@ -23,7 +23,7 @@ def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
     return y
 
 def pad_lowpass_unpad(data,cutoff,fs,order=5):
-    pad=round(fs*2)
+    pad=int(round(fs*2))
     
     #Remove outliers
     existing_nan=np.isnan(data)
