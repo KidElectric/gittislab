@@ -16,15 +16,19 @@ from matplotlib import pyplot as plt
 import pdb
 from itertools import compress
 
-# %% RUN BEFORE DLC:
+
 ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
 inc=[['AG','hm4di','Str','A2A','Ai32']]
 make_preproc = True
 exc=[ex0]
-if os.environ['COMPUTERNAME'] == 'DESKTOP-UR8URCE':
+if ('COMPUTERNAME' in os.environ.keys()) \
+    and (os.environ['COMPUTERNAME'] == 'DESKTOP-UR8URCE'):
+        
     basepath = 'F:\\Users\\Gittis\\Dropbox\\Gittis Lab Data\\OptoBehavior\\'
 else:
     basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+    
+# %% RUN BEFORE DLC:
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)

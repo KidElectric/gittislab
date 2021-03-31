@@ -470,7 +470,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
         ym= np.mean(y,axis=0)
         clip_ave={'cont_y' : ym,
                   'cont_x' : x[0],
-                  'cont_y_conf' : signal.conf_int_on_matrix(y,axis=0),
+                  'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
                   'disc' : np.vstack(data['stim_speed'].values)}
                   
         ax_speedbar = mean_cont_plus_conf(clip_ave,
@@ -787,7 +787,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
 
 def zone_day_crossing_stats(raw,meta):
     
-    ac_on,ac_off= signal.thresh(raw['iz1'].astype(int),0.5,'Pos')
+    ac_on,ac_off= signals.thresh(raw['iz1'].astype(int),0.5,'Pos')
     min=meta['fs'][0] * 4 #4 seconds
     all_cross=[]
     for on,off in zip(ac_on,ac_off):

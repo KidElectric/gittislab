@@ -587,7 +587,7 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
                                            summarization_fun=percentage)
             temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
             
-            amb_bouts=bout_analyze(raw,meta,'ambulation',
+            amb_bouts=bout_analyze(raw,meta,'amb',
                                 stim_dur=stim_dur,
                                 min_bout_dur_s=min_bout)
             temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
