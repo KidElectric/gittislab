@@ -1182,7 +1182,7 @@ def boris_prep_from_fn(basepath,conds_inc=[],conds_exc=[],
                 #Collect event onset and offset times in video from a custom data column:
                 new_evt=[]
                 for col in event_col:
-                    on,off = signal.thresh(raw[col],event_thresh)
+                    on,off = signals.thresh(raw[col],event_thresh)
                     on_times=raw['time'].values[on]
                     off_times=raw['time'].values[off]
                     
@@ -1290,7 +1290,7 @@ def boris_prep_from_df(raw, meta,
     if not isinstance(event_col,list):
         event_col=[event_col]
     for col in event_col:
-        on,off = signal.thresh(raw[col],event_thresh)
+        on,off = signals.thresh(raw[col],event_thresh)
         on_times=raw['time'].values[on]
         off_times=raw['time'].values[off]
         

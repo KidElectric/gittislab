@@ -9,7 +9,7 @@ Created on Thu Mar  4 12:04:16 2021
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from gittislab import dataloc, ethovision_tools, signal, plots, behavior, model
+from gittislab import dataloc, ethovision_tools, signals, plots, behavior, model
 import matplotlib.pyplot as plt
 import json 
 import librosa 
@@ -313,16 +313,16 @@ plt.title('Thresh at %1.3f, hit rate = %1.3f, fa rate = %1.3f' % (ok_thresh,hit_
 # boris_obs = 'AG4700_5'
 
 #WARNING: Human scored times are currently delayed / offset:
-# ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4109_2_BI060519/'
-# boris_obs = 'AG4109_2'
+ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4109_2_BI060519/'
+boris_obs = 'AG4109_2'
 
-ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/'
-boris_obs = 'AG4486_3'
+# ffn = basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/'
+# boris_obs = 'AG4486_3'
 
 # ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/'
 # boris_obs = 'event_check'
 
-#WARNING: Human scored times are currently delayed /offset:
+
 # ffn = basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520' 
 # boris_obs='AG5769_1'
 
@@ -343,13 +343,25 @@ plt.plot(pred,'r')
 plt.plot(human_scored,'k')
 plt.title('%s AUROC: %1.4f' % (boris_obs,auroc))
 
-# %% Calculate average AUROC for training set:
+# %% Calculate average AUROC for testing set:
 
 ka=[]
 kp=[]
 kh=[]
 
-for ffn,boris_obs in zip(test_video_pn,test_video_boris_obs):
+full_test_video_pn=[basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5769_1_BI022520' ,
+                    basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4109_2_BI060519/',
+                    basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4486_3_BI060319/', #Low res, File that prev method struggled with (only 1 rear)
+                    basepath + 'Str/Naive/A2A/Ai32/Bilateral/10x10/AG5362_3_BI022520/', # File from high res, Multiple rounds of refinement, file same as dlc_and_ka_rearing_confirmed_fa_final_v2.boris
+                    basepath + 'GPe/Naive/CAG/Arch/Right/5x30/AG4700_5_BI090519/'] #Add test
+
+full_test_video_boris_obs = ['AG5769_1',
+                             'AG4109_2',
+                             'AG4486_3', 
+                             'event_check',
+                             'AG4700_5']
+
+for ffn,boris_obs in zip(full_test_video_pn,full_test_video_boris_obs):
     rf_model_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/rf_model_v3.joblib'
     weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv3'
     tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv3.pkl'

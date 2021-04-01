@@ -593,6 +593,19 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
             temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
             temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
             
+            ### Calculate stim-triggered Proportion: FM, AMB, IM
+            use = ['im','amb','fm']
+            collect=[]
+            for col in use:
+                clip=stim_clip_grab(raw,meta,y_col=col, 
+                                           stim_dur=stim_dur,
+                                           summarization_fun=np.nansum)
+                collect.append(np.nansum(clip['disc'],axis=0))
+            collect=np.vstack(collect)
+            tot=np.sum(collect,axis=0)
+            
+            temp['prop_state']=collect / tot
+            temp['prop_labels'] = use
             
             data=data.append(temp,ignore_index=True)
     return data

@@ -8,7 +8,7 @@ Created on Fri Mar  5 11:16:15 2021
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from gittislab import dataloc, ethovision_tools, signal, plots, behavior
+from gittislab import dataloc, ethovision_tools, signals, plots, behavior
 import matplotlib.pyplot as plt
 import json 
 import pdb
@@ -70,14 +70,14 @@ def combine_raw_csv_for_modeling(raw_pns,
         # dlc['head_hind_px_height']= dlc ['dlc_rear_centroid_y'] - dlc['dlc_side_head_y']
 
         dlc['front_hind_px_height'] = dlc ['dlc_rear_centroid_y'] - dlc['dlc_front_centroid_y']
-        dlc['head_hind_5hz_pw'] = signal.get_spectral_band_power(dlc['front_hind_px_height'],
+        dlc['head_hind_5hz_pw'] = signals.get_spectral_band_power(dlc['front_hind_px_height'],
                                                                  meta['fs'][0],4.5,6.5)
         dlc['snout_hind_px_height'] = dlc ['dlc_rear_centroid_y'] - dlc['dlc_snout_y']
-        dlc['side_length_px']=signal.calculateDistance(dlc['dlc_front_centroid_x'].values,
+        dlc['side_length_px']=signals.calculateDistance(dlc['dlc_front_centroid_x'].values,
                                                        dlc['dlc_front_centroid_y'].values,
                                                        dlc ['dlc_rear_centroid_x'].values,
                                                        dlc ['dlc_rear_centroid_y'].values)
-        # dlc['top_length_px']=signal.calculateDistance(dlc['dlc_top_head_x'].values,
+        # dlc['top_length_px']=signals.calculateDistance(dlc['dlc_top_head_x'].values,
         #                                                dlc['dlc_top_head_y'].values,
         #                                                dlc ['dlc_top_tail_base_x'].values,
         #                                                dlc ['dlc_top_tail_base_y'].values)
@@ -144,7 +144,7 @@ def binary_vector_score_event_accuracy(target,pred, est_tn = True):
     
     #Per target event, detect prediction hits: 
     hit=[]
-    on,off=signal.thresh(target,0.5)
+    on,off=signals.thresh(target,0.5)
     for o,f in zip(on,off):
         ind= pred[o:f]
         if any(ind):
@@ -155,7 +155,7 @@ def binary_vector_score_event_accuracy(target,pred, est_tn = True):
     mean_dur = np.mean(off - on)
     # Detect false alarms
     fa=[]
-    on,off=signal.thresh(pred,0.5)
+    on,off=signals.thresh(pred,0.5)
     for o,f in zip(on,off):
         ind = target[o:f]
         if not(any(ind)):
@@ -263,7 +263,7 @@ def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.5,low_pass_freq=None,
         
     #Lowpass filter prediction:
     if not (low_pass_freq == None):
-        raw['final_pred']= signal.pad_lowpass_unpad(raw['final_pred'],
+        raw['final_pred']= signals.pad_lowpass_unpad(raw['final_pred'],
                                                     low_pass_freq,
                                                     meta['fs'][0])
     

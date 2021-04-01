@@ -40,10 +40,21 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% Plot 10x10 days:
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
-    plots.plot_openloop_day(df,meta,save=True, close=False)
+    plots.plot_openloop_day(df,meta,save=True, close=True)
+
+# %% Plot mouse summary:
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno']]
+data = behavior.open_loop_summary_collect(basepath,inc,exc)
+fig=plots.plot_openloop_mouse_summary(data)
+
+#%%
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10','saline']]
+data = behavior.open_loop_summary_collect(basepath,inc,exc)
+fig=plots.plot_openloop_mouse_summary(data)
 
 # %% RUN AFTER DLC:
 ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS','mW']

@@ -487,13 +487,42 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
                                   clip_method=False, ax=f_row[0][sum_i])
     plt.ylabel('Speed (cm/s)')
     plt.xlabel('Time from stim (s)')
-    plt.title('n=%d' % len(data))
+    plt.title('n=%d' % len(data))    
+
+    #### Row 1 Left: %Time mobile
+
+    dat=data.loc[:,'per_mobile']
+    y=np.vstack([x for x in dat])
+    ym= np.mean(y,axis=0)
     
-
     
+    clip_ave={'cont_y' : ym,
+              'cont_x' : [0, 1, 2],
+              'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+              'disc' : y}
+              
+    ax_mobile= mean_bar_plus_conf(clip_ave,['Pre','Dur','Post'],
+                              clip_method=False, ax=f_row[1][0])
+    plt.ylabel('Time Mobile (%)')
+    plt.xlabel('Time from stim (s)')
 
-    # #### Row 1: Speed related
-
+    #### Row 1 Right: Proportion time spent doing various behaviors:
+    dat = np.mean(np.stack(data['prop_state'],axis=0),axis=0)
+    tot = [1,1,1]
+    labs= data['prop_labels'][0]
+    labels=['Pre','Dur','Post']
+    width = 0.4       # the width of the bars: can also be len(x) sequence
+    cols=['k','w','g']
+    ax=f_row[1][1]
+    for i,b in enumerate(labs):
+        bt=[0,0,0]
+        if i>0:
+            bt=np.sum(dat[0:i,:],axis=0)
+        ax.bar(labels, dat[i,:], width, label = b,
+               edgecolor='k',facecolor=cols[i],bottom=bt)
+    ax.legend()
+    ax.set_xlim([-1,5])
+    ax.set_ylabel('Proportion')
     
     # #### Row 2: % Time mobile & (Rearing?)
     # ax_im = mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
