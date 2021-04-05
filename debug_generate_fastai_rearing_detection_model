@@ -7,18 +7,19 @@ Created on Tue Mar 30 13:58:49 2021
 """
 import os
 os.environ['PATH'] += os.pathsep + '/home/brian/Dropbox/Python/fastai'
+# os.environ['PATH'] += os.pathsep + '/home/brian/Dropbox/Python/fastai/fastbook'
 
 from pandas.api.types import is_string_dtype, is_numeric_dtype, is_categorical_dtype
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from gittislab import dataloc, ethovision_tools, signal, plots, behavior, model
+from gittislab import dataloc, ethovision_tools, signals, plots, behavior, model
 import json 
 from fastai.tabular.all import *
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import DecisionTreeRegressor
 from sklearn import metrics
-# from dtreeviz.trees import *
+from dtreeviz.trees import *
 # from IPython.display import Image, display_svg, SVG
 from matplotlib import pyplot as plt
 import joblib

@@ -17,9 +17,10 @@ import pdb
 from itertools import compress
 
 
-ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS']
-inc=[['AG','hm4di','Str','A2A','Ai32']]
-make_preproc = True
+ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
+# inc=[['AG','hm4di','Str','A2A','Ai32']]
+inc=[['AG','Str','D2_D1','ChR2_hM3Dq','10x10_15mW']]
+make_preproc = False
 exc=[ex0]
 if ('COMPUTERNAME' in os.environ.keys()) \
     and (os.environ['COMPUTERNAME'] == 'DESKTOP-UR8URCE'):
@@ -40,7 +41,7 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% Plot 10x10 days:
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10']]
+# inc=[['AG','hm4di','Str','A2A','Ai32','10x10']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )

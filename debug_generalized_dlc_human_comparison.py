@@ -9,7 +9,7 @@ import pandas as pd
 import json 
 import numpy as np
 from pathlib import Path
-from gittislab import dataloc, ethovision_tools, signal, plots
+from gittislab import dataloc, ethovision_tools, signals, plots
 import matplotlib.pyplot as plt
 
 
@@ -32,8 +32,8 @@ mouse_height=(dlc['dlc_rear_centroid_y']-dlc['dlc_front_centroid_y'])
 head_xy=np.array(dlc.loc[:,('dlc_front_centroid_x','dlc_front_centroid_y')])
 tail_xy=np.array(dlc.loc[:,('dlc_rear_centroid_x','dlc_rear_centroid_y')])
 x=raw['x']
-mh=signal.scale_per_dist(x,head_xy,tail_xy,mouse_height,step=2,poly_order = 2)
-mhh=signal.max_normalize_per_dist(x,mouse_height,step=2,poly_order=2)
+mh=signals.scale_per_dist(x,head_xy,tail_xy,mouse_height,step=2,poly_order = 2)
+mhh=signals.max_normalize_per_dist(x,mouse_height,step=2,poly_order=2)
 plt.figure()
 plt.plot(raw['time'],mh/100)
 plt.plot(raw['time'],mhh)
@@ -43,7 +43,7 @@ plt.plot(raw['time'],mhh)
 parts=['dlc_front_centroid','dlc_rear_centroid',]
 part_colors = ['.c','.y']
 framesets=[]
-on,off=signal.thresh(mh,30, sign='Pos')
+on,off=signals.thresh(mh,30, sign='Pos')
 for o,f in zip(on,off):
     if o > f:
         print('o > f')

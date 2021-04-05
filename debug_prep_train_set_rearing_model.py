@@ -193,7 +193,7 @@ for pn in test_video_pn:
     
     # y = raw['dlc_rear_centroid_y'] -raw['dlc_front_centroid_y'] #Trained on this
     # y = raw['dlc_rear_centroid_y'] -raw['dlc_snout_y'] #Works
-    y= signal.calculateDistance(raw['dlc_front_centroid_x'].values,
+    y= signals.calculateDistance(raw['dlc_front_centroid_x'].values,
                                 raw['dlc_front_centroid_y'].values,
                                 raw['dlc_rear_centroid_x'].values,
                                 raw['dlc_rear_centroid_y'].values)
@@ -232,7 +232,7 @@ librosa.display.specshow(librosa.power_to_db(S, ref=np.max),sr=Fs,hop_length=hop
 # plt.figure(),plt.plot(freqs[0:-1],np.log10(S[:,16]))
 
 #Putative "grooming" band:
-dm = signal.get_spectral_band_power(dat,29.97,4.5,6.5)
+dm = signals.get_spectral_band_power(dat,29.97,4.5,6.5)
 total_dur= dat.shape[0] / Fs
 # time_s= np.linspace(0,total_dur,S.shape[1])
 time_s= np.linspace(0,total_dur,dat.shape[0])
@@ -257,11 +257,15 @@ plt.plot(time_s,obs['human_scored_rear']*40,'k')
 obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_train_rearv3.csv')
 pred_ens_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_rf_ens_pred_train_rear_v3.csv')
 
+obs_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/obs_valid_rearv3.csv')
+# pred_path= Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_pred_valid_rear_v3.csv')
+pred_ens_path = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/nn_rf_ens_pred_valid_rear_v3.csv')
+
 obs= pd.read_csv(obs_path)
 pred= pd.read_csv(pred_ens_path)
 use_pred =pred['pred'].values
 #See if smoothing / low-pass filtering improves:
-use_pred =  signal.pad_lowpass_unpad(use_pred,1,29.97)
+use_pred =  signals.pad_lowpass_unpad(use_pred,1,29.97)
 
 targets =obs['human_scored_rear'].values.astype(np.int16)
 fpr,tpr,thr =metrics.roc_curve(targets,use_pred)
@@ -288,7 +292,7 @@ obs= pd.read_csv(obs_path)
 pred= pd.read_csv(pred_ens_path)
 use_pred =pred['pred'].values
 #See if smoothing / low-pass filtering improves:
-use_pred =  signal.pad_lowpass_unpad(use_pred,1,29.97)
+use_pred =  signals.pad_lowpass_unpad(use_pred,1,29.97)
 
 targets =obs['human_scored_rear'].values.astype(np.int16)
 fpr,tpr,thr =metrics.roc_curve(targets,use_pred)
@@ -372,6 +376,17 @@ for ffn,boris_obs in zip(full_test_video_pn,full_test_video_boris_obs):
                                                       weights_fn = weights_fn,
                                                       rf_model_fn = rf_model_fn,
                                                       )
+    #Load raw
+    pn = dataloc.raw_csv(ffn)
+    # raw,meta = ethovision_tools.csv_load(pn,'preproc')
+    # raw['ka_scored']=human_scored
+    # raw['ml_scored']=pred > 0.296
+    # raw['ml_pred'] = pred
+    # #Next, create new .boris file with both human and machine scoring:
+    # ethovision_tools.boris_prep_from_df(raw, meta,
+    #             template_path='/home/brian/Documents/template.boris',
+    #             plot_cols=['time','ka_scored','ml_pred'], event_col='ml_scored',event_thresh=0.295,
+    #             )
     ka.append(auroc)
     kp.append(pred)
     kh.append(human_scored)

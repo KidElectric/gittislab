@@ -1209,7 +1209,7 @@ def boris_prep_from_fn(basepath,conds_inc=[],conds_exc=[],
 def boris_prep_from_df(raw, meta,
                template_path='/home/brian/Documents/template.boris',
                plot_cols=['time','vel'], event_col='mouse_height',event_thresh=0.5,
-               ):
+               merge = False,save=True):
     
     
     obs_name='event_check' #Can have multiple observation types per file
@@ -1302,15 +1302,39 @@ def boris_prep_from_df(raw, meta,
             new_evt.append([off,meta['anid'][0],event_names[1],'',''])
         
     new_evt = pd.DataFrame(new_evt).sort_values(by=0)
+    new_evt.reset_index(inplace=True,drop=True)
+    refcol=raw[event_col[0]]
+    if merge == True:
+        # Remove events from 2nd evt_col if they are already in first column:
+        to_drop=[]
+        
+        mergecol=event_col[1]
+        for i in range(0,len(new_evt)):
+            if (new_evt.iloc[i,2] == ('start_%s' % mergecol)):
+                k = i
+                while (('stop_%s' % mergecol) not in new_evt.iloc[k,2]):
+                    k += 1 
+                start=new_evt.iloc[i]
+                stop=new_evt.iloc[k]
+                ind= (raw['time'] >=start[0] ) & (raw['time'] <= stop[0])
+                if any((ind == 1) & (refcol==1)):
+                    #Remove events that are the same
+                    to_drop.append(i)
+                    to_drop.append(k)
+        new_evt.drop(to_drop,axis=0,inplace=True)
+        new_evt.reset_index(inplace=True,drop=True)
+        project_name += '_merged'
     js['observations'][obs_name]['events']= new_evt.values.tolist()
     
     
-    savefn=path.parent.joinpath(project_name + '.boris')
+    
     
     #Save this new file:
-    f = open(savefn,"w")
-    json.dump(js, f, sort_keys=True, indent=4)
-    f.close()
-    print('Saved.')
+    if save == True:
+        savefn=path.parent.joinpath(project_name + '.boris')
+        f = open(savefn,"w")
+        json.dump(js, f, sort_keys=True, indent=4)
+        f.close()
+        print('Saved.')
     return js, raw, meta
     
