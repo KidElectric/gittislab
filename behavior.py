@@ -321,14 +321,19 @@ def trial_part_count_cross(cross,non_cross,meta):
         tot_c[1,i]=in_period
     return tot_c
 
-def trial_part_position(raw,meta):
+def trial_part_position(raw,meta,chunk_method='task'):
     # x,y=norm_position(raw) #Already performed with preprocessed raw dataframe
     x=raw['x']
     y=raw['y']
     t=[i for i in range(4)]
     t[0]=0
-    t[1]=meta.task_start[0]
-    t[2]=meta.task_stop[0]
+    if chunk_method == 'task':        
+        t[1]=meta.task_start[0]
+        t[2]=meta.task_stop[0]        
+    elif chunk_method == 'thirds':
+        third=meta.exp_end[0]/3
+        t[1]=1*third
+        t[2]=2*third
     t[3]=meta.exp_end[0]
     xx=[]
     yy=[]
@@ -555,61 +560,62 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
         csv_paths=dataloc.raw_csv(basepath,inc,exc)
         if isinstance(csv_paths,Path):
             csv_paths=[csv_paths]
-        for ii,path in enumerate(csv_paths):
-            temp={}
+        for ii,path in enumerate(csv_paths):            
             print('Inc[%d], file %d) %s loaded...' % (i,ii,str(path)))
-
             raw,meta=ethovision_tools.csv_load(path,method='preproc')
-            temp['anid']=meta['anid'][0]
-            temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
-                                                     meta['stim_area'][0],
-                                                     meta['opsin_type'][0])
-            temp['proto']=meta['protocol'][0]
-            
-            #### Calculate stim-triggered speed changes:
-            baseline= round(np.mean(meta['stim_dur']))
-            stim_dur= baseline
-            temp['stim_dur']=stim_dur
-            vel_clip=stim_clip_grab(raw,meta,y_col='vel',
-                                             stim_dur=stim_dur)
-            
-            clip_ave=stim_clip_average(vel_clip)
-            temp['stim_speed']=clip_ave['disc_m'].T
-        
-            temp['vel_trace']=np.median(vel_clip['cont_y'],axis=1)
-            temp['x_trace']=clip_ave['cont_x']
-            
-            #### Calculate stim-triggered %time mobile:
-            percentage = lambda x: (np.nansum(x)/len(x))*100
-            raw['m']=~raw['im']
-            m_clip=stim_clip_grab(raw,meta,y_col='m', 
-                                           stim_dur=stim_dur,
-                                           summarization_fun=percentage)
-            temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
-            
-            amb_bouts=bout_analyze(raw,meta,'amb',
-                                stim_dur=stim_dur,
-                                min_bout_dur_s=min_bout)
-            temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
-            temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
-            
-            ### Calculate stim-triggered Proportion: FM, AMB, IM
-            use = ['im','amb','fm']
-            collect=[]
-            for col in use:
-                clip=stim_clip_grab(raw,meta,y_col=col, 
-                                           stim_dur=stim_dur,
-                                           summarization_fun=np.nansum)
-                collect.append(np.nansum(clip['disc'],axis=0))
-            collect=np.vstack(collect)
-            tot=np.sum(collect,axis=0)
-            
-            temp['prop_state']=collect / tot
-            temp['prop_labels'] = use
-            
+            temp = open_loop_summary_helper(raw,meta,min_bout=min_bout)
             data=data.append(temp,ignore_index=True)
     return data
 
+def open_loop_summary_helper(raw,meta,min_bout=0.5):
+    temp={}
+    temp['anid']=meta['anid'][0]
+    temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
+                                          meta['stim_area'][0],
+                                          meta['opsin_type'][0])
+    temp['proto']=meta['protocol'][0]
+    
+    #### Calculate stim-triggered speed changes:
+    baseline= round(np.mean(meta['stim_dur']))
+    stim_dur= baseline
+    temp['stim_dur']=stim_dur
+    vel_clip=stim_clip_grab(raw,meta,y_col='vel',
+                                     stim_dur=stim_dur)
+    
+    clip_ave=stim_clip_average(vel_clip)
+    temp['stim_speed']=clip_ave['disc_m'].T
+
+    temp['vel_trace']=np.median(vel_clip['cont_y'],axis=1)
+    temp['x_trace']=clip_ave['cont_x']
+    
+    #### Calculate stim-triggered %time mobile:
+    percentage = lambda x: (np.nansum(x)/len(x))*100
+    raw['m']=~raw['im']
+    m_clip=stim_clip_grab(raw,meta,y_col='m', 
+                                   stim_dur=stim_dur,
+                                   summarization_fun=percentage)
+    temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
+    
+    amb_bouts=bout_analyze(raw,meta,'amb',
+                        stim_dur=stim_dur,
+                        min_bout_dur_s=min_bout)
+    temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
+    temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
+    
+    ### Calculate stim-triggered Proportion: FM, AMB, IM
+    use = ['im','amb','fm']
+    collect=[]
+    for col in use:
+        clip=stim_clip_grab(raw,meta,y_col=col, 
+                                   stim_dur=stim_dur,
+                                   summarization_fun=np.nansum)
+        collect.append(np.nansum(clip['disc'],axis=0))
+    collect=np.vstack(collect)
+    tot=np.sum(collect,axis=0)
+    
+    temp['prop_state']=collect / tot
+    temp['prop_labels'] = use
+    return temp
 def bout_analyze(raw,meta,y_col,stim_dur=30,
                  min_bout_dur_s=0.5,
                  min_bout_spacing_s=0.1,

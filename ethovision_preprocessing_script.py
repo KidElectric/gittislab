@@ -18,8 +18,8 @@ from itertools import compress
 
 
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
-# inc=[['AG','hm4di','Str','A2A','Ai32']]
-inc=[['AG','Str','D2_D1','ChR2_hM3Dq','10x10_15mW']]
+inc=[['AG','hm4di','Str','A2A','Ai32']]
+# inc=[['AG','Str','D2_D1','ChR2_hM3Dq','10x10_15mW']]
 make_preproc = False
 exc=[ex0]
 if ('COMPUTERNAME' in os.environ.keys()) \
@@ -30,6 +30,9 @@ else:
     basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
     
 # %% RUN BEFORE DLC:
+ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
+exc=[ex0]
+inc=[['AG','hm4di','Str','A2A','Ai32',]]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -40,15 +43,30 @@ print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
-# %% Plot 10x10 days:
-# inc=[['AG','hm4di','Str','A2A','Ai32','10x10']]
+# %% Plot 10x10 / openloop days:
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
+if not isinstance(pns,list):
+    pns=[pns]
+saveit=True
+closeit=False
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
-    plots.plot_openloop_day(df,meta,save=True, close=True)
+    plots.plot_openloop_day(df,meta,save=saveit, close=closeit)
 
+# %% Plot free-running / unstructured openfield data:
+pns=dataloc.raw_csv(basepath,inc[0],ex0)
+if not isinstance(pns,list):
+    pns=[pns]
+saveit=False
+closeit=False
+for pn in pns[0:5]:
+    df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc')
+    plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
 # %% Plot mouse summary:
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno']]
+ex0=['10hz','exclude','Bad','bad',
+     'Broken', 'grooming','Exclude','Other XLS']
+exc=[ex0]
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10','saline']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 

@@ -212,7 +212,7 @@ def mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True,
     else:
         return ax, h
     
-def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b'):
+def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b',chunk_method='task'):
     '''
     
 
@@ -249,7 +249,8 @@ def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b'):
                            [arena_size, arena_size],
                            hl_color, alpha=0.3,edgecolor='none')
         
-    xx,yy=behavior.trial_part_position(raw,meta)
+    xx,yy=behavior.trial_part_position(raw,meta,
+                                       chunk_method=chunk_method)
     for x,y,a in zip(xx,yy,ax):
         a.scatter(x,y,2,'k',marker='.',alpha=0.05)
         a.plot([0,0],[-22,22],'--r')
@@ -421,7 +422,95 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         plt.close()
     else:
         return fig
+    
+def plot_freerunning_day(raw,meta,save=False, close=False):    
+    '''
+    
 
+    Parameters
+    ----------
+    raw : TYPE
+        DESCRIPTION.
+    meta : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    fig : TYPE
+        DESCRIPTION.
+
+    '''
+    #Check that these data are free-running type:
+    if meta['no_trial_structure'][0] == True:
+        #### Set up figure axes in desired pattern
+        plt_ver = 3
+        fig = plt.figure(constrained_layout = True,figsize=(8.5,7))
+        gs = fig.add_gridspec(3, 3)
+        f_row=list(range(gs.nrows))
+        f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
+        f_row[1]=[fig.add_subplot(gs[1,0:3])]
+        f_row[2]=[fig.add_subplot(gs[2,0:3])]
+    
+        
+        #### Row 0: Mouse position over 3 chunks
+        ax_pos = trial_part_position(raw,meta,ax=f_row[0],
+                                     chunk_method='thirds')
+        plt.sca(ax_pos[1])
+        plt.title('%s, %s %s (%s) %s %s %s' % (meta['anid'][0],
+                              meta['etho_exp_date'][0],
+                              meta['protocol'][0],
+                              meta['etho_exp_type'][0],
+                              meta['cell_type'][0],
+                              meta['opsin_type'][0],
+                              meta['stim_area'][0]))
+        
+    
+        #### Row 1: Plot binned speed vs. time
+        vel=raw['vel']
+        vel[0:2]=np.nan
+        x,y = signals.bin_analyze(raw['time'],vel,
+                                  bin_dur=10,
+                                  fun = np.nanmedian)
+        plt.sca(f_row[1][0])
+
+        plt.plot(x/60,y,'k')
+        plt.ylabel('Speed (cm/s)')
+        plt.xlabel('Time (min)')
+    
+        
+        #### Row 2: % Time mobile vs. time
+        plt.sca(f_row[2][0])
+        percentage = lambda x: (np.nansum(x)/len(x))*100        
+        mobile = ~raw['im']
+        x,y = signals.bin_analyze(raw['time'],mobile,
+                          bin_dur=10,
+                          fun = percentage)
+
+        plt.plot(x/60,y,'k')
+        plt.ylabel('% Time Mobile')
+        plt.xlabel('Time (min)')
+        
+        
+        #### Save image option:
+        if save == True:
+            path_dir = str(meta['pn'][0].parent)
+            anid= meta['anid'][0]
+            proto=meta['etho_exp_type'][0]
+            plt.show(block=False)
+            plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,plt_ver))
+        if close == True:
+            plt.close()
+        else:
+            return fig
+    else:
+        desc_str='%s-%s-%s-%s-%s-%s' % (meta['anid'][0],
+                              meta['etho_exp_date'][0],
+                              meta['protocol'][0],
+                              meta['cell_type'][0],
+                              meta['opsin_type'][0],
+                              meta['stim_area'][0])
+        print('Skipping structured trial: %s' % desc_str)
+        
 def plot_openloop_mouse_summary(data, save=False, close=False):    
     '''
     

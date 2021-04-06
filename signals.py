@@ -130,6 +130,8 @@ def bin_analyze(x,y,bin_dur,fun = np.mean):
     s=0
     bin_out=[]
     bin_x = []
+    x=np.array(x)
+    y=np.array(y)
     while s < x[-1]:
         ind = (x > s) & (x < (s + bin_dur))
         bin_out.append(fun(y[ind]))

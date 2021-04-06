@@ -378,15 +378,15 @@ for ffn,boris_obs in zip(full_test_video_pn,full_test_video_boris_obs):
                                                       )
     #Load raw
     pn = dataloc.raw_csv(ffn)
-    # raw,meta = ethovision_tools.csv_load(pn,'preproc')
-    # raw['ka_scored']=human_scored
-    # raw['ml_scored']=pred > 0.296
-    # raw['ml_pred'] = pred
-    # #Next, create new .boris file with both human and machine scoring:
-    # ethovision_tools.boris_prep_from_df(raw, meta,
-    #             template_path='/home/brian/Documents/template.boris',
-    #             plot_cols=['time','ka_scored','ml_pred'], event_col='ml_scored',event_thresh=0.295,
-    #             )
+    raw,meta = ethovision_tools.csv_load(pn,'preproc')
+    raw['ka_scored']=human_scored
+    raw['ml_scored']=pred > 0.296
+    raw['ml_pred'] = pred
+    #Next, create new .boris file with both human and machine scoring:
+    boris = ethovision_tools.boris_prep_from_df(raw, meta,
+                template_path='/home/brian/Documents/template.boris',
+                plot_cols=['time','ka_scored','ml_pred'], event_col=['ka_scored','ml_scored'],
+                merge=True,save=True)
     ka.append(auroc)
     kp.append(pred)
     kh.append(human_scored)
