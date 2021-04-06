@@ -62,6 +62,7 @@ closeit=False
 for pn in pns[0:5]:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc')
     plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
+    
 # %% Plot mouse summary:
 ex0=['10hz','exclude','Bad','bad',
      'Broken', 'grooming','Exclude','Other XLS']

@@ -444,13 +444,12 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
     if meta['no_trial_structure'][0] == True:
         #### Set up figure axes in desired pattern
         plt_ver = 3
-        fig = plt.figure(constrained_layout = True,figsize=(8.5,7))
+        fig = plt.figure(constrained_layout = True,figsize=(10,7))
         gs = fig.add_gridspec(3, 3)
         f_row=list(range(gs.nrows))
         f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
         f_row[1]=[fig.add_subplot(gs[1,0:3])]
-        f_row[2]=[fig.add_subplot(gs[2,0:3])]
-    
+        f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
         
         #### Row 0: Mouse position over 3 chunks
         ax_pos = trial_part_position(raw,meta,ax=f_row[0],
@@ -478,7 +477,7 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
         plt.xlabel('Time (min)')
     
         
-        #### Row 2: % Time mobile vs. time
+        #### Row 2 Left: % Time mobile vs. time
         plt.sca(f_row[2][0])
         percentage = lambda x: (np.nansum(x)/len(x))*100        
         mobile = ~raw['im']
@@ -490,6 +489,34 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
         plt.ylabel('% Time Mobile')
         plt.xlabel('Time (min)')
         
+        #Row 2 Right: Proportion time spent in various behaviors:
+        #Analyze in thirds, 
+        pseudo_stim = meta
+        third=meta['exp_end'][0]/3
+        pseudo_stim['stim_on'] = third
+        pseudo_stim['stim_off'] = 2*third
+        pseudo_stim['stim_dur']=third
+        data=behavior.open_loop_summary_helper(raw,
+                                              pseudo_stim,
+                                              min_bout=0.5)
+        dat = data['prop_state']
+        tot = [1,1,1]
+        labs= data['prop_labels']
+        width = 0.4       # the width of the bars: can also be len(x) sequence
+        cols=['k','w','g']
+        ax=f_row[2][1]
+        labels=['%d-%d' % ((i-1)*third/60,i*third/60) for i in range(1,4)]
+        # pdb.set_trace()
+        for i,b in enumerate(labs):
+            bt=[0,0,0]
+            if i>0:
+                bt=np.sum(dat[0:i,:],axis=0)
+            ax.bar(labels, dat[i,:], width, label = b,
+                   edgecolor='k',facecolor=cols[i],bottom=bt)
+        ax.legend()
+        ax.set_xlim([-1,5])
+        ax.set_ylabel('Proportion')
+        ax.set_xlabel('Time (min)')
         
         #### Save image option:
         if save == True:

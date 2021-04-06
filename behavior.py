@@ -574,13 +574,16 @@ def open_loop_summary_helper(raw,meta,min_bout=0.5):
                                           meta['stim_area'][0],
                                           meta['opsin_type'][0])
     temp['proto']=meta['protocol'][0]
-    
+    stim_dur = round(np.mean(meta['stim_dur']))
+    baseline= stim_dur
+        
     #### Calculate stim-triggered speed changes:
-    baseline= round(np.mean(meta['stim_dur']))
-    stim_dur= baseline
+
     temp['stim_dur']=stim_dur
+    # if meta['no_trial_structure'][0] == False:
     vel_clip=stim_clip_grab(raw,meta,y_col='vel',
-                                     stim_dur=stim_dur)
+                                     stim_dur=stim_dur,
+                                     baseline = baseline)
     
     clip_ave=stim_clip_average(vel_clip)
     temp['stim_speed']=clip_ave['disc_m'].T
@@ -593,6 +596,7 @@ def open_loop_summary_helper(raw,meta,min_bout=0.5):
     raw['m']=~raw['im']
     m_clip=stim_clip_grab(raw,meta,y_col='m', 
                                    stim_dur=stim_dur,
+                                   baseline = baseline,
                                    summarization_fun=percentage)
     temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
     
@@ -606,8 +610,10 @@ def open_loop_summary_helper(raw,meta,min_bout=0.5):
     use = ['im','amb','fm']
     collect=[]
     for col in use:
+       
         clip=stim_clip_grab(raw,meta,y_col=col, 
                                    stim_dur=stim_dur,
+                                   baseline=baseline,
                                    summarization_fun=np.nansum)
         collect.append(np.nansum(clip['disc'],axis=0))
     collect=np.vstack(collect)
@@ -616,6 +622,7 @@ def open_loop_summary_helper(raw,meta,min_bout=0.5):
     temp['prop_state']=collect / tot
     temp['prop_labels'] = use
     return temp
+
 def bout_analyze(raw,meta,y_col,stim_dur=30,
                  min_bout_dur_s=0.5,
                  min_bout_spacing_s=0.1,
