@@ -16,8 +16,10 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
 from gittislab import behavior, ethovision_tools, signals, dataloc
-from scipy.stats import ttest_rel
-from scipy.stats import t
+from scipy import stats as scistats
+import statistics as pystats
+# from scipy.stats import ttest_rel
+# from scipy.stats import t
 import pdb 
 from pathlib import Path
 import pandas as pd 
@@ -116,7 +118,7 @@ def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=No
         fig,ax=plt.subplots()
     plt.sca(ax)
 
-    
+    # pdb.set_trace()
     #If highlight patch box specified, plot it first:
     if highlight:
         ax.fill_between(highlight[0:2],[highlight[2],highlight[2]],[0,0],
@@ -185,7 +187,7 @@ def mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True,
         clip_ave={'disc_conf':np.empty((3,1)),}
         for i,data in enumerate(clip[use_key].T):
             std_err = np.nanstd(data)/np.sqrt(n)
-            h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+            h = std_err * scistats.t.ppf((1 + confidence) / 2, n - 1)
             clip_ave['disc_conf'][i]=h
             
     conf= [d[0] for d in clip_ave['disc_conf']]
@@ -200,7 +202,7 @@ def mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True,
     ax,h=connected_lines([0,1,2],nan_removed,ax=ax,color=color)
     
     #Perform paired t-test:
-    _,p = ttest_rel(nan_removed[:,0],nan_removed[:,1])
+    _,p = scistats.ttest_rel(nan_removed[:,0],nan_removed[:,1])
     
     sig_star([0,1],p,my,ax)
     print(str(p))
@@ -445,11 +447,12 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
         #### Set up figure axes in desired pattern
         plt_ver = 3
         fig = plt.figure(constrained_layout = True,figsize=(10,7))
-        gs = fig.add_gridspec(3, 3)
+        gs = fig.add_gridspec(4, 3)
         f_row=list(range(gs.nrows))
         f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
         f_row[1]=[fig.add_subplot(gs[1,0:3])]
         f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
+        f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
         
         #### Row 0: Mouse position over 3 chunks
         ax_pos = trial_part_position(raw,meta,ax=f_row[0],
@@ -463,42 +466,46 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
                               meta['opsin_type'][0],
                               meta['stim_area'][0]))
         
-    
+        #Analyze in thirds by adding a pseudo stim-time 1/3 way through:
+        #i.e. Pre Dur Post analysis code will analyze 1st, 2nd, and 3rd chunk of
+        #free_running / unstructured open field data
+        
+        pseudo_stim = meta
+        third=meta['exp_end'][0]/3
+        pseudo_stim['stim_on'] = third
+        pseudo_stim['stim_off'] = 2*third
+        pseudo_stim['stim_dur']=third
+        data=behavior.experiment_summary_helper(raw,
+                                              pseudo_stim,
+                                              min_bout=0.5)
         #### Row 1: Plot binned speed vs. time
-        vel=raw['vel']
-        vel[0:2]=np.nan
-        x,y = signals.bin_analyze(raw['time'],vel,
-                                  bin_dur=10,
-                                  fun = np.nanmedian)
+        # vel=raw['vel']
+        # vel[0:2]=np.nan
+        # x,y = signals.bin_analyze(raw['time'],vel,
+        #                           bin_dur=10,
+        #                           fun = np.nanmedian)
         plt.sca(f_row[1][0])
-
-        plt.plot(x/60,y,'k')
+        x = data['x_bin']
+        
+        plt.plot(x/60,data['vel_bin'],'k')
         plt.ylabel('Speed (cm/s)')
         plt.xlabel('Time (min)')
     
         
         #### Row 2 Left: % Time mobile vs. time
         plt.sca(f_row[2][0])
-        percentage = lambda x: (np.nansum(x)/len(x))*100        
-        mobile = ~raw['im']
-        x,y = signals.bin_analyze(raw['time'],mobile,
-                          bin_dur=10,
-                          fun = percentage)
+        # percentage = lambda x: (np.nansum(x)/len(x))*100        
+        # mobile = ~raw['im']
+        # x,y = signals.bin_analyze(raw['time'],mobile,
+        #                   bin_dur=10,
+        #                   fun = percentage)
 
-        plt.plot(x/60,y,'k')
+        plt.plot(x/60,data['raw_per_mobile'],'k')
         plt.ylabel('% Time Mobile')
         plt.xlabel('Time (min)')
         
         #Row 2 Right: Proportion time spent in various behaviors:
-        #Analyze in thirds, 
-        pseudo_stim = meta
-        third=meta['exp_end'][0]/3
-        pseudo_stim['stim_on'] = third
-        pseudo_stim['stim_off'] = 2*third
-        pseudo_stim['stim_dur']=third
-        data=behavior.open_loop_summary_helper(raw,
-                                              pseudo_stim,
-                                              min_bout=0.5)
+
         dat = data['prop_state']
         tot = [1,1,1]
         labs= data['prop_labels']
@@ -517,6 +524,34 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
         ax.set_xlim([-1,5])
         ax.set_ylabel('Proportion')
         ax.set_xlabel('Time (min)')
+        
+        #Row 3 Left: Ambulation speed
+        ax=f_row[3][0]
+        ax.bar(labels, data['amb_bouts'], width,
+                   edgecolor='k',facecolor='w')
+        ax.set_xlim([-1,3])
+        ax.set_ylabel('Bout rate (Hz)')
+        ax.set_xlabel('Time (min)')
+        ax.set_title('Ambulation')
+        
+        #Row 3 Middle: Ambulation Bout Frequency
+        ax=f_row[3][1]
+        ax.bar(labels, data['amb_speed'], width,
+                   edgecolor='k',facecolor='w')
+        ax.set_xlim([-1,3])
+        ax.set_ylabel('Speed cm/s')
+        ax.set_xlabel('Time (min)')
+        ax.set_title('Ambulation')
+        
+        #Row 3 Right: Immobility bout frequency
+        ax=f_row[3][2]
+        ax.bar(labels, data['im_bouts'], width,
+                   edgecolor='k',facecolor='k')
+        ax.set_xlim([-1,3])
+        ax.set_ylabel('Bout rate (Hz)')
+        ax.set_xlabel('Time (min)')
+        ax.set_title('Immobility')
+        
         
         #### Save image option:
         if save == True:
@@ -538,6 +573,110 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
                               meta['stim_area'][0])
         print('Skipping structured trial: %s' % desc_str)
         
+def plot_freerunning_mouse_summary(data, save=False, close=False):    
+    '''
+    
+
+    Parameters
+    ----------
+    data - pandas.DataFrame() output from function:
+        gittislab.experiment_summary_collect()
+
+    Returns
+    -------
+    fig : TYPE
+        DESCRIPTION.
+
+    '''
+    #### Set up figure axes in desired pattern
+    plt_ver = 1
+
+    fig = plt.figure(constrained_layout = True,figsize=(10,7))
+    gs = fig.add_gridspec(3, 3)
+    f_row=list(range(gs.nrows))
+    
+    
+    # Determine if there is a mixture of stimulation durations:
+    durs = np.unique(data['stim_dur'])
+    if len(durs) == 1:
+        f_row[0]=[fig.add_subplot(gs[0,0:2]) , fig.add_subplot(gs[0,2])]
+        sum_i=1
+    elif len(durs)>=2:
+        durs=durs[0:2]
+        f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
+        sum_i=2
+        
+    f_row[1]=[fig.add_subplot(gs[1,0:2]) , fig.add_subplot(gs[1,2])]
+    f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
+    # f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    # f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
+    # f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
+    
+    #### Row 0: Speed vs. time stim effects & bar summary 
+    for i,dur in enumerate(durs):
+        dat=data.loc[data['stim_dur']==dur,'vel_bin']
+        cao=data['cell_area_opsin'][1]
+        x=data.loc[data['stim_dur']==dur,'x_bin'].values
+        y=np.vstack([x for x in dat])
+        ym= np.mean(y,axis=0)
+        clip_ave={'cont_y' : ym,
+                  'cont_x' : x[0]/60,
+                  'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+                  'disc' : np.vstack(data['amb_speed'].values)}
+                  
+        ax_speedbar = mean_cont_plus_conf(clip_ave,
+                                          highlight=None,
+                                          xlim=[0,(dur/60)*3],
+                                          ax=f_row[0][i])
+        plt.ylabel('Speed (cm/s)')
+        plt.xlabel('Time from stim (s)')
+        plt.title('%s %s, n=%d' % (cao,data['proto'][0],y.shape[0]))
+    
+    use_dur=pystats.mode(durs)
+    labels=['{0:1.0f}-{1:1.0f}'.format((i-1)*use_dur/60,i*use_dur/60) 
+            for i in range(1,4)]
+    ax_speed = mean_bar_plus_conf(clip_ave,labels,
+                                  clip_method=False, ax=f_row[0][sum_i])
+    plt.ylabel('Amb speed (cm/s)')
+    plt.xlabel('Time from stim (s)')
+    plt.title('n=%d' % len(data))    
+
+    #### Row 1 Left: %Time mobile
+    plt.sca(f_row[1][0])
+    dat=data.loc[:,'per_mobile']
+    y=np.vstack([x for x in dat])
+    ym= np.mean(y,axis=0)
+    
+    
+    clip_ave={'cont_y' : ym,
+              'cont_x' : [0, 1, 2],
+              'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+              'disc' : y}
+              
+    ax_mobile= mean_bar_plus_conf(clip_ave,labels,
+                              clip_method=False, ax=f_row[1][0])
+    plt.ylabel('Time Mobile (%)')
+    plt.xlabel('Time from stim (s)')
+
+    #### Row 1 Right: Proportion time spent doing various behaviors:
+    dat = np.mean(np.stack(data['prop_state'],axis=0),axis=0)
+    tot = [1,1,1]
+    labs= data['prop_labels'][0]
+    width = 0.4       # the width of the bars: can also be len(x) sequence
+    cols=['k','w','g']
+    ax=f_row[1][1]
+    for i,b in enumerate(labs):
+        bt=[0,0,0]
+        if i>0:
+            bt=np.sum(dat[0:i,:],axis=0)
+        ax.bar(labels, dat[i,:], width, label = b,
+               edgecolor='k',facecolor=cols[i],bottom=bt)
+    ax.legend()
+    ax.set_xlim([-1,5])
+    ax.set_ylabel('Proportion')    
+    
+    plt.sca(f_row[0][0])
+
 def plot_openloop_mouse_summary(data, save=False, close=False):    
     '''
     
@@ -545,7 +684,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     Parameters
     ----------
     data - pandas.DataFrame() output from function:
-        gittislab.open_loop_summary_collect()
+        gittislab.experiment_summary_collect()
 
     Returns
     -------
@@ -728,6 +867,8 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     # else:
     #     return fig
     return fig
+
+
 def plot_zone_day(raw,meta,save=False,close = False):    
     '''
     

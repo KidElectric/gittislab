@@ -563,48 +563,129 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
         for ii,path in enumerate(csv_paths):            
             print('Inc[%d], file %d) %s loaded...' % (i,ii,str(path)))
             raw,meta=ethovision_tools.csv_load(path,method='preproc')
-            temp = open_loop_summary_helper(raw,meta,min_bout=min_bout)
+            temp = experiment_summary_helper(raw,meta,min_bout=min_bout)
             data=data.append(temp,ignore_index=True)
     return data
 
-def open_loop_summary_helper(raw,meta,min_bout=0.5):
+def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],):
+    '''
+    Take in list of experiment tags to include & exclude, analyze them
+    if they are free-running days
+
+    Parameters
+    ----------
+    basepath : TYPE
+        DESCRIPTION.
+    conds_inc : TYPE, optional
+        DESCRIPTION. The default is [].
+    conds_exc : TYPE, optional
+        DESCRIPTION. The default is [].
+
+    Returns
+    -------
+    data : pandas.DataFrame()
+        Each row is an experiment day
+        Columns include all info relevant for plotting a summary day using:
+            gittislab.plots.plot_openloop_mouse_summary(data)
+        DESCRIPTION.
+
+    '''
+    
+    min_bout= 0.5
+    
+    data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
+                              'stim_dur','vel_trace','amb_speed','amb_bouts','per_mobile'])
+    use_cols=['time','vel','im','dir','ambulation','meander']
+    
+    #### Loop through experimental mice to load & process all data
+    version=3 #Version where versioning is formally implemented (all at version 3)
+    
+    # version = 4 #Change rear threshold to 0.6 and min thresh to 0.55
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        csv_paths=dataloc.raw_csv(basepath,inc,exc)
+        if isinstance(csv_paths,Path):
+            csv_paths=[csv_paths]
+        for ii,path in enumerate(csv_paths):            
+            print('Inc[%d], file %d) %s loaded...' % (i,ii,str(path)))
+            raw,meta=ethovision_tools.csv_load(path,method='preproc')
+            if meta['no_trial_structure'][0] == True:
+                #Analyze in thirds by adding a "stim" at 1/3 through:
+                pseudo_stim = meta
+                third=meta['exp_end'][0]/3
+                pseudo_stim['stim_on'] = third
+                pseudo_stim['stim_off'] = 2*third
+                pseudo_stim['stim_dur']=third
+                
+                temp = experiment_summary_helper(raw,pseudo_stim,min_bout=min_bout)
+                data=data.append(temp,ignore_index=True)
+    return data
+
+def experiment_summary_helper(raw,meta,min_bout=0.5):
     temp={}
     temp['anid']=meta['anid'][0]
     temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
                                           meta['stim_area'][0],
                                           meta['opsin_type'][0])
     temp['proto']=meta['protocol'][0]
-    stim_dur = round(np.mean(meta['stim_dur']))
+    stim_dur = round(np.nanmean(meta['stim_dur']))
+    # pdb.set_trace()
     baseline= stim_dur
-        
-    #### Calculate stim-triggered speed changes:
-
-    temp['stim_dur']=stim_dur
-    # if meta['no_trial_structure'][0] == False:
-    vel_clip=stim_clip_grab(raw,meta,y_col='vel',
-                                     stim_dur=stim_dur,
-                                     baseline = baseline)
-    
-    clip_ave=stim_clip_average(vel_clip)
-    temp['stim_speed']=clip_ave['disc_m'].T
-
-    temp['vel_trace']=np.median(vel_clip['cont_y'],axis=1)
-    temp['x_trace']=clip_ave['cont_x']
-    
-    #### Calculate stim-triggered %time mobile:
+    free_running = meta['no_trial_structure'][0]
     percentage = lambda x: (np.nansum(x)/len(x))*100
+    temp['stim_dur']=stim_dur
+    
+    #### Calculate stim-triggered speed changes:
+    if not free_running:        
+        vel_clip=stim_clip_grab(raw,meta,y_col='vel',
+                                         stim_dur=stim_dur,
+                                         baseline = baseline)
+        
+        clip_ave=stim_clip_average(vel_clip)
+        temp['stim_speed']=clip_ave['disc_m'].T
+    
+        temp['vel_trace']=np.median(vel_clip['cont_y'],axis=1)
+        temp['x_trace']=clip_ave['cont_x']
+        
+
+        
+
+    else:
+        bin_size = 10 #seconds
+        #Instead of calculating metrics relative to stimulation,
+        #include entire clips
+        temp['vel_trace'] = raw['vel'] #Entire clip
+        temp['x_trace']=raw['time'] 
+        x,y = signals.bin_analyze(raw['time'],raw['vel'],
+                                  bin_dur=bin_size, #Seconds
+                                  fun = np.nanmedian)
+        temp['vel_bin']=y
+        temp['bin_size']=bin_size
+        mobile = ~raw['im']
+        x,y = signals.bin_analyze(raw['time'],mobile,
+                          bin_dur=bin_size,
+                          fun = percentage)
+        temp['x_bin']=x
+        temp['raw_per_mobile']=y
+    
+    #### Calculate stim-triggered %time mobile:        
     raw['m']=~raw['im']
     m_clip=stim_clip_grab(raw,meta,y_col='m', 
                                    stim_dur=stim_dur,
                                    baseline = baseline,
                                    summarization_fun=percentage)
     temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
-    
+    # Examine ambulation bouts:
     amb_bouts=bout_analyze(raw,meta,'amb',
                         stim_dur=stim_dur,
                         min_bout_dur_s=min_bout)
     temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
     temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
+    
+    im_bouts=bout_analyze(raw,meta,'im',
+                        stim_dur=stim_dur,
+                        min_bout_dur_s=min_bout)
+    temp['im_bouts']=np.nanmean(im_bouts['rate'],axis=0)
     
     ### Calculate stim-triggered Proportion: FM, AMB, IM
     use = ['im','amb','fm']

@@ -57,13 +57,13 @@ for pn in pns:
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
-saveit=False
-closeit=False
-for pn in pns[0:5]:
+saveit=True
+closeit=True
+for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc')
     plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
     
-# %% Plot mouse summary:
+# %% Plot 10x10 openloop mouse summary:
 ex0=['10hz','exclude','Bad','bad',
      'Broken', 'grooming','Exclude','Other XLS']
 exc=[ex0]
@@ -71,21 +71,39 @@ inc=[['AG','hm4di','Str','A2A','Ai32','10x10','saline']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 
+# %% Plot 15min free running mouse summary:
+ex0=['10hz','exclude','Bad','bad',
+     'Broken', 'grooming','Exclude','Other XLS']
+exc=[ex0]
+# inc=[['AG','hm4di','Str','A2A','Ai32','15min','cno']]
+conds = ['saline','cno']
+keep=[]
+for cond in conds:
+    inc=[['AG','hm4di','Str','A2A','Ai32','15min',cond]]
+    data = behavior.free_running_summary_collect(basepath,inc,exc)
+    keep.append(data)
+    plots.plot_freerunning_mouse_summary(data,)
+    
 #%%
 inc=[['AG','hm4di','Str','A2A','Ai32','10x10','saline']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 
 # %% RUN AFTER DLC:
-ex0=['exclude','Bad','bad','Broken', 'grooming','Exclude','Other XLS','mW']
-inc=[['AG','A2A','Ai32','10x10']]
-make_preproc = True
+ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
 exc=[ex0]
+inc=[['AG','hm4di','Str','A2A','Ai32',]]
+
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
-                                  win=10,make_preproc = make_preproc)
+                                  win=10,make_preproc = False)
+
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
+                                             force_replace=True,win=10)
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
 print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
+
+# %% 
