@@ -1,4 +1,5 @@
-from gittislab import dataloc, mat_file, signals, ethovision_tools, table_wrappers
+from gittislab import dataloc, mat_file, signals, \
+                      ethovision_tools, table_wrappers, model
 import numpy as np
 import os
 import math
@@ -84,9 +85,18 @@ def preproc_raw(raw,meta,win=10):
         vel.append(dist_temp / (1/fs))
     preproc['dist']=dist
     
-    if 'dlc_is_rearing_logical' in raw.columns:
-        preproc['rear']=raw['dlc_is_rearing_logical']
-        preproc['mouse_height']=raw['dlc_front_over_rear_length']
+    if has_dlc:
+        #Add rearing to preproc:
+        p_thresh=0.296 #Determined emprically on test set as having FA rate <0.05
+        rear_lp = 1 #Hz
+        p_rear, rear = detect_rear_from_model(raw,meta,
+                                              prob_thresh=p_thresh,
+                                              low_pass_freq=rear_lp )
+        preproc['prob_rear']=p_rear
+        preproc['rear'] = rear
+        meta['rear_p_thresh']=p_thresh
+        meta['rear_lowpass_freq']=rear_lp        
+        meta['bad_dlc_tracking']=False
     else:
         preproc['rear']=np.ones(raw['x'].shape)*np.nan
         
@@ -961,7 +971,23 @@ def load_and_clean_dlc_h5(dlc_h5_path, dlc_outlier_thresh_sd=4,dlc_likelihood_th
         df=[]
     return df
 
-def detect_rear(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):    
+def detect_rear_from_model(raw,meta,prob_thresh=0.5,low_pass_freq=None, 
+                       weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2',
+                       tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl',
+                       rf_model_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv3.pkl'
+                       ):
+    p_rear,rear_logical = model.nn_rf_predict_from_raw(raw,meta,
+                                 prob_thresh=prob_thresh,
+                                 low_pass_freq=low_pass_freq, 
+                                 weights_fn=weights_fn,
+                                 tab_fn=tab_fn,
+                                 rf_model_fn = rf_model_fn
+                                 )
+    start,stop = signals.thresh(rear_logical,0.5,'Pos')
+    print("\u001b[36m Detected %d rears in this video \u001b[0m" % len(start))
+   
+    return p_rear, rear_logical
+def detect_rear_from_mouseheight(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):    
     '''
     
 

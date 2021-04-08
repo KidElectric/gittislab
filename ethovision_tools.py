@@ -103,7 +103,8 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
                 print('\t %s already EXISTS in %s.\n' % (new_file_name,path.parent))
     print('Finished')   
 
-def raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
+def raw_csv_to_preprocessed_csv(basepath, conds_inc=[], conds_exc=[],
+                                force_replace=False,win=10):
     '''
     raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
             Takes
@@ -147,15 +148,10 @@ def raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace
                     print('\tNo preproc*.csv file found- Generating from Raw*.csv...')
                 raw,meta=csv_load(rawpath)
                 if isinstance(raw,pd.DataFrame):
-                    #Load DLC and make sure rear-detection is up-to-date
-                    rear_thresh=0.60
-                    min_thresh=0.55
+                    #Add DLC position columns into raw dataframe
                     raw, meta = add_dlc_helper(raw,meta,path.parent,inc,exc,
-                                               rear_thresh=rear_thresh,
-                                               min_thresh=min_thresh,
                                                force_replace=True)
-                    preproc,meta=behavior.preproc_raw(raw,meta,win=win)
-                    
+                    preproc,meta=behavior.preproc_raw(raw,meta,win=win) #Will add rearing data if deeplabcut analysis performed
                     
                     #Write raw and meta to .csv files:
                     pnfn=path.parent.joinpath(preproc_file_name)
@@ -240,7 +236,7 @@ def add_dlc_helper(raw,meta,basepath,inc=[],exc=[],force_replace=False,rear_thre
         file_exists = True
     else:
         file_exists = len(dlc_path) > 0
-    # pdb.set_trace()
+
     if (file_exists == True):       
         
         #Check if DLC already added:
@@ -260,13 +256,7 @@ def add_dlc_helper(raw,meta,basepath,inc=[],exc=[],force_replace=False,rear_thre
                 meta['dlc_likelihood_thresh'] = dlc_likelihood_thresh
                 meta['has_dlc']=True
                 
-                #Add rearing to dlc:
-                dlc = behavior.detect_rear(dlc,rear_thresh,min_thresh)
-                meta['rear_thresh']=rear_thresh
-                meta['rear_min_thresh']=min_thresh                
-                meta['bad_dlc_tracking']=False
                 # For each column in dlc, make a column in raw with collapsed name:
-                
                 for col in dlc.columns:                    
                     if 'likelihood' not in col:
                         new_col='dlc_%s_%s' % col[1:]

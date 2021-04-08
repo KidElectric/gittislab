@@ -116,6 +116,98 @@ def combine_raw_csv_for_modeling(raw_pns,
     combined.reset_index(drop=True, inplace=True)
     return combined
 
+# def combine_raw_csv_for_predicting(raw_pns,
+#                                  use_cols,
+#                                  rescale = False,
+#                                  avg_model_detrend = False,
+#                                  z_score_x_y = False,
+#                                  flip_y = False,
+#                                  meta_to_raw = []):
+    
+#     combined = pd.DataFrame([],columns=use_cols)
+
+#     for pn in raw_pns:
+#         p=Path(pn)
+#         inc=[['AG']]
+#         exc=[['exclude']]
+#         # ethovision_tools.unify_raw_to_csv(p,inc,exc)
+#         ethovision_tools.raw_csv_to_preprocessed_csv(p,inc,exc,force_replace=False)
+#         pns=dataloc.raw_csv(p,inc[0],exc[0])
+#         raw,meta=ethovision_tools.csv_load(pns,method='raw')
+#         raw = raw_to_prediction_format(raw,meta)
+#         temp=raw[use_cols]    
+#         combined = pd.concat([combined,temp])
+        
+#     #Add time lags (?)
+#     combined.reset_index(drop=True, inplace=True)
+#     return combined
+
+def raw_to_prediction_format(raw,meta,
+                             rescale=False,
+                             avg_model_detrend=False,
+                             z_score_x_y = False,
+                             flip_y = False,
+                             meta_to_raw = []): 
+    
+    if meta['exp_room_number'][0] == 228:
+        x_scale = 512/480
+        y_scale = 1.455 #Scale pixels #Video takes up only half of screen in these recordings
+        vid_res= np.ones((raw.shape[0],1))  * 704 #Video width 704 x 480
+        # pdb.set_trace()
+    else:
+        x_scale = 1
+        y_scale = 1
+        vid_res = np.ones((raw.shape[0],1)) * 1280 #Video width   height = 512                         
+        
+    if rescale==True:
+        for col in raw.columns:
+            if ('dlc' in col) and ('x' in col):
+                raw[col]=raw[col].values * x_scale
+                
+            if ('dlc' in col) and ('y' in col):                    
+                raw[col]=raw[col].values * y_scale 
+                         
+    raw['video_resolution'] = vid_res
+    raw['human_scored_rear'] = np.nan(raw['raw_rear_centroid_y'].shape)
+    
+    raw['front_hind_px_height'] = raw['dlc_rear_centroid_y'] - raw['dlc_front_centroid_y']
+    raw['head_hind_5hz_pw'] = signals.get_spectral_band_power(raw['front_hind_px_height'],
+                                                             meta['fs'][0],4.5,6.5)
+    raw['snout_hind_px_height'] = raw['dlc_rear_centroid_y'] - raw['dlc_snout_y']
+    raw['side_length_px']=signals.calculateDistance(raw['dlc_front_centroid_x'].values,
+                                                   raw['dlc_front_centroid_y'].values,
+                                                   raw ['dlc_rear_centroid_x'].values,
+                                                   raw ['dlc_rear_centroid_y'].values)
+    
+    #z-score approach:
+    if avg_model_detrend == True:
+        detrend_cols=['snout_hind_px_height',
+                      'front_hind_px_height',
+                      'side_length_px']
+        for col in detrend_cols:
+            y=raw[col]
+            x=raw['x']
+            raw[col+'_detrend'] = average_z_score(x,y)
+    
+    if z_score_x_y == True:
+        for col in raw.columns:
+            if ('dlc' in col) and (('x' in col) or ('y' in col)):
+                temp=raw[col].values 
+                temp = temp - np.nanmean(temp)
+                temp = temp / np.nanstd(temp)
+                raw[col] = temp
+    
+    if flip_y == True:
+        for col in raw.columns:
+            if ('dlc' in col) and  ('y' in col):
+                raw[col] = -1 * raw[col]
+                # raw[col] = raw[col] - np.nanmin(raw[col])
+                
+    for col in meta_to_raw:
+        raw[col]=meta[col][0]
+        
+    return raw
+
 def average_z_score(x,y,avg_mean_model = None,avg_std_model = None):
     #Apply a z-score to y as a function of x from a relationship fitted from multiple distributions
 
@@ -184,11 +276,84 @@ def tabular_predict_from_nn(tab_fn,weights_fn, xs=None):
      dl = learn.dls.test_dl(xs, bs=64) # apply transforms
      preds,  _ = learn.get_preds(dl=dl) # get prediction
      return preds
+ 
 def tabular_predict_from_rf(rf_model_fn,xs):
     m=joblib.load(rf_model_fn)
     # pdb.set_trace()
     pred = m.predict(xs)
     return pred
+
+def nn_rf_predict_from_raw(raw,meta,prob_thresh=0.5,low_pass_freq=1, 
+                       weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2',
+                       tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl',
+                       rf_model_fn = None
+                       ):
+    '''
+        Specify an experiment folder (ffn) and the observation name to use in the
+        Rearing observations.boris file with human scored rearing data in that folder.
+        Assumes many other files are in that folder (raw csv, metatdata, etc,) 
+        and that videos have already been both: 1) scored by a human observer and 2)
+        pre-processed with deeplabcut.
+    '''
+    
+    use_cols =   ['vel','area', 'delta_area', # 'dlc_front_over_rear_length'
+              'dlc_side_head_x','dlc_side_head_y',
+              'dlc_front_centroid_x','dlc_front_centroid_y',
+              'dlc_rear_centroid_x','dlc_rear_centroid_y',
+              'dlc_snout_x', 'dlc_snout_y',
+              'dlc_side_left_fore_x','dlc_side_left_fore_y', 
+              'dlc_side_right_fore_x', 'dlc_side_right_fore_y', 
+              'dlc_side_left_hind_x', 'dlc_side_left_hind_y',
+              'dlc_side_right_hind_x', 'dlc_side_right_hind_y',
+              'dlc_top_head_x', 'dlc_top_head_y',
+              'dlc_top_body_center_x', 'dlc_top_body_center_y',
+              'dlc_top_tail_base_x','dlc_top_tail_base_y',
+              'video_resolution','human_scored_rear',
+              'side_length_px',
+              'head_hind_5hz_pw',
+              'snout_hind_px_height',
+              'snout_hind_px_height_detrend',
+              'front_hind_px_height_detrend',
+              'side_length_px_detrend',]
+
+    
+    dep_var = 'human_scored_rear'
+    raw =  raw_to_prediction_format(raw,meta,
+                                     rescale = True,
+                                     avg_model_detrend = True,
+                                     z_score_x_y = True,
+                                     flip_y = True)
+    dat = raw[use_cols]  
+    if 'Unnamed: 0' in dat.columns:
+        dat.drop('Unnamed: 0',axis = 1, inplace =True)
+    dat.fillna(method = 'ffill',inplace = True)
+    dat.fillna(method = 'bfill',inplace = True)
+    pred = tabular_predict_from_nn(tab_fn,weights_fn, xs=dat)
+    
+    if isinstance(rf_model_fn,str):
+        ensembling = True
+        xs = dat.drop(dep_var,axis = 1)
+        rf_pred = tabular_predict_from_rf(rf_model_fn, xs)
+        raw['rf_pred']=rf_pred
+    else:
+        ensembling = False
+    
+    raw['nn_pred'] = pred[:,1]
+    
+    if ensembling == True:
+        final_pred = ( raw['nn_pred'] + raw['rf_pred']) / 2
+    else:
+        final_pred = raw['nn_pred']
+     
+        
+    #Lowpass filter prediction:
+    if not (low_pass_freq == None):
+        lp_final_pred= signals.pad_lowpass_unpad(final_pred,
+                                             low_pass_freq,
+                                             meta['fs'][0])
+    else:
+        lp_final_pred = final_pred
+    return final_pred, lp_final_pred > prob_thresh
 
 def rear_nn_auroc_perf(ffn,boris_obs,prob_thresh=0.5,low_pass_freq=None, 
                        weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2',
