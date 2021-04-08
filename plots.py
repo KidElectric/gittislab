@@ -7,6 +7,7 @@ Created on Thu May 28 11:37:06 2020
 """
 # import cv2
 import os
+import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.pyplot import gca 
@@ -15,7 +16,7 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
-from gittislab import behavior, ethovision_tools, signals, dataloc
+from gittislab import behavior, ethovision_tools, signals, dataloc, table_wrappers
 from scipy import stats as scistats
 import statistics as pystats
 # from scipy.stats import ttest_rel
@@ -676,7 +677,69 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
     ax.set_ylabel('Proportion')    
     
     plt.sca(f_row[0][0])
-
+    
+def plot_freerunning_cond_comparison(data,save=False,close=False):
+    fig = plt.figure(constrained_layout = True,figsize=(10,7))
+    gs = fig.add_gridspec(2, 4)
+    f_row=list(range(gs.nrows))
+    conds = data.keys()
+    
+    f_row[0]=[fig.add_subplot(gs[0,0:4])]
+    f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(4)]
+   
+    ax_speedbar=None
+    ax=[]
+    cols=['b','r']
+    for cond in conds:            
+            dat=data[cond].loc[:,'vel_bin'].values
+            x=data[cond].loc[:,'x_bin'].values
+            y=np.vstack([x for x in dat])
+            ym= np.mean(y,axis=0)
+            clip_ave={'cont_y' : ym,
+                      'cont_x' : x[0]/60,
+                      'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+                      'disc' : np.vstack(data[cond]['amb_speed'].values)}
+            dur = 15
+            ax_speedbar = mean_cont_plus_conf(clip_ave,
+                                              highlight=None,
+                                              xlim=[0,dur],
+                                              ax=f_row[0][0])
+    lines=ax_speedbar.get_lines()
+    
+    for cond,col,line in zip(conds,cols,lines):
+        line.set_label(cond)
+        line.set_color(col)
+    plt.sca(ax_speedbar)
+    ax_speedbar.set_ylabel('Speed (cm/s)')
+    ax_speedbar.set_xlabel('Time (min)')
+    plt.legend()
+    
+    bar_types=['per_mobile','amb_bouts','amb_speed','im_bouts']
+    ylabs=['Time mobile (%)','Amb bouts / s','Amb speed (cm/s)','Im bouts /s']
+    label_columns=['0-5','5-10','10-15'] #Should be determined based on data thirds
+    sns.set_theme(style="whitegrid")
+    i=0
+    for examine,ylab in zip(bar_types,ylabs):
+        df = behavior.summary_collect_to_df(data,
+                              use_columns=['anid',examine],
+                              label_columns=label_columns,
+                              var_name='time_window', 
+                              value_name=examine,                        
+                              static_columns=['anid'])
+    
+        ax = sns.barplot(ax=f_row[1][i],
+                         x="time_window", 
+                         y=examine,
+                         hue='cond',
+                         data=df,)
+        if i < 3:
+             ax.legend_.remove()
+                
+       
+        ax.set_xlabel('Minutes')
+        ax.set_ylabel(ylab)
+        i += 1
+        
 def plot_openloop_mouse_summary(data, save=False, close=False):    
     '''
     

@@ -623,29 +623,33 @@ def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],
                                                  bin_size = bin_size)
                 data=data.append(temp,ignore_index=True)
     return data
-def summary_collect_merge(df1,df2,df_labels=[],
-                          label_columns=[],
-                          label_column_name='',
-                          value_column_name='',
-                          static_columns=[],
+def summary_collect_to_df(summary_dict,
+                          use_columns,
+                          label_columns,
+                          var_name, 
+                          value_name,                        
+                          static_columns,
                           sort_column=None):
-    df_out = pd.DataFrame()
-    dfs=[df1,df2]
-    for cond_label,df in zip(df_labels,dfs):
-        temp=df.loc[:,static_columns]
+    df_conds=summary_dict.keys()
+    dfs= []
+    for cond_label in df_conds:
+        temp=summary_dict[cond_label].loc[:,use_columns]
         if not(sort_column == None):
             temp=temp.sort_values(by=[sort_column])
-        temp2=pd.DataFrame(temp[value_column_name].to_list(),
+        temp2=pd.DataFrame(temp[value_name].to_list(),
                            columns=label_columns)
         for col in static_columns:
             temp2[col]=temp[col]
-        temp2['cond']=cond_label
-        df_out= pd.concat((df_out,
-            table_wrappers.consolidate_columns_to_labels(temp2,
-                                                         label_columns,
-                                                         value_column_name=value_column_name,
-                                                         label_column_name=value_column_name)
-            ))
+        dfs.append(temp2)
+    # pdb.set_trace()
+    out = table_wrappers.df_melt_stack(dfs,df_conds,
+                                       label_columns=label_columns,
+                                       var_name=var_name,
+                                       value_name=value_name,                        
+                                       static_columns=static_columns,
+                                       sort_column=sort_column)
+    return out
+
 def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
     temp={}
     temp['anid']=meta['anid'][0]

@@ -42,51 +42,6 @@ for cond in conds:
     keep[cond]=data
     plots.plot_freerunning_mouse_summary(data,)
 
-# %% Overlay speed summaries saline vs. cno:
-# plt.figure()
-ax_speedbar=None
-ax=[]
-cols=['b','r']
-for cond in conds:
-        data=keep[cond]
-        dat=data.loc[:,'vel_bin'].values
-        x=data.loc[:,'x_bin'].values
-        y=np.vstack([x for x in dat])
-        ym= np.mean(y,axis=0)
-        clip_ave={'cont_y' : ym,
-                  'cont_x' : x[0]/60,
-                  'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
-                  'disc' : np.vstack(data['amb_speed'].values)}
-        dur = 15
-        ax_speedbar = plots.mean_cont_plus_conf(clip_ave,
-                                          highlight=None,
-                                          xlim=[0,dur],
-                                          ax=ax_speedbar)
-lines=ax_speedbar.get_lines()
-for cond,col,line in zip(conds,cols,lines):
-    line.set_label(cond)
-    line.set_color(col)
-plt.legend()
+# %% Plot both conditions:
+plots.plot_freerunning_cond_comparison(keep,save=False,close=False)
 
-# %% Compare %Time mobile
-sns.set_theme(style="whitegrid")
-df = pd.DataFrame()
-for cond in conds:
-    temp=keep[cond].loc[:,('anid','per_mobile')]
-    temp=temp.sort_values(by=['anid'])
-    label_columns=['0-5','5-10','10-15']
-    temp2=pd.DataFrame(temp['per_mobile'].to_list(),columns=label_columns)
-    temp2['anid']=temp['anid']
-    temp2['cond']=cond
-    df= pd.concat((df,
-        table_wrappers.consolidate_columns_to_labels(temp2,
-                                                     label_columns,
-                                                     value_column_name='per_mobile',
-                                                     label_column_name='time_window')
-        ))
-
-
-
-ax = sns.barplot(x="time_window", y="per_mobile",hue='cond', data=df)
-ax.set_xlabel('Minutes')
-ax.set_ylabel('Time mobile (%)')
