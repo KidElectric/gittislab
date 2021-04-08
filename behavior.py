@@ -1,4 +1,4 @@
-from gittislab import dataloc, mat_file, signals, ethovision_tools
+from gittislab import dataloc, mat_file, signals, ethovision_tools, table_wrappers
 import numpy as np
 import os
 import math
@@ -567,7 +567,8 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
             data=data.append(temp,ignore_index=True)
     return data
 
-def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],):
+def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],
+                                 min_bout= 0.5,bin_size=10):
     '''
     Take in list of experiment tags to include & exclude, analyze them
     if they are free-running days
@@ -591,7 +592,7 @@ def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],):
 
     '''
     
-    min_bout= 0.5
+    
     
     data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
                               'stim_dur','vel_trace','amb_speed','amb_bouts','per_mobile'])
@@ -617,11 +618,35 @@ def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],):
                 pseudo_stim['stim_off'] = 2*third
                 pseudo_stim['stim_dur']=third
                 
-                temp = experiment_summary_helper(raw,pseudo_stim,min_bout=min_bout)
+                temp = experiment_summary_helper(raw,pseudo_stim,
+                                                 min_bout=min_bout,
+                                                 bin_size = bin_size)
                 data=data.append(temp,ignore_index=True)
     return data
-
-def experiment_summary_helper(raw,meta,min_bout=0.5):
+def summary_collect_merge(df1,df2,df_labels=[],
+                          label_columns=[],
+                          label_column_name='',
+                          value_column_name='',
+                          static_columns=[],
+                          sort_column=None):
+    df_out = pd.DataFrame()
+    dfs=[df1,df2]
+    for cond_label,df in zip(df_labels,dfs):
+        temp=df.loc[:,static_columns]
+        if not(sort_column == None):
+            temp=temp.sort_values(by=[sort_column])
+        temp2=pd.DataFrame(temp[value_column_name].to_list(),
+                           columns=label_columns)
+        for col in static_columns:
+            temp2[col]=temp[col]
+        temp2['cond']=cond_label
+        df_out= pd.concat((df_out,
+            table_wrappers.consolidate_columns_to_labels(temp2,
+                                                         label_columns,
+                                                         value_column_name=value_column_name,
+                                                         label_column_name=value_column_name)
+            ))
+def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
     temp={}
     temp['anid']=meta['anid'][0]
     temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
@@ -651,7 +676,7 @@ def experiment_summary_helper(raw,meta,min_bout=0.5):
         
 
     else:
-        bin_size = 10 #seconds
+        # bin_size = 10 #seconds
         #Instead of calculating metrics relative to stimulation,
         #include entire clips
         temp['vel_trace'] = raw['vel'] #Entire clip
