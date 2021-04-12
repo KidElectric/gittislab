@@ -6,6 +6,7 @@ Created on Fri Mar  5 11:16:15 2021
 @author: brian
 """
 import pandas as pd
+pd.options.mode.chained_assignment = None 
 import numpy as np
 from pathlib import Path
 from gittislab import dataloc, ethovision_tools, signals, plots, behavior
@@ -45,7 +46,7 @@ def combine_raw_csv_for_modeling(raw_pns,
         
         dlc=ethovision_tools.add_dlc_helper(raw,meta,p,force_replace = True)
         dlc=dlc[0]     
-        
+        # pdb.set_trace()
         if meta['exp_room_number'][0] == 228:
             x_scale = 512/480
             y_scale = 1.455 #Scale pixels #Video takes up only half of screen in these recordings
@@ -149,6 +150,11 @@ def raw_to_prediction_format(raw,meta,
                              flip_y = False,
                              meta_to_raw = []): 
     
+    # ethovision_tools.unify_raw_to_csv(p,inc,exc)
+    # ethovision_tools.raw_csv_to_preprocessed_csv(p,inc,exc,force_replace=False)
+    # pns=dataloc.raw_csv(p,inc[0],exc[0])
+    # raw,meta=ethovision_tools.csv_load(pns,method='raw')
+    
     if meta['exp_room_number'][0] == 228:
         x_scale = 512/480
         y_scale = 1.455 #Scale pixels #Video takes up only half of screen in these recordings
@@ -168,7 +174,7 @@ def raw_to_prediction_format(raw,meta,
                 raw[col]=raw[col].values * y_scale 
                          
     raw['video_resolution'] = vid_res
-    raw['human_scored_rear'] = np.nan(raw['raw_rear_centroid_y'].shape)
+    raw['human_scored_rear'] = False
     
     raw['front_hind_px_height'] = raw['dlc_rear_centroid_y'] - raw['dlc_front_centroid_y']
     raw['head_hind_5hz_pw'] = signals.get_spectral_band_power(raw['front_hind_px_height'],
@@ -284,9 +290,9 @@ def tabular_predict_from_rf(rf_model_fn,xs):
     return pred
 
 def nn_rf_predict_from_raw(raw,meta,prob_thresh=0.5,low_pass_freq=1, 
-                       weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv2',
-                       tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv2.pkl',
-                       rf_model_fn = None
+                       weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv3',
+                       tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv3.pkl',
+                       rf_model_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/rf_model_v3.joblib'
                        ):
     '''
         Specify an experiment folder (ffn) and the observation name to use in the
@@ -297,24 +303,24 @@ def nn_rf_predict_from_raw(raw,meta,prob_thresh=0.5,low_pass_freq=1,
     '''
     
     use_cols =   ['vel','area', 'delta_area', # 'dlc_front_over_rear_length'
-              'dlc_side_head_x','dlc_side_head_y',
-              'dlc_front_centroid_x','dlc_front_centroid_y',
-              'dlc_rear_centroid_x','dlc_rear_centroid_y',
-              'dlc_snout_x', 'dlc_snout_y',
-              'dlc_side_left_fore_x','dlc_side_left_fore_y', 
-              'dlc_side_right_fore_x', 'dlc_side_right_fore_y', 
-              'dlc_side_left_hind_x', 'dlc_side_left_hind_y',
-              'dlc_side_right_hind_x', 'dlc_side_right_hind_y',
-              'dlc_top_head_x', 'dlc_top_head_y',
-              'dlc_top_body_center_x', 'dlc_top_body_center_y',
-              'dlc_top_tail_base_x','dlc_top_tail_base_y',
-              'video_resolution','human_scored_rear',
-              'side_length_px',
-              'head_hind_5hz_pw',
-              'snout_hind_px_height',
-              'snout_hind_px_height_detrend',
-              'front_hind_px_height_detrend',
-              'side_length_px_detrend',]
+                  'dlc_side_head_x','dlc_side_head_y',
+                  'dlc_front_centroid_x','dlc_front_centroid_y',
+                  'dlc_rear_centroid_x','dlc_rear_centroid_y',
+                  'dlc_snout_x', 'dlc_snout_y',
+                  'dlc_side_left_fore_x','dlc_side_left_fore_y', 
+                  'dlc_side_right_fore_x', 'dlc_side_right_fore_y', 
+                  'dlc_side_left_hind_x', 'dlc_side_left_hind_y',
+                  'dlc_side_right_hind_x', 'dlc_side_right_hind_y',
+                  'dlc_top_head_x', 'dlc_top_head_y',
+                  'dlc_top_body_center_x', 'dlc_top_body_center_y',
+                  'dlc_top_tail_base_x','dlc_top_tail_base_y',
+                  'video_resolution','human_scored_rear',
+                  'side_length_px',
+                  'head_hind_5hz_pw',
+                  'snout_hind_px_height',
+                  'snout_hind_px_height_detrend',
+                  'front_hind_px_height_detrend',
+                  'side_length_px_detrend',] #'dlc_front_over_rear_length', #v3 and later should exclude 'dlc_front_over_rear_length'
 
     
     dep_var = 'human_scored_rear'
@@ -323,7 +329,8 @@ def nn_rf_predict_from_raw(raw,meta,prob_thresh=0.5,low_pass_freq=1,
                                      avg_model_detrend = True,
                                      z_score_x_y = True,
                                      flip_y = True)
-    dat = raw[use_cols]  
+    dat = raw.loc[:,use_cols] 
+    # pdb.set_trace()
     if 'Unnamed: 0' in dat.columns:
         dat.drop('Unnamed: 0',axis = 1, inplace =True)
     dat.fillna(method = 'ffill',inplace = True)

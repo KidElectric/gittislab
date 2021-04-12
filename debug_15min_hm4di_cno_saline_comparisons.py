@@ -40,7 +40,7 @@ for cond in conds:
     inc=[['AG','hm4di','Str','A2A','Ai32','15min',cond]]
     data = behavior.free_running_summary_collect(basepath,inc,exc)
     keep[cond]=data
-    plots.plot_freerunning_mouse_summary(data,)
+    # plots.plot_freerunning_mouse_summary(data,)
 
 # %% Plot both conditions:
 plots.plot_freerunning_cond_comparison(keep,save=False,close=False)

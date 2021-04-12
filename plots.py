@@ -528,7 +528,7 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
         
         #Row 3 Left: Ambulation speed
         ax=f_row[3][0]
-        ax.bar(labels, data['amb_bouts'], width,
+        ax.bar(labels, data['amb_bout_rate'], width,
                    edgecolor='k',facecolor='w')
         ax.set_xlim([-1,3])
         ax.set_ylabel('Bout rate (Hz)')
@@ -546,7 +546,7 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
         
         #Row 3 Right: Immobility bout frequency
         ax=f_row[3][2]
-        ax.bar(labels, data['im_bouts'], width,
+        ax.bar(labels, data['im_bout_rate'], width,
                    edgecolor='k',facecolor='k')
         ax.set_xlim([-1,3])
         ax.set_ylabel('Bout rate (Hz)')
@@ -589,6 +589,7 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
         DESCRIPTION.
 
     '''
+    
     #### Set up figure axes in desired pattern
     plt_ver = 1
 
@@ -676,16 +677,17 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
     ax.set_xlim([-1,5])
     ax.set_ylabel('Proportion')    
     
+    #### Row 2: 0: Rate of rearing (?)
+    
     plt.sca(f_row[0][0])
     
 def plot_freerunning_cond_comparison(data,save=False,close=False):
     fig = plt.figure(constrained_layout = True,figsize=(10,7))
-    gs = fig.add_gridspec(2, 4)
+    gs = fig.add_gridspec(2, 5)
     f_row=list(range(gs.nrows))
-    conds = data.keys()
-    
-    f_row[0]=[fig.add_subplot(gs[0,0:4])]
-    f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(4)]
+    conds = [i for i in data.keys()]
+    f_row[0]=[fig.add_subplot(gs[0,0:gs.ncols])]
+    f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(gs.ncols)]
    
     ax_speedbar=None
     ax=[]
@@ -714,11 +716,18 @@ def plot_freerunning_cond_comparison(data,save=False,close=False):
     ax_speedbar.set_xlabel('Time (min)')
     plt.legend()
     
-    bar_types=['per_mobile','amb_bouts','amb_speed','im_bouts']
-    ylabs=['Time mobile (%)','Amb bouts / s','Amb speed (cm/s)','Im bouts /s']
+    if 'rear_bout_rate' in data[conds[0]].columns:
+        bar_types=['per_mobile','amb_bout_rate','amb_speed','im_bout_rate',
+                   'rear_bout_rate']
+        ylabs=['Time mobile (%)','Amb bouts / s','Amb speed (cm/s)','Im bouts /s',
+               'Rear bouts / s']
+    else:        
+        bar_types=['per_mobile','amb_bout_rate','amb_speed','im_bout_rate']
+        ylabs=['Time mobile (%)','Amb bouts / s','Amb speed (cm/s)','Im bouts /s']
     label_columns=['0-5','5-10','10-15'] #Should be determined based on data thirds
     sns.set_theme(style="whitegrid")
     i=0
+    pdb.set_trace()
     for examine,ylab in zip(bar_types,ylabs):
         df = behavior.summary_collect_to_df(data,
                               use_columns=['anid',examine],
@@ -732,7 +741,7 @@ def plot_freerunning_cond_comparison(data,save=False,close=False):
                          y=examine,
                          hue='cond',
                          data=df,)
-        if i < 3:
+        if i < 4:
              ax.legend_.remove()
                 
        

@@ -6,7 +6,7 @@ Created on Tue Mar 30 16:18:56 2021
 """
 
 
-from gittislab import signals, behavior, dataloc, ethovision_tools, plots
+from gittislab import signals, behavior, dataloc, ethovision_tools, plots, model
 import os
 from pathlib import Path
 import numpy as np
@@ -92,7 +92,8 @@ fig=plots.plot_openloop_mouse_summary(data)
 # %% RUN AFTER DLC:
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32',]]
+inc=[['AG','hm4di','Str','A2A','Ai32','15min',]]
+# inc=[['AG','10x10','Str','A2A','Ai32','AG5362_3']]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_raw_to_csv(basepath,

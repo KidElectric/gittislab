@@ -84,14 +84,21 @@ def preproc_raw(raw,meta,win=10):
         dist.append(dist_temp)
         vel.append(dist_temp / (1/fs))
     preproc['dist']=dist
-    
+    # pdb.set_trace()
     if has_dlc:
         #Add rearing to preproc:
         p_thresh=0.296 #Determined emprically on test set as having FA rate <0.05
         rear_lp = 1 #Hz
+        rf_model_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/rf_model_v3.joblib'
+        weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv3'
+        tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv3.pkl'
         p_rear, rear = detect_rear_from_model(raw,meta,
                                               prob_thresh=p_thresh,
-                                              low_pass_freq=rear_lp )
+                                              low_pass_freq=rear_lp,
+                                              weights_fn = weights_fn,
+                                              tab_fn = tab_fn,
+                                              rf_model_fn = rf_model_fn
+                                              )
         preproc['prob_rear']=p_rear
         preproc['rear'] = rear
         meta['rear_p_thresh']=p_thresh
@@ -107,7 +114,7 @@ def preproc_raw(raw,meta,win=10):
     thresh=2; #cm/s; Kravitz & Kreitzer 2010
     # min_bout_dur=0.5; #0.5s used in Kravitz & Kreitzer 2010 #Implement in bout_analyze
     
-
+    raw['rear'] = preproc['rear']
     raw,meta=add_amb_to_raw(raw,meta,
                                 amb_thresh = thresh,
                                 im_thresh=im_thresh,                
@@ -163,69 +170,69 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
     fs=meta['fs'][0]
     
     amb = raw['vel'] > amb_thresh       
-    amb2=amb
+    # amb2=amb
     im = raw['im'].values.astype(float)
-    if use_dlc == True:
-        if 'rear' in raw.columns:
-            rear=raw['rear']
-        elif 'dlc_is_rearing_logical' in raw.columns:
-            rear = raw['dlc_is_rearing_logical']
+    # if use_dlc == True:
+    #     if 'rear' in raw.columns:
+    #         rear=raw['rear']
+    #     elif 'dlc_is_rearing_logical' in raw.columns:
+    #         rear = raw['dlc_is_rearing_logical']
             
-        amb2[rear == True] = False
-        meta['alt_im_method'] = 'dlc_pos_delta'
-        im2 = np.zeros(im.shape,dtype=bool)
+    #     amb2[rear == True] = False
+    #     meta['alt_im_method'] = 'dlc_pos_delta'
+    #     im2 = np.zeros(im.shape,dtype=bool)
         
-        vel = raw['vel'].values
-        vel[0:5]=np.nan
-        feats=['dlc_snout_x','dlc_snout_y',
-               'dlc_side_left_hind_x', 'dlc_side_left_hind_y',
-               'dlc_side_right_fore_x','dlc_side_right_fore_y', 
-               'dlc_side_tail_base_x', 'dlc_side_tail_base_y',
-               'dlc_side_left_fore_x', 'dlc_side_left_fore_y',
-               'dlc_side_right_hind_x', 'dlc_side_right_hind_y',
-               'dlc_head_centroid_x', 'dlc_head_centroid_y',]
-        d=np.ones(im.shape) * 0
-        step=20
-        x=raw['dlc_top_body_center_y'].values 
-        for c in feats:
-            dat = raw[c].values
-            dat=signals.max_normalize_per_dist(x,dat,step,poly_order=2) #Correct for distance from camera
-            dd = abs(np.diff(np.hstack((dat[0],dat))))
-            d=np.vstack((d,dd))
-        d=np.nanmax(d,axis=0)
+    #     vel = raw['vel'].values
+    #     vel[0:5]=np.nan
+    #     feats=['dlc_snout_x','dlc_snout_y',
+    #            'dlc_side_left_hind_x', 'dlc_side_left_hind_y',
+    #            'dlc_side_right_fore_x','dlc_side_right_fore_y', 
+    #            'dlc_side_tail_base_x', 'dlc_side_tail_base_y',
+    #            'dlc_side_left_fore_x', 'dlc_side_left_fore_y',
+    #            'dlc_side_right_hind_x', 'dlc_side_right_hind_y',
+    #            'dlc_head_centroid_x', 'dlc_head_centroid_y',]
+    #     d=np.ones(im.shape) * 0
+    #     step=20
+    #     x=raw['dlc_top_body_center_y'].values 
+    #     for c in feats:
+    #         dat = raw[c].values
+    #         dat=signals.max_normalize_per_dist(x,dat,step,poly_order=2) #Correct for distance from camera
+    #         dd = abs(np.diff(np.hstack((dat[0],dat))))
+    #         d=np.vstack((d,dd))
+    #     d=np.nanmax(d,axis=0)
 
-        dlc_crit = 0.004 # For position normalized, determined to get good agreement / improvement over ethovision
-        vel_crit = im_thresh
-        if 'mouse_height' in raw.columns:
-            height=raw['mouse_height']
-        elif 'dlc_front_over_rear_length' in raw.columns:
-            height = raw['dlc_front_over_rear_length']
-        # height_crit = 0.3 #Exclude for now
-        new_crit = np.array((d < dlc_crit) & (vel < vel_crit) ) # & (height < height_crit))
-        smooth_crit = 0.2
-        new_crit_temp = signals.boxcar_smooth(new_crit,round(meta['fs'][0]*0.5)) 
-        im2 =  new_crit_temp >= smooth_crit
-        im2[rear == True] = False # Say rearing is fine_movement
-    else:
-        im2 = np.zeros(im.shape,dtype=bool)
-        meta['alt_im_method'] = 'vel_thresh'        
-        im2 =raw['vel'] < im_thresh
+    #     dlc_crit = 0.004 # For position normalized, determined to get good agreement / improvement over ethovision
+    #     vel_crit = im_thresh
+    #     if 'mouse_height' in raw.columns:
+    #         height=raw['mouse_height']
+    #     elif 'dlc_front_over_rear_length' in raw.columns:
+    #         height = raw['dlc_front_over_rear_length']
+    #     # height_crit = 0.3 #Exclude for now
+    #     new_crit = np.array((d < dlc_crit) & (vel < vel_crit) ) # & (height < height_crit))
+    #     smooth_crit = 0.2
+    #     new_crit_temp = signals.boxcar_smooth(new_crit,round(meta['fs'][0]*0.5)) 
+    #     im2 =  new_crit_temp >= smooth_crit
+    #     im2[rear == True] = False # Say rearing is fine_movement
+    # else:
+    # im2 = np.zeros(im.shape,dtype=bool)
+    # meta['alt_im_method'] = 'vel_thresh'        
+    # im2 =raw['vel'] < im_thresh
 
             
 
-    raw['im2']=im2 # 'im' is the immobility measure calculated in ethovision itself
-    amb2[im2 == True] = False #If DLC used, rear also made false in amb2
-    raw['amb2']=amb2
-    r,p=pearsonr(im2,im)
-    meta['im_im2_pearson'] = r
+    # raw['im2']=im2 # 'im' is the immobility measure calculated in ethovision itself
+    # amb2[im2 == True] = False #If DLC used, rear also made false in amb2
+    # raw['amb2']=amb2
+    # r,p=pearsonr(im2,im)
+    # meta['im_im2_pearson'] = r
     
     amb[raw['im'] == True] = False
     raw['amb']=amb
     
     raw['fm']= (raw['amb']==False) & (raw['im']==False)
-    raw['fm2'] = (raw['im2']==False) & (raw['amb2'] == False)
-    if use_dlc:
-        raw['fm2'].values[rear == True ] = True
+    # raw['fm2'] = (raw['im2']==False) & (raw['amb2'] == False)
+    # if use_dlc:
+    #     raw['fm2'].values[rear == True ] = True
         
     return raw, meta
 
@@ -719,18 +726,25 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
                         stim_dur=stim_dur,
                         min_bout_dur_s=min_bout)
     temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
-    temp['amb_bouts']=np.nanmean(amb_bouts['rate'],axis=0)
+    temp['amb_bout_rate']=np.nanmean(amb_bouts['rate'],axis=0)
     
     im_bouts=bout_analyze(raw,meta,'im',
                         stim_dur=stim_dur,
                         min_bout_dur_s=min_bout)
-    temp['im_bouts']=np.nanmean(im_bouts['rate'],axis=0)
+    temp['im_bout_rate']=np.nanmean(im_bouts['rate'],axis=0)
+    
+    #Examine rear rate /dur if evailable:
+    if 'rear' in raw.columns:
+        rear_bouts=bout_analyze(raw,meta,'rear',
+                    stim_dur=stim_dur,
+                    min_bout_dur_s=min_bout)
+
+        temp['rear_bout_rate']=np.nanmean(amb_bouts['rate'],axis=0)
     
     ### Calculate stim-triggered Proportion: FM, AMB, IM
     use = ['im','amb','fm']
     collect=[]
-    for col in use:
-       
+    for col in use:       
         clip=stim_clip_grab(raw,meta,y_col=col, 
                                    stim_dur=stim_dur,
                                    baseline=baseline,
@@ -1162,7 +1176,7 @@ def prob_rear_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
             matpath=dataloc.rawmat(path.parent)
             if matpath:
                 print('%s:\n\t.h5: %s\n\t.mat: %s' % (labels[i],path,matpath))
-                peak,start,stop,df = detect_rear(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
+                peak,start,stop,df = detect_rear_from_mouseheight(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
                         dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1)
                 mat=mat_file.load(matpath)
                 laserOn=mat['laserOn'][:,0]
@@ -1237,7 +1251,7 @@ def rear_rate_stim_dict(basepath,conds_inc,conds_exc,labels,use_move=True):
             matpath=dataloc.rawmat(path.parent)
             if matpath:
                 print('%s:\n\t.h5: %s\n\t.mat: %s' % (labels[i],path,matpath))
-                peak_array,start,stop,df = detect_rear(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
+                peak_array,start,stop,df = detect_rear_from_mouseheight(path,rear_thresh=0.7,min_thresh=0.2,save_figs=False,
                         dlc_outlier_thresh_sd=4,dlc_likelihood_thresh=0.1)
                 mat=mat_file.load(matpath)
                 laserOn=mat['laserOn'][:,0]

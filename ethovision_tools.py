@@ -128,6 +128,7 @@ def raw_csv_to_preprocessed_csv(basepath, conds_inc=[], conds_exc=[],
     None.
 
     '''
+    version = 4 # Add refined rear detection via neural network output
     
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
@@ -158,6 +159,7 @@ def raw_csv_to_preprocessed_csv(basepath, conds_inc=[], conds_exc=[],
                     print('\tSaving %s\n' % pnfn)
                     preproc.to_csv(pnfn)
                     
+                    meta['preproc_ver'] = version
                     metadata=pd.DataFrame().from_dict(meta)
                     meta_pnfn=path.parent.joinpath('metadata_%s.csv' % dataloc.path_to_rawfn(path)[4:])
                     print('\tSaving %s\n' % meta_pnfn)
