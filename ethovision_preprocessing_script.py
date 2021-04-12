@@ -92,7 +92,7 @@ fig=plots.plot_openloop_mouse_summary(data)
 # %% RUN AFTER DLC:
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','15min',]]
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10',]]
 # inc=[['AG','10x10','Str','A2A','Ai32','AG5362_3']]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
