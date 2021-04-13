@@ -44,6 +44,9 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% Plot 10x10 / openloop days:
+ex0=['exclude','Bad','GPe','bad','Broken','15min', 'grooming','Exclude','Other XLS']
+exc=[ex0]
+inc=[['AG','hm4di','Str','A2A','Ai32','10hz']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
@@ -67,8 +70,11 @@ for pn in pns:
 ex0=['10hz','exclude','Bad','bad',
      'Broken', 'grooming','Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10','saline']]
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
+# fig=plots.plot_openloop_mouse_summary(data)
+
+# %%
 fig=plots.plot_openloop_mouse_summary(data)
 
 # %% Plot 15min free running mouse summary:

@@ -739,7 +739,7 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
                     stim_dur=stim_dur,
                     min_bout_dur_s=min_bout)
 
-        temp['rear_bout_rate']=np.nanmean(amb_bouts['rate'],axis=0)
+        temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
     
     ### Calculate stim-triggered Proportion: FM, AMB, IM
     use = ['im','amb','fm']
