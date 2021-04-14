@@ -67,12 +67,11 @@ for pn in pns:
     plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
     
 # %% Plot 10x10 openloop mouse summary:
-ex0=['10hz','exclude','Bad','bad',
-     'Broken', 'grooming','Exclude','Other XLS']
+ex0=['exclude','Bad','GPe','bad','Broken','15min', 'Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno']]
+inc=[['AG','hm4di','Str','A2A','Ai32','saline_10hz','10x10']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
-# fig=plots.plot_openloop_mouse_summary(data)
+fig=plots.plot_openloop_mouse_summary(data)
 
 # %%
 fig=plots.plot_openloop_mouse_summary(data)

@@ -862,7 +862,6 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     amb_bouts={'rate':dat}
     mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False)
-    ax.legend()
     ax.set_xlim([-1,3])
     ax.set_ylabel('Amb bouts / s')
     
@@ -876,25 +875,26 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     bouts={'rate':dat}
     mean_bar_plus_conf(bouts,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False)
-    ax.legend()
     ax.set_xlim([-1,3])
     ax.set_ylabel('Imm. bouts / s')
     
     
     ### Row 2 Right: Rear bout rate:
-    dat= np.stack(data['rear_bout_rate'],axis=0)
-    labs= data['prop_labels'][0]
-    labels=['Pre','Dur','Post']
-    width = 0.4       # the width of the bars: can also be len(x) sequence
-    cols=['k','w','g']
-    ax=f_row[2][2]
-    bouts={'rate':dat}
-    mean_bar_plus_conf(bouts,['Pre','Dur','Post'],
-                       use_key='rate',ax=ax,clip_method=False)
-    ax.legend()
-    ax.set_xlim([-1,3])
-    ax.set_ylabel('Rear bouts / s')
-    
+    if not any(data['has_dlc'] == False):
+        dat= np.stack(data['rear_bout_rate'],axis=0)
+        labs= data['prop_labels'][0]
+        labels=['Pre','Dur','Post']
+        width = 0.4       # the width of the bars: can also be len(x) sequence
+        cols=['k','w','g']
+        ax=f_row[2][2]
+        bouts={'rate':dat}
+        mean_bar_plus_conf(bouts,['Pre','Dur','Post'],
+                           use_key='rate',ax=ax,clip_method=False)
+        ax.set_xlim([-1,3])
+        ax.set_ylabel('Rear bouts / s')
+    else:
+        plt.sca(f_row[2][2])        
+        plt.title('Rear scoring incomplete. Check summary["has_dlc"]')
     # #### Row 2: % Time mobile & (Rearing?)
     # ax_im = mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
     # plt.ylabel('% Time Mobile')

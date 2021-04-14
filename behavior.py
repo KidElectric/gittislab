@@ -680,7 +680,7 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
     free_running = meta['no_trial_structure'][0]
     percentage = lambda x: (np.nansum(x)/len(x))*100
     temp['stim_dur']=stim_dur
-    
+    temp['has_dlc']=meta['has_dlc'][0]
     #### Calculate stim-triggered speed changes:
     if not free_running:        
         vel_clip=stim_clip_grab(raw,meta,y_col='vel',
@@ -735,12 +735,13 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
     
     #Examine rear rate /dur if evailable:
     if 'rear' in raw.columns:
-        rear_bouts=bout_analyze(raw,meta,'rear',
-                    stim_dur=stim_dur,
-                    min_bout_dur_s=min_bout)
-
-        temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
+        if any(~np.isnan(raw['rear'])):
+            rear_bouts=bout_analyze(raw,meta,'rear',
+                        stim_dur=stim_dur,
+                        min_bout_dur_s=min_bout)
     
+            temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
+        
     ### Calculate stim-triggered Proportion: FM, AMB, IM
     use = ['im','amb','fm']
     collect=[]
