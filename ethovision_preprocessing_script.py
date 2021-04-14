@@ -32,7 +32,7 @@ else:
 # %% RUN BEFORE DLC:
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32',]]
+inc=[['AG','ChR2_hM3Dq','Str','15mW_cno','D2_D1',]]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -46,7 +46,7 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 # %% Plot 10x10 / openloop days:
 ex0=['exclude','Bad','GPe','bad','Broken','15min', 'grooming','Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','10hz']]
+# inc=[['AG','hm4di','Str','A2A','Ai32','10hz']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
@@ -67,9 +67,9 @@ for pn in pns:
     plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
     
 # %% Plot 10x10 openloop mouse summary:
-ex0=['exclude','Bad','GPe','bad','Broken','15min', 'Exclude','Other XLS']
+ex0=['exclude','Bad','GPe','bad','Broken','15min','10hz', 'Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','saline_10hz','10x10']]
+inc=[['AG','hm4di','Str','A2A','Ai32','cno','10x10']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 
@@ -97,7 +97,7 @@ fig=plots.plot_openloop_mouse_summary(data)
 # %% RUN AFTER DLC:
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10',]]
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno_10hz']]
 # inc=[['AG','10x10','Str','A2A','Ai32','AG5362_3']]
 
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'

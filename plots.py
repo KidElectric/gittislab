@@ -895,81 +895,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     else:
         plt.sca(f_row[2][2])        
         plt.title('Rear scoring incomplete. Check summary["has_dlc"]')
-    # #### Row 2: % Time mobile & (Rearing?)
-    # ax_im = mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
-    # plt.ylabel('% Time Mobile')
-    
-    # min_bout=1
-    # amb_bouts=behavior.bout_analyze(raw,meta,'ambulation',
-    #                                 stim_dur=stim_dur,
-    #                                 min_bout_dur_s=min_bout)
-    # im_bouts=behavior.bout_analyze(raw,meta,'im',
-    #                                stim_dur=stim_dur,
-    #                                min_bout_dur_s=min_bout)
-    
-    # #Rearing:
-    # if meta['has_dlc'][0] == True:
-    #     rear_clip=behavior.stim_clip_grab(raw,meta,y_col='rear', 
-    #                            stim_dur=stim_dur,
-    #                            summarization_fun=percentage)
-    #     mean_bar_plus_conf(rear_clip,['Pre','Dur','Post'],ax=f_row[2][1])
-    #     plt.ylabel('% Time Rearing')
 
-    # #### Row 3: Ambulation bout info
-    # #Rate
-    # ax_amb_bout_rate= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
-    #                                            use_key='rate',ax=f_row[3][0])
-    # plt.ylabel('Amb. bouts / 30s')
-    
-    # #Duration
-    # ax_amb_bout_dur = mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
-    #                                            use_key='dur',ax=f_row[3][1])
-    # plt.ylabel('Amb. dur (s)')
-    
-    # #Speed
-    # ax_amb_bout_speed= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
-    #                                            use_key='speed',ax=f_row[3][2])
-    # plt.ylabel('Amb. speed (cm/s)')
-    
-    # #### Row 4: immobility bout info
-    # #Rate
-    # ax_im_bout_rate= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
-    #                                            use_key='rate',ax=f_row[4][0])
-    # plt.ylabel('Im. bouts / 30s')
-    
-    # #Duration
-    # ax_im_bout_dur= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
-    #                                            use_key='dur',ax=f_row[4][1])
-    # plt.ylabel('Im. dur (s)')
-    
-    # ax_im_bout_speed= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
-    #                                            use_key='speed',ax=f_row[4][2])
-    # plt.ylabel('Im. speed (cm/s)')
-    
-    # #### Row 5: Meander/directedness (in progress)
-    # #Amb meander 
-    # ax_amb_meander= mean_bar_plus_conf(amb_bouts,
-    #                                          ['Pre','Dur','Post'],
-    #                                            use_key='meander',
-    #                                            ax=f_row[5][0])
-    # plt.ylabel('Ambulation meander (deg/cm)')
-    
-    # #All meander 
-    # #raw['meander']= behavior.measure_meander(raw,meta,use_dlc=False)
-    # # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='meander',
-    # #                                      stim_dur=stim_dur,
-    # #                                      summarization_fun = np.nanmedian)
-    # # ax_all_meander= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
-    # #                                            ax=f_row[5][1])
-    # # plt.ylabel('Meadian meander (deg/cm)')
-    
-    # raw['directed']= 1/ raw['meander']
-    # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='directed',
-    #                                      stim_dur=stim_dur,
-    #                                      summarization_fun = np.nanmedian)
-    # ax_all_direct= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
-    #                                            ax=f_row[5][2])
-    # plt.ylabel('Directed (cm/deg)')
     
     # #### Save image option:
     # if save == True:
@@ -978,13 +904,97 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     #     proto=meta['etho_exp_type'][0]
     #     plt.show(block=False)
     #     plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,plt_ver))
-    # if close == True:
-    #     plt.close()
-    # else:
-    #     return fig
-    return fig
+    if close == True:
+        plt.close()
+    else:
+        return fig
 
+def plot_openloop_cond_comparison(data,save=False,close=False):
+    '''
+    
 
+    Parameters
+    ----------
+    data : dictionary 
+        Key = condition. Value = behavior.open_loop_summary_collect() outputs pd.DataFrames
+    save : Boolean, optional
+        DESCRIPTION. The default is False.
+    close : Boolean, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
+    fig = plt.figure(constrained_layout = True,figsize=(10,7))
+    gs = fig.add_gridspec(2, 5)
+    f_row=list(range(gs.nrows))
+    conds = [i for i in data.keys()]
+    f_row[0]=[fig.add_subplot(gs[0,0:gs.ncols])]
+    f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(gs.ncols)]
+   
+    ax_speedbar=None
+    ax=[]
+    cols=['b','r']
+    for cond in conds:  
+        dur = data[cond]['stim_dur'][0] #For now assuming all exp have same duration of stimulation
+        dat=data[cond].loc[:,'vel_trace']
+        y=np.vstack([d for d in dat])
+        ym= np.mean(y,axis=0)        
+        x=data[cond].loc[:,'x_trace'].values
+        clip_ave={'cont_y' : ym,
+                  'cont_x' : x[0],
+                  'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+                  'disc' : np.vstack(data[cond]['stim_speed'].values)}
+                  
+        ax_speedbar = mean_cont_plus_conf(clip_ave,
+                                          xlim=[-dur,dur*2],
+                                          highlight=[0,dur,25],
+                                          ax=f_row[0][0])
+
+    cao=data[cond]['cell_area_opsin'][1]
+    lines=ax_speedbar.get_lines()
+    for cond,col,line in zip(conds,cols,lines):
+        line.set_label(cond)
+        line.set_color(col)
+    plt.sca(ax_speedbar)
+    ax_speedbar.set_ylabel('Speed (cm/s)')
+    ax_speedbar.set_xlabel('Time (min)')
+    plt.legend()
+    
+    if 'rear_bout_rate' in data[conds[0]].columns:
+        bar_types=['per_mobile','amb_bout_rate','amb_speed','im_bout_rate',
+                   'rear_bout_rate']
+        ylabs=['Time mobile (%)','Amb bouts / s','Amb speed (cm/s)','Im bouts /s',
+               'Rear bouts / s']
+    else:        
+        bar_types=['per_mobile','amb_bout_rate','amb_speed','im_bout_rate']
+        ylabs=['Time mobile (%)','Amb bouts / s','Amb speed (cm/s)','Im bouts /s']
+    label_columns=['Pre','Dur','Post'] #Should be determined based on data thirds
+    sns.set_theme(style="whitegrid")
+    i=0
+    # pdb.set_trace()
+    for examine,ylab in zip(bar_types,ylabs):
+        df = behavior.summary_collect_to_df(data,
+                              use_columns=['anid',examine],
+                              label_columns=label_columns,
+                              var_name='time_window', 
+                              value_name=examine,                        
+                              static_columns=['anid'])
+    
+        ax = sns.barplot(ax=f_row[1][i],
+                         x="time_window", 
+                         y=examine,
+                         hue='cond',
+                         data=df,)
+        if i < 4:
+             ax.legend_.remove()
+                
+       
+        ax.set_xlabel('Stim periods (%ds)' % dur)
+        ax.set_ylabel(ylab)
+        i += 1
 def plot_zone_day(raw,meta,save=False,close = False):    
     '''
     
