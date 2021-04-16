@@ -45,3 +45,33 @@ for cond in conds:
 # %% Plot both conditions:
 plots.plot_freerunning_cond_comparison(keep,save=False,close=False)
 
+# %% Calculate openloop mouse summary across conditions:
+conds = ['saline','cno']
+ex0=['exclude','Bad','GPe','bad','Broken',
+     'Exclude','Other XLS','10hz','15min','3mW']
+exc=[ex0]
+keep={}
+for cond in conds:
+    inc=[['AG','hm4di','Str','A2A','Ai32','10x10',cond]]
+    data = behavior.open_loop_summary_collect(basepath,inc,exc)
+    keep[cond]=data
+    
+# %% Plot
+plots.plot_openloop_cond_comparison(keep,save=False,close=False)
+    
+# %% Calculate a mouse-wise differeince in percent time mobile base vs. stim:
+anids=np.unique(keep[conds[0]]['anid'])
+#Assume for now that rows have been sorted already by animal ID and are all matching
+ds=[]
+for cond in conds:
+    dat=np.stack(keep[cond]['per_mobile'])
+    ds.append((dat[:,0] - dat[:,1]))
+ds=np.stack(ds).transpose()
+ds=np.stack([x/ds[:,0]*100 for x in ds.T]).T
+f,a,h=plots.connected_lines(conds,ds)
+
+for i,anid in zip(h,anids):
+    i.set_label(anid)
+plt.ylabel('Normalized \Delta %Time Mobile')
+plt.legend()
+        

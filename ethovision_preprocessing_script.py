@@ -30,9 +30,11 @@ else:
     basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
     
 # %% RUN BEFORE DLC:
-ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
+ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
+     'Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','ChR2_hM3Dq','Str','15mW_cno','D2_D1',]]
+#inc=[['AG','ChR2_hM3Dq','Str','15mW_cno','D2_D1',]]
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -44,14 +46,14 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% Plot 10x10 / openloop days:
-ex0=['exclude','Bad','GPe','bad','Broken','15min', 'grooming','Exclude','Other XLS']
-exc=[ex0]
-# inc=[['AG','hm4di','Str','A2A','Ai32','10hz']]
+# ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
+# exc=[ex0]
+# inc=[['AG','hm4di','Str','A2A','Ai32','cno']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
 saveit=True
-closeit=False
+closeit=True
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
     plots.plot_openloop_day(df,meta,save=saveit, close=closeit)
@@ -72,6 +74,19 @@ exc=[ex0]
 inc=[['AG','hm4di','Str','A2A','Ai32','cno','10x10']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
+
+# %% Plot openloop mouse summary across conditions:
+conds = ['saline','cno']
+ex0=['exclude','Bad','GPe','bad','Broken',
+     'Exclude','Other XLS','10hz','15min','3mW']
+exc=[ex0]
+keep={}
+for cond in conds:
+    inc=[['AG','hm4di','Str','A2A','Ai32','10x10',cond]]
+    data = behavior.open_loop_summary_collect(basepath,inc,exc)
+    keep[cond]=data
+# %%
+plots.plot_openloop_cond_comparison(keep,save=False,close=False)
 
 # %%
 fig=plots.plot_openloop_mouse_summary(data)

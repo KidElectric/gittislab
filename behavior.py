@@ -582,6 +582,8 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
             raw,meta=ethovision_tools.csv_load(path,method='preproc')
             temp = experiment_summary_helper(raw,meta,min_bout=min_bout)
             data=data.append(temp,ignore_index=True)
+            
+    data.sort_values('anid',inplace=True,ignore_index=True)
     return data
 
 def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],
