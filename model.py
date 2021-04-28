@@ -33,12 +33,14 @@ def boostrap_model(x,y,model_fn,model_method='lm',iter = 50, subsamp_by=5):
         x_r=x[ind]
         y_r=y[ind]
         try:        
-            #print('Attempt %d' % i)
             i += 1
             po,pc = model_fn(x_r,y_r,method=model_method)  #outputs may vary?
             good += 1
             if good >= iter:
                 cont = False
+            elif bad > (iter * 100):
+                print('Bootstrap aborting at %d failed iterations.' % bad)
+                break
             else:
                 keep_po.append(po)
         except:
