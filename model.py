@@ -18,12 +18,39 @@ from sklearn import metrics
 import joblib
 from scipy.optimize import curve_fit
 
+def boostrap_model(x,y,model_fn,model_method='lm',iter = 50, subsamp_by=5):
+    '''
+    Bootstrap model fitting with randomly downsampled x & y data and take median of parameters as working fit.
+    '''
+    cont = True
+    i=0
+    good=0
+    keep_po=[]
+    bad = 0
+    #Bootsrap a fit!
+    while cont:
+        ind= [np.random.randint(0,len(x)-1) for i in range(0,len(x)-subsamp_by)]
+        x_r=x[ind]
+        y_r=y[ind]
+        try:        
+            #print('Attempt %d' % i)
+            i += 1
+            po,pc = model_fn(x_r,y_r,method=model_method)  #outputs may vary?
+            good += 1
+            if good >= iter:
+                cont = False
+            else:
+                keep_po.append(po)
+        except:
+           bad +=1
+    return np.median(np.stack(keep_po),axis=0)
+
 def fit_sigmoid(xdata,ydata,method='dogbox'):
     p0 = [max(ydata), np.median(xdata),1,min(ydata)] # this is an mandatory initial guess
     popt, pcov = curve_fit(sigmoid, xdata, ydata, p0, method=method)
     return popt,pcov
 
-def sigmoid(x, L ,x0, k, b):
+def sigmoid(x,L ,x0, k, b):
     y = L / (1 + np.exp(-k*(x-x0)))+b
     return (y)
 

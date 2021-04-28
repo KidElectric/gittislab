@@ -65,7 +65,8 @@ plt.plot(x,p(x),'r')
 ax.set_ylabel('Blue laser output (mW)')
 ax.set_xlabel('Arduino PWM level')
 # %% Load in 10x10 day for comparison:
-pnfn=Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10_hm4di_saline/AG6846_5_BI040121/Raw_AG6846_5_BI040121.csv')
+# pnfn=Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10_hm4di_saline/AG6846_5_BI040121/Raw_AG6846_5_BI040121.csv')
+pnfn=Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10_hm4di_cno/AG6846_5_BI033021/Raw_AG6846_5_BI033021.csv')
 raw,meta=ethovision_tools.csv_load(pnfn,columns='All',method='raw' )
 meta['stim_dur']=2
 meta['stim_off']=meta['stim_on'] + 2
@@ -76,64 +77,102 @@ m_clip= behavior.stim_clip_grab(raw,meta,y_col='im',
                                stim_dur=2,
                                baseline = 2,
                                summarization_fun=percentage)
-
+print(np.mean(m_clip['disc'][:,1]))
 # %% 
 
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
  'Exclude','Other XLS']
 exc=[ex0]
-#inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
-inc=[['AG','Str','A2A','Ai32','50x2_hm4di_cno',]]
+save = True
+inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
+# inc=[['AG','Str','A2A','Ai32','50x2_hm4di_cno',]]
+# inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
-for ii in range(0,len(pns),1):
-    raw,meta=ethovision_tools.csv_load(pns[ii],columns='All',method='raw' )
-    trial_fn=dataloc.gen_paths_recurse(pns[ii].parent,filetype = 'pwm_output*.csv')
-    trials=pd.read_csv(trial_fn)
+
+plots.plot_light_curve_sigmoid(pns,p,save=False )
     
-    #% Percent Time Immobile
-    if len(meta['stim_dur']) > 50:
-        doubled=True
-    if doubled:
-        meta.drop(axis=0,index=range(0,100,2),inplace=True)
-        meta.reset_index(inplace=True)
-    percentage = lambda x: (np.nansum(x)/len(x))*100
-    m_clip= behavior.stim_clip_grab(raw,meta,y_col='im', 
-                                   stim_dur=2,
-                                   baseline = 2,
-                                   summarization_fun=percentage)
-    
-    y=m_clip['disc'][:,1]
-    x=p(trials.loc[:,'PWM'].values)
-    plt.figure()
-    plt.plot(x,y,'ok')
-    
-    #Bin per mW and average:
-    ym=[]
-    for i in range(0,8,1):
-        ind = (x >= i) & (x < (i+1))
-        mbin= np.mean(y[ind])
-        ym.append(mbin)
-    xm=[i+0.5 for i in range(0,8,1)]
-    plt.plot(xm,ym,'or')
-    all_base=m_clip['disc'][:,0]
-    all_base=all_base[~np.isnan(all_base)]
-    base_zer=np.zeros(all_base.shape)
-    base_mean=np.nanmean(all_base)
-    plt.plot(0,base_mean,'*b')
-    # xf = np.append(x,np.zeros(len(m_clip['disc'][:,0])))
-    # yf = np.append(y,m_clip['disc'][:,0])
-    
-    
-    xs=[i/100 for i in range(25,800,1)]
+# %%  Bootsrap data to get a fit
+ii = 0 # of saline, sigmoid not fitting
+
+raw,meta=ethovision_tools.csv_load(pns[ii],columns='All',method='raw' )
+trial_fn=dataloc.gen_paths_recurse(pns[ii].parent,filetype = 'pwm_output*.csv')
+trials=pd.read_csv(trial_fn)
+
+#% Percent Time Immobile
+if len(meta['stim_dur']) > 50:
+    doubled=True
+if doubled:
+    meta.drop(axis=0,index=range(0,100,2),inplace=True)
+    meta.reset_index(inplace=True)
+percentage = lambda x: (np.nansum(x)/len(x))*100
+m_clip= behavior.stim_clip_grab(raw,meta,y_col='im', 
+                               stim_dur=2,
+                               baseline = 2,
+                               summarization_fun=percentage)
+
+y=m_clip['disc'][:,1]
+x=p(trials.loc[:,'PWM'].values)
+# inc = x < 3 #undersampled
+# y=y[inc]
+# x=x[inc]
+plt.figure()
+plt.plot(x,y,'ok')
+
+#Bin per mW and average:
+ym=[]
+for i in range(0,8,1):
+    ind = (x >= i) & (x < (i+1))
+    mbin= np.mean(y[ind])
+    ym.append(mbin)
+xm=[i+0.5 for i in range(0,8,1)]
+plt.plot(xm,ym,'or')
+all_base=m_clip['disc'][:,0]
+all_base=all_base[~np.isnan(all_base)]
+base_zer=np.zeros(all_base.shape)
+base_mean=np.nanmean(all_base)
+plt.plot(0,base_mean,'*b')
+# xf = np.append(x,np.zeros(len(m_clip['disc'][:,0])))
+# yf = np.append(y,m_clip['disc'][:,0])
+
+
+xs=[i/100 for i in range(25,800,1)]
+cont = True
+subsamp_by = 5
+i=0
+desired_good = 50
+good=0
+keep_po=[]
+bad = 0
+while cont:
+    ind= [np.random.randint(0,len(x)-1) for i in range(0,len(x)-subsamp_by)]
+    x_r=x[ind]
+    y_r=y[ind]
     try:        
-        po,pc = model.fit_sigmoid(np.append(x,base_zer),np.append(y,all_base))
-        ys=model.sigmoid(xs, po[0], po[1], po[2],po[3])
-        plt.plot(xs,ys,'b')
+        #print('Attempt %d' % i)
+        i += 1
+        # np.random
+        po,pc = model.fit_sigmoid(x_r,y_r,method='lm') # np.append(x,base_zer),np.append(y,all_base)
+
+        good += 1
+        if good >= desired_good:
+            cont = False
+        else:
+            keep_po.append(po)
     except:
         #print(errmsg)
-        print('Unable to fit')
-    plt.xlabel('Power (mW)')
-    plt.ylabel('% Time Immobile')
-    plt.title('%d, %s' % (ii,meta['anid'][0]))
+       bad +=1
+all_po=np.median(np.stack(keep_po),axis=0)
+ys=model.sigmoid(xs, all_po[0], all_po[1], all_po[2],all_po[3])
+plt.plot(xs,ys,'b')
+plt.xlabel('Power (mW)')
+plt.ylabel('% Time Immobile')
+plt.title('%d, %s' % (ii,meta['anid'][0]))
+if save == True:
+    path_dir = str(meta['pn'][0].parent)
+    anid= meta['anid'][0]
+    proto=meta['etho_exp_type'][0]
+    plt.show(block=False)
+    plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,0))
+    
