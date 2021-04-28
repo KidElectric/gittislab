@@ -63,15 +63,16 @@ plots.plot_openloop_cond_comparison(keep,save=False,close=False)
 anids=np.unique(keep[conds[0]]['anid'])
 #Assume for now that rows have been sorted already by animal ID and are all matching
 ds=[]
+use_field='rear_bout_rate'
 for cond in conds:
-    dat=np.stack(keep[cond]['per_mobile'])
-    ds.append((dat[:,0] - dat[:,1]))
+    dat=np.stack(keep[cond][use_field])
+    ds.append((dat[:,1] - dat[:,0]))
 ds=np.stack(ds).transpose()
-ds=np.stack([x/ds[:,0]*100 for x in ds.T]).T
+# ds=np.stack([x/ds[:,0]*100 for x in ds.T]).T
 f,a,h=plots.connected_lines(conds,ds)
 
 for i,anid in zip(h,anids):
     i.set_label(anid)
-plt.ylabel('Normalized \Delta %Time Mobile')
+plt.ylabel('Stim induced change in %s relative to baseline' % use_field)
 plt.legend()
         

@@ -16,6 +16,16 @@ import pdb
 import fastai.tabular.all as fasttab
 from sklearn import metrics
 import joblib
+from scipy.optimize import curve_fit
+
+def fit_sigmoid(xdata,ydata,method='dogbox'):
+    p0 = [max(ydata), np.median(xdata),1,min(ydata)] # this is an mandatory initial guess
+    popt, pcov = curve_fit(sigmoid, xdata, ydata, p0, method=method)
+    return popt,pcov
+
+def sigmoid(x, L ,x0, k, b):
+    y = L / (1 + np.exp(-k*(x-x0)))+b
+    return (y)
 
 def combine_raw_csv_for_modeling(raw_pns,
                                  boris_obs_names,

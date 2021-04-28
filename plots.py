@@ -84,7 +84,7 @@ def connected_lines(x,y,ax=None,color=''):
     else:
         return ax,h
     
-def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=None):
+def mean_cont_plus_conf_clip(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=None):
     '''
     Parameters
     ----------
@@ -125,14 +125,12 @@ def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=No
         ax.fill_between(highlight[0:2],[highlight[2],highlight[2]],y2=[0,0],
                         facecolor=hl_color, alpha=0.3,edgecolor='none')
         
-    # Plot confidence interval:
+
     conf_int=clip_ave['cont_y_conf']
     ub = conf_int[:,0]  #Positive confidence interval
     lb = conf_int[:,1]  #Negative confidence interval
     ax.fill_between(x, ub, lb, color='k', alpha=0.3, edgecolor='none',
                     zorder=5)
-    
-    #Plot mean on top:
     ax.plot(x,y,'k')
     plt.xticks(np.arange(-60,90,10))
     plt.yticks(np.arange(-0,20,5))
@@ -150,6 +148,29 @@ def mean_cont_plus_conf(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=No
     else:
         return ax
 
+def mean_cont_plus_conf_array(x,ymat,ax=None,confidence = 0.95):
+    '''
+       x= array of x values
+       ymat = 2d array of y values, rows = samples, cols = replicates 
+    '''
+    if ax == None: #If no axis provided, create a new plot
+        fig,ax=plt.subplots()
+    plt.sca(ax)
+    m = np.nanmean(ymat,axis=1)
+    conf_int=signals.conf_int_on_matrix(ymat)
+    ub = conf_int[:,0]  #Positive confidence interval
+    lb = conf_int[:,1]  #Negative confidence interval
+    ax.fill_between(x, ub, lb, color='k', alpha=0.3, edgecolor='none',
+                    zorder=5)
+    
+    #Plot mean on top:
+    ax.plot(x,m,'k')
+    
+    if ax == None:
+        return fig,ax
+    else:
+        return ax
+    
 def mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True,
                        color=''):
     '''
@@ -328,7 +349,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
                                        summarization_fun=percentage)
     
         #### Row 1: Speed related
-        ax_speedbar = mean_cont_plus_conf(clip_ave,
+        ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                           xlim=[-stim_dur,stim_dur*2],
                                           highlight=[0,stim_dur,25],
                                           ax=f_row[1][0])
@@ -627,7 +648,7 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
                   'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
                   'disc' : np.vstack(data['amb_speed'].values)}
                   
-        ax_speedbar = mean_cont_plus_conf(clip_ave,
+        ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                           highlight=None,
                                           xlim=[0,(dur/60)*3],
                                           ax=f_row[0][i])
@@ -703,7 +724,7 @@ def plot_freerunning_cond_comparison(data,save=False,close=False):
                       'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
                       'disc' : np.vstack(data[cond]['amb_speed'].values)}
             dur = 15
-            ax_speedbar = mean_cont_plus_conf(clip_ave,
+            ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                               highlight=None,
                                               xlim=[0,dur],
                                               ax=f_row[0][0])
@@ -801,7 +822,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
                   'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
                   'disc' : np.vstack(data['stim_speed'].values)}
                   
-        ax_speedbar = mean_cont_plus_conf(clip_ave,
+        ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                           xlim=[-dur,dur*2],
                                           highlight=[0,dur,25],
                                           ax=f_row[0][i])
@@ -948,7 +969,7 @@ def plot_openloop_cond_comparison(data,save=False,close=False):
                   'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
                   'disc' : np.vstack(data[cond]['stim_speed'].values)}
                   
-        ax_speedbar = mean_cont_plus_conf(clip_ave,
+        ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                           xlim=[-dur,dur*2],
                                           highlight=[0,dur,25],
                                           ax=f_row[0][0])
@@ -1075,7 +1096,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
     clip_ave=behavior.stim_clip_average(vel_clip)
     
     #### Row 2: Speed related
-    ax_speedbar = mean_cont_plus_conf(clip_ave,
+    ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                       xlim=[-stim_dur,stim_dur*2],
                                       highlight=[0,stim_dur,25],
                                       ax=f_row[2][0])

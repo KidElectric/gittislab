@@ -9,7 +9,7 @@ import pandas as pd
 #import cv2
 from scipy.interpolate import interp1d
 from scipy.signal import butter, filtfilt
-from scipy.stats import t, pearsonr
+from scipy import stats as scistats
 from itertools import compress
 from pathlib import Path
 import pdb 
@@ -223,7 +223,7 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
     # raw['im2']=im2 # 'im' is the immobility measure calculated in ethovision itself
     # amb2[im2 == True] = False #If DLC used, rear also made false in amb2
     # raw['amb2']=amb2
-    # r,p=pearsonr(im2,im)
+    # r,p=scistats.pearsonr(im2,im)
     # meta['im_im2_pearson'] = r
     
     amb[raw['im'] == True] = False
@@ -486,8 +486,9 @@ def stim_clip_grab(raw,meta,y_col,x_col='time',
         intervals=[[base_samp,on_samp],
                    [on_samp,on_time_samp],
                    [off_samp,post_samp]]
-        
-        cont_y_array[:,i]=y[base_samp:(base_samp + nsamps)]
+        if base_samp >= 0:
+            cont_y_array[:,i]=y[base_samp:(base_samp + nsamps)]
+
         if i==0:
             cont_x_array=x[base_samp:(base_samp + nsamps)] - on_time
         # (1,3) Array containing Pre, Dur, Post discretized analysis:
@@ -527,7 +528,7 @@ def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
     for i,data in enumerate(clip[discrete_key].T):
         m = np.nanmean(data)
         std_err = np.nanstd(data)/np.sqrt(n)
-        h = std_err * t.ppf((1 + confidence) / 2, n - 1)
+        h = std_err * scistats.t.ppf((1 + confidence) / 2, n - 1)
         out_ave['disc_m'][i]=m
         out_ave['disc_conf'][i]=h
     # out_ave['disc']=clip[discrete_key]

@@ -34,7 +34,8 @@ ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
      'Exclude','Other XLS']
 exc=[ex0]
 #inc=[['AG','ChR2_hM3Dq','Str','15mW_cno','D2_D1',]]
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
+#inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
+inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -48,7 +49,7 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 # %% Plot 10x10 / openloop days:
 # ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]
-# inc=[['AG','hm4di','Str','A2A','Ai32','cno']]
+inc=[['AG','hm4di','Str','A2A','Ai32','cno','3mW']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
@@ -71,18 +72,18 @@ for pn in pns:
 # %% Plot 10x10 openloop mouse summary:
 ex0=['exclude','Bad','GPe','bad','Broken','15min','10hz', 'Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','cno','10x10']]
+inc=[['AG','hm4di','Str','A2A','Ai32','saline','10x10','3mW']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 
 # %% Plot openloop mouse summary across conditions:
 conds = ['saline','cno']
 ex0=['exclude','Bad','GPe','bad','Broken',
-     'Exclude','Other XLS','10hz','15min','3mW']
+     'Exclude','Other XLS','10hz','15min',]
 exc=[ex0]
 keep={}
 for cond in conds:
-    inc=[['AG','hm4di','Str','A2A','Ai32','10x10',cond]]
+    inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW',cond]]
     data = behavior.open_loop_summary_collect(basepath,inc,exc)
     keep[cond]=data
 # %%

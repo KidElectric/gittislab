@@ -867,6 +867,8 @@ def stim_from_xlsx(df,pn):
             use_amp = int(temp_amp.split('p')[1])/10
         elif ('cno' in temp_amp) or ('sal' in temp_amp):
             use_amp=1
+        elif 'multi' in proto:
+            use_amp='multi'
         else:
             use_amp = int(temp_amp)
         stim['amp_mw']=use_amp
