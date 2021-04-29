@@ -1218,7 +1218,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
         plt.close()
     else:
         return fig
-def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm'):
+def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm',iter=50):
     '''
     
     Plot 50x2 (multi power short stim experiment) and attempt to fit a sigmoid.
@@ -1236,15 +1236,20 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm'):
         Method scipy.optimize.curve_fit uses to fit sigmoid
     Returns
     -------
-    None.
+    keep_x - list of fitted sigmoid x values for each experiment
+    keep_y - list of fitted sigmoid y values for each experiment
 
     '''
     ver = 0
+    keep_x=[]
+    keep_y=[]
+    keep_an=[]
     for ii in range(0,len(pns),1):
         raw,meta=ethovision_tools.csv_load(pns[ii],columns='All',method='raw' )
+        keep_an.append(meta['anid'][0])
         trial_fn=dataloc.gen_paths_recurse(pns[ii].parent,filetype = 'pwm_output*.csv')
         trials=pd.read_csv(trial_fn)
-        
+        doubled=False
         #% Percent Time Immobile
         if len(meta['stim_dur']) > 50:
             doubled=True
@@ -1279,52 +1284,29 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm'):
         # yf = np.append(y,m_clip['disc'][:,0])
         
         
-        xs=[i/100 for i in range(25,800,1)]
+        xs=[i/100 for i in range(-100,800,1)]
 
         all_po=model.boostrap_model(x,y,
                                     model.fit_sigmoid,
                                     model_method='lm',
-                                    iter = 50, 
+                                    iter = iter, 
                                     subsamp_by=5)
         
-        # cont = True
-        # subsamp_by = 5
-        # i=0
-        # desired_good = 50
-        # good=0
-        # keep_po=[]
-        # bad = 0
-        # #Bootsrap a fit!
-        # while cont:
-        #     ind= [np.random.randint(0,len(x)-1) for i in range(0,len(x)-subsamp_by)]
-        #     x_r=x[ind]
-        #     y_r=y[ind]
-        #     try:        
-        #         #print('Attempt %d' % i)
-        #         i += 1
-        #         # np.random
-        #         po,pc = model.fit_sigmoid(x_r,y_r,method='lm') # np.append(x,base_zer),np.append(y,all_base)
-        
-        #         good += 1
-        #         if good >= desired_good:
-        #             cont = False
-        #         else:
-        #             keep_po.append(po)
-        #     except:
-        #         #print(errmsg)
-        #        bad +=1
-        # all_po=np.median(np.stack(keep_po),axis=0)
         ys=model.sigmoid(xs, all_po[0], all_po[1], all_po[2],all_po[3])
         plt.plot(xs,ys,'b')
+        keep_x.append(xs)
+        keep_y.append(ys)
         plt.xlabel('Power (mW)')
         plt.ylabel('% Time Immobile')
-        plt.title('%d, %s' % (ii,meta['anid'][0]))
+        plt.title('%d, %s %s' % (ii,meta['anid'][0],meta['protocol'][0]))
+        plt.xticks(np.arange(0, round(np.max(xs))+1, step=1))
         if save == True:
             path_dir = str(meta['pn'][0].parent)
             anid= meta['anid'][0]
             proto=meta['etho_exp_type'][0]
             plt.show(block=False)
             plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,ver))
+    return keep_x, keep_y, keep_an
 def zone_day_crossing_stats(raw,meta):
     
     ac_on,ac_off= signals.thresh(raw['iz1'].astype(int),0.5,'Pos')

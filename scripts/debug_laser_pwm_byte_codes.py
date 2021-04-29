@@ -113,11 +113,11 @@ def search_sequence_numpy(arr,seq):
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
  'Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','Str','A2A','Ai32','50x2',]]
+inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
-df,meta=ethovision_tools.csv_load(pns[1],columns='All',method='raw' )
+df,meta=ethovision_tools.csv_load(pns[0],columns='All',method='raw' )
 # # %% Binary packet from a test file:
 # truth_pn=Path("/home/brian/Dropbox/Arduino/gittis/random_analog_leveler_v1/test_trial_338.csv")
 # raw_pn=Path("/home/brian/Dropbox/Arduino/gittis/random_analog_leveler_v1/Raw data-bi_two_zone_rm216_v2-Trial   338.csv")
@@ -185,6 +185,9 @@ plt.figure()
 plt.plot(o[:,0])
 
 o[37,0]=38
+trials=pd.DataFrame(o,columns=['Trial','PWM'])
+pwm_fn=Path(meta['pn'][0]).parent.joinpath('pwm_output_trial_337.csv')
+trials.to_csv(pwm_fn)
 # %% Examine packet
 trial=8
 i= (trial-1) * 2

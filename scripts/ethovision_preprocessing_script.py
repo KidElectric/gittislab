@@ -35,7 +35,8 @@ ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
 exc=[ex0]
 #inc=[['AG','ChR2_hM3Dq','Str','15mW_cno','D2_D1',]]
 #inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
-inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
+# inc=[['AG','Str','A2A','Ai32','50x2_hm4di_cno',]]
+inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
