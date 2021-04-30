@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from scipy import stats as scistats
 from matplotlib import pyplot as plt
 from gittislab import signals, plots, behavior, dataloc, ethovision_tools, model
 if ('COMPUTERNAME' in os.environ.keys()) \
@@ -21,24 +22,31 @@ else:
 
 #%% Load in light curve calibration for Dial = 740:
     
+#Dial 740 Cal:
 fn = Path('/home/brian/Dropbox/Arduino/gittis/blue_laser_power_control_sweep_0-255_arduino_TTL_dial_740.csv')
-
 df_cal=pd.read_csv(fn,sep=';')
-# plt.figure()
+thresh=-3
+
+#Dial 740 Cal # 2: 04-30-2021:
+# fn=Path('/home/brian/Dropbox/Gittis Lab Hardware/Laser Glow/laser_cal_sweeps/pwm_to_TTL/2021-04-30/blue_laser_power_control_sweep_0-255_arduino_TTL_dial_740_4-30-21.csv')
+# df_cal=pd.read_csv(fn,sep=',')
+# thresh=-4
 y=df_cal.loc[:,'Power (W)'] *1000 # Put in mW
-# plt.plot(df_cal.loc[:,'Samples '],y)
+
 
 #locate drop offs:
 d=np.diff(y)
-on,off=signals.thresh(d,-3,'Neg')
+on,off=signals.thresh(d,thresh,'Neg')
 
 
 onsets= np.array(off[0:-1])+1
 offsets =np.array( off[1:])
-
-# for o,oo in zip(onsets,offsets):
-#     plt.plot([o,o],[0,10],'--r')
-#     plt.plot([oo,oo],[0,10],'--g')
+plt.figure()
+plt.plot(df_cal.loc[:,'Samples '],y)
+for o,oo in zip(onsets,offsets):
+    plt.plot([o,o],[0,10],'--r')
+    plt.plot([oo,oo],[0,10],'--g')
+    
 newclips=[]
 for o,f in zip(onsets,offsets):
     dd= f-o
@@ -58,9 +66,9 @@ x=x[2:]
 ax=plots.mean_cont_plus_conf_array(x,dat.T,)
 mean_power=np.mean(dat,axis=0)
 f = np.polyfit(x,mean_power,deg=2)
-p = np.poly1d(f)
+laser_cal_fit = np.poly1d(f)
 plt.sca(ax)
-plt.plot(x,p(x),'r')
+plt.plot(x,laser_cal_fit(x),'r')
 
 ax.set_ylabel('Blue laser output (mW)')
 ax.set_xlabel('Arduino PWM level')
@@ -86,6 +94,8 @@ exc=[ex0]
 save = False
 plt.close('all')
 ans = ['sal','cno','other']
+# ans = ['cno']
+
 for analyze in ans:        
     if analyze == 'sal':
         inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
@@ -98,7 +108,7 @@ for analyze in ans:
     if not isinstance(pns,list):
         pns=[pns]
     
-    sig_x,sig_y,anid = plots.plot_light_curve_sigmoid(pns,p,save=save,iter=100) #Includes bootstrapping 
+    sig_x,sig_y,anid = plots.plot_light_curve_sigmoid(pns,laser_cal_fit,save=save,iter=100) #Includes bootstrapping 
     if analyze == 'sal':
         sal_x=sig_x
         sal_y=sig_y
@@ -112,15 +122,23 @@ for analyze in ans:
         oth_y=sig_y
         oth_an=anid
 # %% Compare 2 fits
-use_sal=['AG6846_5','AG6846_3']
+use_sal=cno_an
+# use_sal =[ 'AG6611_7', 'AG6846_5',  'AG6845_9', 'AG6611_6', 'AG6846_3']
 plt.close('all')
+sal_keep=[]
+cno_keep=[]
+sal_base_keep=[]
+cno_base_keep=[]
 def find_mid(x,y):
     dy=np.diff(y)
     mid=np.argwhere(np.max(dy) == dy)[0][0] 
     return x[mid],y[mid]
-
+def find_base(x,y):
+    ind=np.argwhere(np.array(x)<=0)
+    return np.mean(np.array(y)[ind])
 for ii,an in enumerate(cno_an):
     plt.figure()
+    
     if an in use_sal:
         cont_ind=np.argwhere( [an == i for i in sal_an])[0][0]
         x = sal_x[cont_ind] 
@@ -128,6 +146,7 @@ for ii,an in enumerate(cno_an):
         xm,ym= find_mid(x,y)
         plt.plot(x,y,'b',label='Saline')
         plt.plot(xm,ym,'bo',label='Midpoint')
+        
     else:
         cont_ind= np.argwhere( [an == i for i in oth_an])[0][0]
         x=oth_x[cont_ind]
@@ -135,15 +154,28 @@ for ii,an in enumerate(cno_an):
         xm,ym= find_mid(x,y)
         plt.plot(x,y,'b',label='Control')
         plt.plot(xm,ym,'bo',label='Midpoint')
-        
+    sal_base_keep.append(find_base(x,y))
+    sal_keep.append(xm) 
     xm,ym = find_mid(cno_x[ii],cno_y[ii])
+    cno_keep.append(xm)
+    cno_base_keep.append(find_base(cno_x[ii],cno_y[ii]))
     plt.plot(cno_x[ii],cno_y[ii],'r',label='CNO')
     plt.plot(xm,ym,'ro',label='Midpoint')
     
-    
+    plt.xticks(ticks=range(0,9,1))
     plt.xlabel('Power (mW)')
     plt.ylabel('% Immobile')
     plt.title('%s' % an)
     plt.ylim([0,100])
     plt.legend()
         
+# %% Combrine all onto one plot? Norm baseline
+d_mid=np.array(cno_keep) - np.array(sal_keep)
+per_d=d_mid / np.array(sal_keep) * 100 #cno percent threshold shift from control
+ld = signals.log_modulus(d_mid) #Transform because definitely not normal
+_,pval = scistats.ttest_rel(np.zeros(ld.shape),ld)
+print('Mid shift p-value = %1.4f (paired t-test)' % pval)
+
+ld_base =np.array(cno_base_keep) - np.array(sal_base_keep) 
+_,pval = scistats.ttest_rel(np.zeros(ld_base.shape),ld_base)
+print('Base p-value = %1.4f (paired t-test)' % pval)
