@@ -93,7 +93,7 @@ ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
 exc=[ex0]
 save = False
 plt.close('all')
-ans = ['sal','cno','other']
+ans = ['sal','cno',]
 # ans = ['cno']
 
 for analyze in ans:        
@@ -108,15 +108,17 @@ for analyze in ans:
     if not isinstance(pns,list):
         pns=[pns]
     
-    sig_x,sig_y,anid = plots.plot_light_curve_sigmoid(pns,laser_cal_fit,save=save,iter=100) #Includes bootstrapping 
+    sig_x,sig_y,anid,par = plots.plot_light_curve_sigmoid(pns,laser_cal_fit,save=save,iter=100) #Includes bootstrapping 
     if analyze == 'sal':
         sal_x=sig_x
         sal_y=sig_y
         sal_an=anid
+        sal_par=np.stack(par)
     elif analyze == 'cno':
         cno_x=sig_x
         cno_y=sig_y
         cno_an=anid
+        cno_par=np.stack(par)
     else:
         oth_x=sig_x
         oth_y=sig_y
@@ -170,12 +172,21 @@ for ii,an in enumerate(cno_an):
     plt.legend()
         
 # %% Combrine all onto one plot? Norm baseline
-d_mid=np.array(cno_keep) - np.array(sal_keep)
-per_d=d_mid / np.array(sal_keep) * 100 #cno percent threshold shift from control
+
+
+d_mid=cno_par[:,1] - sal_par[:,1] #fitted x0 parameter
+
+per_d=d_mid / sal_par[:,1] * 100 #cno percent threshold shift from control
 ld = signals.log_modulus(d_mid) #Transform because definitely not normal
 _,pval = scistats.ttest_rel(np.zeros(ld.shape),ld)
 print('Mid shift p-value = %1.4f (paired t-test)' % pval)
 
-ld_base =np.array(cno_base_keep) - np.array(sal_base_keep) 
+
+ld_base = d_mid
 _,pval = scistats.ttest_rel(np.zeros(ld_base.shape),ld_base)
 print('Base p-value = %1.4f (paired t-test)' % pval)
+
+dat=np.stack((sal_par[:,1],cno_par[:,1]),axis=-1)
+f,a,h=plots.mean_bar_plus_conf_array(dat, ['Saline','CNO'])
+plt.xlabel('50x2 condition')
+plt.ylabel('Immobility threshold x0 (mW)')
