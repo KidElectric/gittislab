@@ -118,6 +118,13 @@ pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
 df,meta=ethovision_tools.csv_load(pns[0],columns='All',method='raw' )
+doubled = False
+if len(meta['stim_dur']) > 50:
+    doubled=True
+if doubled:
+    meta.drop(axis=0,index=range(0,100,2),inplace=True)
+    meta.reset_index(inplace=True)
+    
 # # %% Binary packet from a test file:
 # truth_pn=Path("/home/brian/Dropbox/Arduino/gittis/random_analog_leveler_v1/test_trial_338.csv")
 # raw_pn=Path("/home/brian/Dropbox/Arduino/gittis/random_analog_leveler_v1/Raw data-bi_two_zone_rm216_v2-Trial   338.csv")
@@ -229,8 +236,13 @@ inc=[['AG','Str','A2A','Ai32','50x2',]]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
-raw,meta=ethovision_tools.csv_load(pns[1],columns='All',method='preproc' )
-
+raw,meta=ethovision_tools.csv_load(pns[0],columns='All',method='preproc' )
+doubled = False
+if len(meta['stim_dur']) > 50:
+    doubled=True
+if doubled:
+    meta.drop(axis=0,index=range(0,100,2),inplace=True)
+    meta.reset_index(inplace=True)
 meta['stim_dur'] = 2 #Overwrite default
 meta['stim_off'] = meta['stim_on'] + 2
 percentage = lambda x: (np.nansum(x)/len(x))*100
@@ -349,10 +361,14 @@ xm=[i+0.5 for i in range(0,8,1)]
 plt.plot(xm,ym,'-or')
 plt.plot(0,np.mean(m_clip['disc'][:,0]),'*b')
 
+# po,pc=model.fit_double_sigmoid(x,y)
+po=model.boostrap_model(x,y,model.fit_double_sigmoid,model_method='lm')
+ys=model.double_sigmoid(xs, po[0], po[1], po[2],po[3],po[4],po[5])
+
 # po,pc = model.fit_sigmoid(x,y)
 # xs=[i/100 for i in range(25,800,1)]
 # ys=model.sigmoid(xs, po[0], po[1], po[2],po[3])
-# plt.plot(xs,ys,'b')
+plt.plot(xs,ys,'b')
 plt.xlabel('Power (mW)')
 plt.ylabel('Speed (cm/s)')
 #%% With interpolation DOES NOT WORK WELL.

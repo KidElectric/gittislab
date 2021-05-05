@@ -18,7 +18,7 @@ from sklearn import metrics
 import joblib
 from scipy.optimize import curve_fit
 
-def boostrap_model(x,y,model_fn,model_method='lm',iter = 50, subsamp_by=5):
+def boostrap_model(x,y,model_fn,model_method='lm',iter = 50,max_iter=1000, subsamp_by=5):
     '''
     Bootstrap model fitting with randomly downsampled x & y data and take median of parameters as working fit.
     '''
@@ -38,7 +38,7 @@ def boostrap_model(x,y,model_fn,model_method='lm',iter = 50, subsamp_by=5):
             good += 1
             if good >= iter:
                 cont = False
-            elif bad > (iter * 100):
+            elif bad > max_iter:
                 print('Bootstrap aborting at %d failed iterations.' % bad)
                 break
             else:
@@ -47,13 +47,22 @@ def boostrap_model(x,y,model_fn,model_method='lm',iter = 50, subsamp_by=5):
            bad +=1
     return np.median(np.stack(keep_po),axis=0)
 
-def fit_sigmoid(xdata,ydata,method='dogbox'):
+def fit_sigmoid(xdata,ydata,method='lm'):
     p0 = [max(ydata), np.median(xdata),1,min(ydata)] # this is an mandatory initial guess
     popt, pcov = curve_fit(sigmoid, xdata, ydata, p0, method=method)
     return popt,pcov
 
+def fit_double_sigmoid(xdata,ydata,method='lm'):
+    p0 =[min(ydata),max(ydata),np.median(xdata),1,1,10]
+    popt, pcov = curve_fit(double_sigmoid,xdata,ydata, p0 =p0, method = method)
+    return popt,pcov
+
 def sigmoid(x,L ,x0, k, b):
     y = L / (1 + np.exp(-k*(x-x0)))+b
+    return (y)
+
+def double_sigmoid(x,a,b,c,d,e,f):
+    y = a + (b/(1+(np.exp(-1*((x-c+(d/2))/e)))))*(1-(1/(1+np.exp(-1*((x-c-(d/2))/f)))))
     return (y)
 
 def combine_raw_csv_for_modeling(raw_pns,

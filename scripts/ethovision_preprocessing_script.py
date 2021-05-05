@@ -47,15 +47,34 @@ print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
+# %% RUN AFTER DLC:
+ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
+exc=[ex0]
+# inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno_10hz']]
+inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
+# inc=[['AG','10x10','Str','A2A','Ai32','AG5362_3']]
+# inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
+# inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
+basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+ethovision_tools.unify_raw_to_csv(basepath,
+                                  inc,exc,force_replace=False,
+                                  win=10,make_preproc = False)
+
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
+                                             force_replace=True,win=10)
+summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
+print(summary.stim_dur)
+print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
+print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 # %% Plot 10x10 / openloop days:
-# ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
+ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','cno','3mW']]
+inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
 saveit=True
-closeit=True
+closeit=False
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
     plots.plot_openloop_day(df,meta,save=saveit, close=closeit)
@@ -73,7 +92,8 @@ for pn in pns:
 # %% Plot 10x10 openloop mouse summary:
 ex0=['exclude','Bad','GPe','bad','Broken','15min','10hz', 'Exclude','Other XLS']
 exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','saline','10x10','3mW']]
+# inc=[['AG','hm4di','Str','A2A','Ai32','saline','10x10','3mW']]
+inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 
@@ -111,22 +131,6 @@ inc=[['AG','hm4di','Str','A2A','Ai32','10x10','saline']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 
-# %% RUN AFTER DLC:
-ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
-exc=[ex0]
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno_10hz']]
-# inc=[['AG','10x10','Str','A2A','Ai32','AG5362_3']]
 
-basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-ethovision_tools.unify_raw_to_csv(basepath,
-                                  inc,exc,force_replace=False,
-                                  win=10,make_preproc = False)
-
-ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
-                                             force_replace=True,win=10)
-summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
-print(summary.stim_dur)
-print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
-print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% 

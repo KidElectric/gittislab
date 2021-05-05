@@ -48,15 +48,15 @@ plots.plot_freerunning_cond_comparison(keep,save=False,close=False)
 # %% Calculate openloop mouse summary across conditions:
 conds = ['saline','cno']
 ex0=['exclude','Bad','GPe','bad','Broken',
-     'Exclude','Other XLS','10hz','15min','3mW']
+     'Exclude','Other XLS','15min','10Hz']
 exc=[ex0]
 keep={}
 for cond in conds:
-    inc=[['AG','hm4di','Str','A2A','Ai32','10x10',cond]]
+    inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW',cond]]
     data = behavior.open_loop_summary_collect(basepath,inc,exc)
     keep[cond]=data
     
-# %% Plot
+# %%Plot
 plots.plot_openloop_cond_comparison(keep,save=False,close=False)
     
 # %% Calculate a mouse-wise differeince in percent time mobile base vs. stim:

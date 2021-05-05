@@ -420,12 +420,12 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         plt.ylabel('Speed (cm/s)')
         plt.xlabel('Time from stim (s)')
         
-        ax_speed = mean_bar_plus_conf(vel_clip,['Pre','Dur','Post'],ax=f_row[1][1])
+        ax_speed = mean_bar_plus_conf_clip(vel_clip,['Pre','Dur','Post'],ax=f_row[1][1])
         plt.ylabel('Speed (cm/s)')
         plt.xlabel('Time from stim (s)')
         
         #### Row 2: % Time mobile & (Rearing?)
-        ax_im = mean_bar_plus_conf(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
+        ax_im = mean_bar_plus_conf_clip(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
         plt.ylabel('% Time Mobile')
         
         min_bout=1
@@ -438,46 +438,47 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         
         #Rearing:
         if meta['has_dlc'][0] == True:
+            rate = lambda x: len(signals.thresh(x,0.5)[0]) / stim_dur
             rear_clip=behavior.stim_clip_grab(raw,meta,y_col='rear', 
                                    stim_dur=stim_dur,
-                                   summarization_fun=percentage)
-            mean_bar_plus_conf(rear_clip,['Pre','Dur','Post'],ax=f_row[2][1])
-            plt.ylabel('% Time Rearing')
+                                   summarization_fun=rate)
+            mean_bar_plus_conf_clip(rear_clip,['Pre','Dur','Post'],ax=f_row[2][1])
+            plt.ylabel('Rears / s (Hz)')
     
         #### Row 3: Ambulation bout info
         #Rate
-        ax_amb_bout_rate= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+        ax_amb_bout_rate= mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
                                                    use_key='rate',ax=f_row[3][0])
         plt.ylabel('Amb. bouts / 30s')
         
         #Duration
-        ax_amb_bout_dur = mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+        ax_amb_bout_dur = mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
                                                    use_key='dur',ax=f_row[3][1])
         plt.ylabel('Amb. dur (s)')
         
         #Speed
-        ax_amb_bout_speed= mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+        ax_amb_bout_speed= mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
                                                    use_key='speed',ax=f_row[3][2])
         plt.ylabel('Amb. speed (cm/s)')
         
         #### Row 4: immobility bout info
         #Rate
-        ax_im_bout_rate= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+        ax_im_bout_rate= mean_bar_plus_conf_clip(im_bouts,['Pre','Dur','Post'],
                                                    use_key='rate',ax=f_row[4][0])
         plt.ylabel('Im. bouts / 30s')
         
         #Duration
-        ax_im_bout_dur= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+        ax_im_bout_dur= mean_bar_plus_conf_clip(im_bouts,['Pre','Dur','Post'],
                                                    use_key='dur',ax=f_row[4][1])
         plt.ylabel('Im. dur (s)')
         
-        ax_im_bout_speed= mean_bar_plus_conf(im_bouts,['Pre','Dur','Post'],
+        ax_im_bout_speed= mean_bar_plus_conf_clip(im_bouts,['Pre','Dur','Post'],
                                                    use_key='speed',ax=f_row[4][2])
         plt.ylabel('Im. speed (cm/s)')
         
         #### Row 5: Meander/directedness (in progress)
         #Amb meander -- exclude for now
-        # ax_amb_meander= mean_bar_plus_conf(amb_bouts,
+        # ax_amb_meander= mean_bar_plus_conf_clip(amb_bouts,
         #                                          ['Pre','Dur','Post'],
         #                                            use_key='meander',
         #                                            ax=f_row[5][0])
@@ -488,7 +489,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='meander',
         #                                      stim_dur=stim_dur,
         #                                      summarization_fun = np.nanmedian)
-        # ax_all_meander= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+        # ax_all_meander= mean_bar_plus_conf_clip(meander_clip,['Pre','Dur','Post'],
         #                                            ax=f_row[5][1])
         # plt.ylabel('Meadian meander (deg/cm)')
         
@@ -496,7 +497,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         # meander_clip=behavior.stim_clip_grab(raw,meta,y_col='directed',
         #                                      stim_dur=stim_dur,
         #                                      summarization_fun = np.nanmedian)
-        # ax_all_direct= mean_bar_plus_conf(meander_clip,['Pre','Dur','Post'],
+        # ax_all_direct= mean_bar_plus_conf_clip(meander_clip,['Pre','Dur','Post'],
         #                                            ax=f_row[5][2])
         # plt.ylabel('Directed (cm/deg)')
         
@@ -723,7 +724,7 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
     use_dur=pystats.mode(durs)
     labels=['{0:1.0f}-{1:1.0f}'.format((i-1)*use_dur/60,i*use_dur/60) 
             for i in range(1,4)]
-    ax_speed = mean_bar_plus_conf(clip_ave,labels,
+    ax_speed = mean_bar_plus_conf_clip(clip_ave,labels,
                                   clip_method=False, ax=f_row[0][sum_i])
     plt.ylabel('Amb speed (cm/s)')
     plt.xlabel('Time from stim (s)')
@@ -741,7 +742,7 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
               'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
               'disc' : y}
               
-    ax_mobile= mean_bar_plus_conf(clip_ave,labels,
+    ax_mobile= mean_bar_plus_conf_clip(clip_ave,labels,
                               clip_method=False, ax=f_row[1][0])
     plt.ylabel('Time Mobile (%)')
     plt.xlabel('Time from stim (s)')
@@ -893,10 +894,10 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
         plt.ylabel('Speed (cm/s)')
         plt.xlabel('Time from stim (s)')
         plt.title('%s 10x%ds (%s), n=%d' % (cao,dur,data['proto'][0],y.shape[0]))
-        # mean_bar_plus_conf(clip,xlabels,use_key='disc',ax=None,clip_method=True,
+        # mean_bar_plus_conf_clip(clip,xlabels,use_key='disc',ax=None,clip_method=True,
                        # color='')
         
-    ax_speed = mean_bar_plus_conf(clip_ave,['Pre','Dur','Post'],
+    ax_speed = mean_bar_plus_conf_clip(clip_ave,['Pre','Dur','Post'],
                                   clip_method=False, ax=f_row[0][sum_i])
     plt.ylabel('Speed (cm/s)')
     plt.xlabel('Time from stim (s)')
@@ -914,7 +915,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
               'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
               'disc' : y}
               
-    ax_mobile= mean_bar_plus_conf(clip_ave,['Pre','Dur','Post'],
+    ax_mobile= mean_bar_plus_conf_clip(clip_ave,['Pre','Dur','Post'],
                               clip_method=False, ax=f_row[1][0])
     plt.ylabel('Time Mobile (%)')
     plt.xlabel('Time from stim (s)')
@@ -945,7 +946,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     cols=['k','w','g']
     ax=f_row[2][0]
     amb_bouts={'rate':dat}
-    mean_bar_plus_conf(amb_bouts,['Pre','Dur','Post'],
+    mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False)
     ax.set_xlim([-1,3])
     ax.set_ylabel('Amb bouts / s')
@@ -958,7 +959,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     cols=['k','w','g']
     ax=f_row[2][1]
     bouts={'rate':dat}
-    mean_bar_plus_conf(bouts,['Pre','Dur','Post'],
+    mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False)
     ax.set_xlim([-1,3])
     ax.set_ylabel('Imm. bouts / s')
@@ -973,7 +974,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
         cols=['k','w','g']
         ax=f_row[2][2]
         bouts={'rate':dat}
-        mean_bar_plus_conf(bouts,['Pre','Dur','Post'],
+        mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
                            use_key='rate',ax=ax,clip_method=False)
         ax.set_xlim([-1,3])
         ax.set_ylabel('Rear bouts / s')
@@ -1167,7 +1168,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
     plt.ylabel('Speed (cm/s)')
     plt.xlabel('Time from stim (s)')
     
-    ax_speed = mean_bar_plus_conf(vel_clip,['Pre','Dur','Post'],
+    ax_speed = mean_bar_plus_conf_clip(vel_clip,['Pre','Dur','Post'],
                                   ax=f_row[2][1],
                                   color='k')
     
@@ -1281,7 +1282,10 @@ def plot_zone_day(raw,meta,save=False,close = False):
         plt.close()
     else:
         return fig
-def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm',iter=50):
+    
+def plot_light_curve_sigmoid(pns,laser_cal_fit,sum_fun, y_col='im',
+                             save=False,load_method='raw',fit_method='lm',
+                             iter=50):
     '''
     
     Plot 50x2 (multi power short stim experiment) and attempt to fit a sigmoid.
@@ -1309,7 +1313,7 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm',iter=5
     keep_an=[]
     keep_par = []
     for ii in range(0,len(pns),1):
-        raw,meta=ethovision_tools.csv_load(pns[ii],columns='All',method='raw' )
+        raw,meta=ethovision_tools.csv_load(pns[ii],columns='All',method=load_method )
         keep_an.append(meta['anid'][0])
         trial_fn=dataloc.gen_paths_recurse(pns[ii].parent,filetype = 'pwm_output*.csv')
         trials=pd.read_csv(trial_fn)
@@ -1320,11 +1324,11 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm',iter=5
         if doubled:
             meta.drop(axis=0,index=range(0,100,2),inplace=True)
             meta.reset_index(inplace=True)
-        percentage = lambda x: (np.nansum(x)/len(x))*100
-        m_clip= behavior.stim_clip_grab(raw,meta,y_col='im', 
-                                       stim_dur=2,
-                                       baseline = 2,
-                                       summarization_fun=percentage)
+       
+        m_clip= behavior.stim_clip_grab(raw,meta,y_col=y_col, 
+                                       stim_dur=meta['stim_dur'][0],
+                                       baseline = meta['stim_dur'][0],
+                                       summarization_fun=sum_fun)
         
         y=m_clip['disc'][:,1]
         x=laser_cal_fit(trials.loc[:,'PWM'].values)
@@ -1361,7 +1365,9 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm',iter=5
         keep_x.append(xs)
         keep_y.append(ys)
         plt.xlabel('Power (mW)')
-        plt.ylabel('% Time Immobile')
+        if y_col == 'im':
+            plt.ylabel('% Time Immobile')
+        
         plt.title('%d, %s %s' % (ii,meta['anid'][0],meta['protocol'][0]))
         plt.xticks(np.arange(0, round(np.max(xs))+1, step=1))
         if save == True:
@@ -1369,8 +1375,10 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,save=False,fit_method='lm',iter=5
             anid= meta['anid'][0]
             proto=meta['etho_exp_type'][0]
             plt.show(block=False)
-            plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,ver))
+            plt.savefig(path_dir + '/%s_%s_%s_summary_v%d.png' %  (anid,proto,
+                                                                   y_col, ver))
     return keep_x, keep_y, keep_an, keep_par
+
 def zone_day_crossing_stats(raw,meta):
     
     ac_on,ac_off= signals.thresh(raw['iz1'].astype(int),0.5,'Pos')

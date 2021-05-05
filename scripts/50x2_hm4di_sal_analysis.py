@@ -95,7 +95,14 @@ save = False
 plt.close('all')
 ans = ['sal','cno',]
 # ans = ['cno']
+# y_col = 'rear'
+y_col = 'vel'
+load_method='preproc'
+stim_dur = 2
+percentage = lambda x: (np.nansum(x)/len(x))*100
+rate = lambda x: len(signals.thresh(x,0.5)[0]) / stim_dur
 
+sum_fun = np.mean
 for analyze in ans:        
     if analyze == 'sal':
         inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
@@ -108,7 +115,12 @@ for analyze in ans:
     if not isinstance(pns,list):
         pns=[pns]
     
-    sig_x,sig_y,anid,par = plots.plot_light_curve_sigmoid(pns,laser_cal_fit,save=save,iter=100) #Includes bootstrapping 
+    sig_x,sig_y,anid,par = plots.plot_light_curve_sigmoid([pns[0]],
+                                                          laser_cal_fit,
+                                                          sum_fun,
+                                                          y_col=y_col,
+                                                          load_method=load_method,
+                                                          save=save,iter=100) #Includes bootstrapping 
     if analyze == 'sal':
         sal_x=sig_x
         sal_y=sig_y
@@ -190,3 +202,36 @@ dat=np.stack((sal_par[:,1],cno_par[:,1]),axis=-1)
 f,a,h=plots.mean_bar_plus_conf_array(dat, ['Saline','CNO'])
 plt.xlabel('50x2 condition')
 plt.ylabel('Immobility threshold x0 (mW)')
+
+
+# %% Examine curve given mouse speed?
+m_clip= behavior.stim_clip_grab(raw,meta,y_col='vel', 
+                               stim_dur=2,
+                               baseline = 2,
+                               summarization_fun=np.mean)
+
+y=(m_clip['disc'][:,1])
+x=p(o[:,1])
+plt.figure()
+plt.plot(x,y,'ok')
+
+#Bin per mW and average:
+ym=[]
+for i in range(0,8,1):
+    ind = (x >= i) & (x < (i+1))
+    mbin= np.mean(y[ind])
+    ym.append(mbin)
+xm=[i+0.5 for i in range(0,8,1)]
+plt.plot(xm,ym,'-or')
+plt.plot(0,np.mean(m_clip['disc'][:,0]),'*b')
+
+# po,pc=model.fit_double_sigmoid(x,y)
+po=model.boostrap_model(x,y,model.fit_double_sigmoid,model_method='lm')
+ys=model.double_sigmoid(xs, po[0], po[1], po[2],po[3],po[4],po[5])
+
+# po,pc = model.fit_sigmoid(x,y)
+# xs=[i/100 for i in range(25,800,1)]
+# ys=model.sigmoid(xs, po[0], po[1], po[2],po[3])
+plt.plot(xs,ys,'b')
+plt.xlabel('Power (mW)')
+plt.ylabel('Speed (cm/s)')

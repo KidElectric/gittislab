@@ -80,6 +80,30 @@ def outlier_to_nan(y,outlier_thresh=3):
     return y
 
 def thresh(y,thresh, sign='Pos'):
+    '''
+    
+
+    Parameters
+    ----------
+    y : np.array
+       array of signal to threshold
+    thresh : numeric (int / float)
+        Value to use in thresholding
+    sign : String, optional
+        Whether to return periods above ('Pos') or below ('Neg') the threshold.
+        The default is 'Pos'.
+
+    Returns
+    -------
+    onsets -
+    np.array
+        Array of index locations in y where threshold crossing begins.
+    
+    offsets
+        np.array
+        Array of index locations in y where threshold crossing ends.
+
+    '''
     #Fill in nans using pandas:
     if not isinstance(y,pd.core.series.Series):
         y=pd.core.series.Series(y.flatten())
