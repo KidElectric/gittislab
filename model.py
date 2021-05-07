@@ -18,7 +18,7 @@ from sklearn import metrics
 import joblib
 from scipy.optimize import curve_fit
 
-def boostrap_model(x,y,model_fn,model_method='lm',iter = 50,max_iter=1000, subsamp_by=5):
+def bootstrap_model(x,y,model_fn,model_method='lm',iter = 50,max_iter=1000, subsamp_by=5):
     '''
     Bootstrap model fitting with randomly downsampled x & y data and take median of parameters as working fit.
     '''
@@ -47,23 +47,41 @@ def boostrap_model(x,y,model_fn,model_method='lm',iter = 50,max_iter=1000, subsa
            bad +=1
     return np.median(np.stack(keep_po),axis=0)
 
+def sigmoid(x,L ,x0, k, b):
+    y = L / (1 + np.exp(-k*(x-x0)))+b
+    return (y)
+
 def fit_sigmoid(xdata,ydata,method='lm'):
     p0 = [max(ydata), np.median(xdata),1,min(ydata)] # this is an mandatory initial guess
     popt, pcov = curve_fit(sigmoid, xdata, ydata, p0, method=method)
     return popt,pcov
+
+def double_sigmoid(x,a,b,c,d,e,f):
+    y = a + (b/(1+(np.exp(-1*((x-c+(d/2))/e)))))*(1-(1/(1+np.exp(-1*((x-c-(d/2))/f)))))
+    return (y)
 
 def fit_double_sigmoid(xdata,ydata,method='lm'):
     p0 =[min(ydata),max(ydata),np.median(xdata),1,1,10]
     popt, pcov = curve_fit(double_sigmoid,xdata,ydata, p0 =p0, method = method)
     return popt,pcov
 
-def sigmoid(x,L ,x0, k, b):
-    y = L / (1 + np.exp(-k*(x-x0)))+b
-    return (y)
+def gaussian(x,a,x0,sigma):
+    return a*np.exp(-(x-x0)**2/(2*sigma**2))
 
-def double_sigmoid(x,a,b,c,d,e,f):
-    y = a + (b/(1+(np.exp(-1*((x-c+(d/2))/e)))))*(1-(1/(1+np.exp(-1*((x-c-(d/2))/f)))))
-    return (y)
+def fit_gaussian(xdata,ydata,method='lm'):
+    ''' Fit a gaussian curve to data
+    inspired by https://stackoverflow.com/questions/19206332/gaussian-fit-for-python/38431524
+    
+    '''
+    n = len(xdata)                          #the number of data
+    mean = np.sum(xdata*ydata)/n                   #note this correction
+    sigma = sum(ydata*(xdata-mean)**2)/n        #note this correction
+    popt,pcov = curve_fit(gaussian,xdata,ydata,p0=[1,mean,sigma],method=method)
+    return popt,pcov
+
+
+
+
 
 def combine_raw_csv_for_modeling(raw_pns,
                                  boris_obs_names,

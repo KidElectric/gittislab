@@ -11,7 +11,7 @@ import sys
 import statistics
 from scipy import stats
 sys.path.append('/home/brian/Dropbox/Python')
-from gittislab import mat_file
+from gittislab import mat_file, signals
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ import math
 plot_any=False
 use_inline=False
 
-pn='/home/brian/Dropbox/Gittis Lab Data/Electrophysiology/GPe/Naive/A2A/AI32/BI021519'
+pn='/home/brian/Dropbox/Gittis Lab Data/Electrophysiology/GPe/Naive/A2A/AI32/AG4049_1_BI021519/'
 paths=os.listdir(pn)
 fns=[]
 
@@ -74,24 +74,24 @@ for j,fn in enumerate(fns):
 summary=summary[0:last_ii][:]
 
 #%% Plot each unit FR during running vs not:
-if use_inline==True:
-    %matplotlib inline 
-else:
-    print('pop-out Plot')
-    %matplotlib Qt5 
+# if use_inline==True:
+#     %matplotlib inline 
+# else:
+#     print('pop-out Plot')
+#     %matplotlib Qt5 
 fig, ax = plt.subplots()
-def logmod(x):
-    from math import log10
-    sign=1
-    if x < 0:
-        sign=-1
-    return log10(abs(x)+1)*sign
+# def logmod(x):
+#     from math import log10
+#     sign=1
+#     if x < 0:
+#         sign=-1
+#     return log10(abs(x)+1)*sign
  
 for row in summary:
         # Plot FR during stopped vs. running:
        
         x=[1,2]
-        y=[logmod(v) for v in row[3:5]]
+        y=[signals.log_modulus(v) for v in row[3:5]]
         ax.plot(x,y,'-ok')
         
         

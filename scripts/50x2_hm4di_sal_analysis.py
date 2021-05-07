@@ -72,6 +72,7 @@ plt.plot(x,laser_cal_fit(x),'r')
 
 ax.set_ylabel('Blue laser output (mW)')
 ax.set_xlabel('Arduino PWM level')
+
 # %% Load in 10x10 day for comparison:
 # pnfn=Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10_hm4di_saline/AG6846_5_BI040121/Raw_AG6846_5_BI040121.csv')
 pnfn=Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/Str/Naive/A2A/Ai32/Bilateral/10x10_hm4di_cno/AG6846_5_BI033021/Raw_AG6846_5_BI033021.csv')
@@ -235,3 +236,118 @@ ys=model.double_sigmoid(xs, po[0], po[1], po[2],po[3],po[4],po[5])
 plt.plot(xs,ys,'b')
 plt.xlabel('Power (mW)')
 plt.ylabel('Speed (cm/s)')
+
+# %% Method of plotting P(dart):
+ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
+ 'Exclude','Other XLS']
+exc=[ex0]
+save = False
+plt.close('all')
+ans = ['sal','cno']
+y_col = 'vel'
+load_method='preproc'
+stim_dur = 2
+percentage = lambda x: (np.nansum(x)/len(x))*100
+rate = lambda x: len(signals.thresh(x,0.5)[0]) / stim_dur
+sum_fun = np.mean
+dat={'cond':[],'sigma':[],'mean':[],'amp':[], 'anid':[]}
+save=True
+for analyze in ans:        
+    if analyze == 'sal':
+        inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
+    elif analyze == 'cno':
+        inc=[['AG','Str','A2A','Ai32','50x2_hm4di_cno',]]
+    else:
+        inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
+    
+    pns=dataloc.raw_csv(basepath,inc[0],ex0)
+    if not isinstance(pns,list):
+        pns=[pns]
+    
+    pns=dataloc.raw_csv(basepath,inc[0],ex0)
+    for ii in range(0,len(pns),1):
+        raw,meta=ethovision_tools.csv_load(pns[ii],columns='All',method='preproc' )
+        trial_fn=dataloc.gen_paths_recurse(pns[ii].parent,filetype = 'pwm_output*.csv')
+        trials=pd.read_csv(trial_fn)
+        doubled=False
+        #% Percent Time Immobile
+        if len(meta['stim_dur']) > 50:
+            doubled=True
+        if doubled:
+            meta.drop(axis=0,index=range(0,100,2),inplace=True)
+            meta.reset_index(inplace=True)
+        title_str='%s %s' % (meta['anid'][0],meta['protocol'][0])
+        m_clip = behavior.stim_clip_grab(raw,meta,y_col=y_col, 
+                                       stim_dur=meta['stim_dur'][0],
+                                       baseline = meta['stim_dur'][0],
+                                       summarization_fun=sum_fun)
+        dat['cond'].append(analyze)
+        dat['anid'].append(meta['anid'][0])
+        y=m_clip['disc'][:,1]
+        x=laser_cal_fit(trials.loc[:,'PWM'].values)
+        fig,ax=plt.subplots(2,1)
+        fig.canvas.set_window_title(title_str)
+        ax[0].plot(x,y,'ok')
+        ax[0].set_xlabel('Power (mW)')
+        ax[0].set_title(title_str)
+        
+        max_x=np.max(x)  
+        xbin=np.arange(0,max_x,max_x/20)
+        po=model.bootstrap_model(x,y,model.fit_gaussian)
+        dat['sigma'].append(po[2])
+        dat['mean'].append(po[1])
+        dat['amp'].append(po[0])
+        g=model.gaussian(xbin, po[0], po[1], po[2])
+        ax[0].plot(xbin,g,'r')
+        
+        #Attempt to take ydata, make 10 bins and plot p(dart) in each:
+            
+        my=np.mean(y)
+        sty=np.std(y)
+        dart = y > (my + sty)
+        pdart=np.zeros(xbin.shape)
+        for i in range(0,len(xbin)-1,):
+            a=xbin[i]
+            z=xbin[i+1]
+            ind=(x > a) & (x <= z)
+            # pdart[i]=np.sum(dart[ind])/np.sum(ind)
+            pdart[i]=np.mean(y[ind])
+        ax[1].plot(xbin+0.25,pdart,'-ok')
+        ax[1].set_ylabel('Mean speed')
+        ax[1].set_xlabel('Power (mW)')
+        
+        if save == True:
+            path_dir = str(pns[ii].parent)
+            anid= meta['anid'][0]
+            proto=meta['etho_exp_type'][0]
+            plt.show(block=False)
+            plt.savefig(path_dir + '/%s_%s_%s_summary_v%d.png' %  (anid,proto,
+                                                                   y_col, 0))
+# %%
+df= pd.DataFrame(dat)
+ans = np.unique(df['anid'])
+sal_ind = df['cond'] == 'sal'
+cno_ind = df['cond'] == 'cno'
+props=['mean','amp','sigma']
+
+for prop in props:
+    sal=[]
+    cno=[]
+    for an in ans:
+        an_ind=df['anid'] == an    
+        sal.append(df.loc[sal_ind & an_ind,prop].values[0])
+        cno.append(df.loc[cno_ind & an_ind,prop].values[0])
+    fig,ax=plt.subplots(1,1)
+    temp=np.stack((sal,cno),axis=1)
+    ylab='Power (mW)'
+    if prop == 'sigma':
+        temp=abs(temp)
+    elif prop == 'amp':
+        ylab='Escape speed (cm/s)'
+    elif prop == 'mean':
+        keep=temp
+    temp[abs(temp) > 100] = np.nan
+    # plots.connected_lines([1,2],temp,ax=ax)
+    plots.mean_bar_plus_conf_array(temp, ['sal','cno'],ax=ax)
+    ax.set_ylabel(ylab)
+    ax.set_title(prop)

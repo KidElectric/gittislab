@@ -6,7 +6,6 @@ Created on Wed May  5 13:49:48 2021
 @author: brian
 """
 
-from matplotlib import pyplot as plt
 from imutils.video import VideoStream
 import argparse
 import datetime
@@ -22,7 +21,7 @@ import cv2
 
 # if the video argument is None, then we are reading from webcam
 # if args.get("video", None) is None
-vs = VideoStream(src=).start()
+vs = VideoStream(src=1).start()
 time.sleep(2.0)
 
 # initialize the first frame in the video stream
@@ -38,10 +37,11 @@ while True:
 	# if the frame could not be grabbed, then we have reached the end
 	# of the video
 	if frame is None:
-	    break
+        break
 
 	# resize the frame, convert it to grayscale, and blur it
 	frame = imutils.resize(frame, width=500)
+    
     cv2.imshow("Security Feed", frame)
     key = cv2.waitKey(1) & 0xFF
 
