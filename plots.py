@@ -124,7 +124,7 @@ def mean_cont_plus_conf_clip(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',
     #If highlight patch box specified, plot it first:
     if highlight:
         ax.fill_between(highlight[0:2],[highlight[2],highlight[2]],y2=[0,0],
-                        facecolor=hl_color, alpha=0.3,edgecolor='none')
+                        color=hl_color, alpha=0.3,edgecolor='none')
         
 
     conf_int=clip_ave['cont_y_conf']
@@ -161,7 +161,7 @@ def mean_cont_plus_conf_array(x,ymat,ax=None,confidence = 0.95):
     conf_int=signals.conf_int_on_matrix(ymat)
     ub = conf_int[:,0]  #Positive confidence interval
     lb = conf_int[:,1]  #Negative confidence interval
-    ax.fill_between(x, ub, lb, color='k', alpha=0.3, edgecolor='none',
+    ax.fill_between(x, ub, y2=lb, color='k', alpha=0.3, edgecolor='none',
                     zorder=5)
     
     #Plot mean on top:
@@ -328,14 +328,14 @@ def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b',chunk_method='
         #Highlight Zone 1
         ax[1].fill_between([-arena_size,0],
                            [-arena_size,-arena_size],
-                           [arena_size,arena_size],
-                           hl_color, alpha=0.3,edgecolor='none')
+                           y2=[arena_size,arena_size],
+                           facecolor = hl_color, alpha=0.3,edgecolor='none')
     elif highlight ==2:
         #Highlight Zone 2
         ax[1].fill_between([0,arena_size],
                            [-arena_size,-arena_size],
-                           [arena_size, arena_size],
-                           hl_color, alpha=0.3,edgecolor='none')
+                           y2=[arena_size, arena_size],
+                           facecolor=hl_color, alpha=0.3,edgecolor='none')
         
     xx,yy=behavior.trial_part_position(raw,meta,
                                        chunk_method=chunk_method)
@@ -507,7 +507,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
             anid= meta['anid'][0]
             proto=meta['etho_exp_type'][0]
             plt.show(block=False)
-            plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,plt_ver))
+            plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,'open_loop',plt_ver))
         if close == True:
             plt.close()
         else:
@@ -1200,8 +1200,8 @@ def plot_zone_day(raw,meta,save=False,close = False):
     baseline= np.mean(pbins[x<0])
     pbins=pbins/baseline
     hl_color = 'b'
-    f_row[3][0].fill_between([0,(t[2]-t[1])/60],[2,2],[0,0],
-                        hl_color, alpha=0.3,edgecolor='none')
+    f_row[3][0].fill_between([0,(t[2]-t[1])/60],[2,2],y2=[0,0],
+                        color=hl_color, alpha=0.3,edgecolor='none')
     f_row[3][0].bar(x - width/2,pbins,width-0.5,facecolor='k')
     f_row[3][0].set_ylabel('Norm. %Time SZ')
     f_row[3][0].set_xlabel('Time (m)')
@@ -1244,8 +1244,8 @@ def plot_zone_day(raw,meta,save=False,close = False):
     baseline= np.mean(pbins[x<0])
     pbins=pbins/baseline
     hl_color = 'b'
-    f_row[4][0].fill_between([0,(t[2]-t[1])/60],[2,2],[0,0],
-                        hl_color, alpha=0.3,edgecolor='none')
+    f_row[4][0].fill_between([0,(t[2]-t[1])/60],[2,2],y2=[0,0],
+                        color= hl_color, alpha=0.3,edgecolor='none')
     f_row[4][0].bar(x - width/2,pbins,width-0.5,facecolor='k')
     f_row[4][0].set_ylabel('Norm. SZ Speed')
     f_row[4][0].set_xlabel('Time (m)')
@@ -1276,7 +1276,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
         anid= meta['anid'][0]
         proto=meta['etho_exp_type'][0]
         plt.show(block=False)
-        plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,proto,plt_ver))
+        plt.savefig(path_dir + '/%s_%s_summary_v%d.png' %  (anid,'zone',plt_ver))
     
     if close == True:
         plt.close()

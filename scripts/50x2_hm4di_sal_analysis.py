@@ -237,13 +237,13 @@ plt.plot(xs,ys,'b')
 plt.xlabel('Power (mW)')
 plt.ylabel('Speed (cm/s)')
 
-# %% Method of plotting P(dart):
+# %% Method of fitting guassian to speed vs. light level:
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
  'Exclude','Other XLS']
 exc=[ex0]
 save = False
 plt.close('all')
-ans = ['sal','cno']
+ans = ['sal']
 y_col = 'vel'
 load_method='preproc'
 stim_dur = 2
@@ -276,7 +276,7 @@ for analyze in ans:
         if doubled:
             meta.drop(axis=0,index=range(0,100,2),inplace=True)
             meta.reset_index(inplace=True)
-        title_str='%s %s' % (meta['anid'][0],meta['protocol'][0])
+        
         m_clip = behavior.stim_clip_grab(raw,meta,y_col=y_col, 
                                        stim_dur=meta['stim_dur'][0],
                                        baseline = meta['stim_dur'][0],
@@ -286,10 +286,10 @@ for analyze in ans:
         y=m_clip['disc'][:,1]
         x=laser_cal_fit(trials.loc[:,'PWM'].values)
         fig,ax=plt.subplots(2,1)
-        fig.canvas.set_window_title(title_str)
+        
         ax[0].plot(x,y,'ok')
         ax[0].set_xlabel('Power (mW)')
-        ax[0].set_title(title_str)
+        
         
         max_x=np.max(x)  
         xbin=np.arange(0,max_x,max_x/20)
@@ -297,6 +297,10 @@ for analyze in ans:
         dat['sigma'].append(po[2])
         dat['mean'].append(po[1])
         dat['amp'].append(po[0])
+        title_str='%s %s' % (meta['anid'][0],meta['protocol'][0], po[1])
+        ax[0].set_title(title_str)
+        fig.canvas.set_window_title(title_str)
+        
         g=model.gaussian(xbin, po[0], po[1], po[2])
         ax[0].plot(xbin,g,'r')
         
