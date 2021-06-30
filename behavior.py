@@ -587,6 +587,36 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
     data.sort_values('anid',inplace=True,ignore_index=True)
     return data
 
+def zone_rtpp_summary_collect(basepath, conds_inc=[],conds_exc=[],min_bout=0.5,
+                              bin_size=10):
+    '''
+    
+    '''
+    data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
+                              'stim_dur','vel_trace','amb_speed','amb_bouts',
+                              'per_mobile','per_time_z1', 'per_time_z2',
+                              'prob_density_edges', 'prob_density_arena'])
+    use_cols=['time','vel','im','ambulation','meander','iz1','iz2']
+    
+    #### Loop through experimental mice to load & process all data
+    version=3 #Version where versioning is formally implemented (all at version 3)
+    
+    for i,inc in enumerate(conds_inc):
+        exc=conds_exc[i]
+        csv_paths=dataloc.raw_csv(basepath,inc,exc)
+        if isinstance(csv_paths,Path):
+            csv_paths=[csv_paths]
+        for ii,path in enumerate(csv_paths):            
+            print('Inc[%d], file %d) %s loaded...' % (i,ii,str(path)))
+            raw,meta=ethovision_tools.csv_load(path,method='preproc')
+
+            temp = experiment_summary_helper(raw,meta,
+                                             min_bout=min_bout,
+                                             bin_size = bin_size)
+            
+            data=data.append(temp,ignore_index=True)
+    return data
+
 def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],
                                  min_bout= 0.5,bin_size=10):
     '''
@@ -615,7 +645,8 @@ def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],
     
     
     data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
-                              'stim_dur','vel_trace','amb_speed','amb_bouts','per_mobile'])
+                              'stim_dur','vel_trace','amb_speed','amb_bouts',
+                              'per_mobile','per_time_z1','per_time_z2'])
     use_cols=['time','vel','im','dir','ambulation','meander']
     
     #### Loop through experimental mice to load & process all data
@@ -643,6 +674,7 @@ def free_running_summary_collect(basepath,conds_inc=[],conds_exc=[],
                                                  bin_size = bin_size)
                 data=data.append(temp,ignore_index=True)
     return data
+
 def summary_collect_to_df(summary_dict,
                           use_columns,
                           label_columns,
@@ -678,7 +710,7 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
                                           meta['opsin_type'][0])
     temp['proto']=meta['protocol'][0]
     stim_dur = round(np.nanmean(meta['stim_dur']))
-    # pdb.set_trace()
+    
     baseline= stim_dur
     free_running = meta['no_trial_structure'][0]
     percentage = lambda x: (np.nansum(x)/len(x))*100
@@ -716,6 +748,8 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
                           fun = percentage)
         temp['x_bin']=x
         temp['raw_per_mobile']=y
+        
+ 
     
     #### Calculate stim-triggered %time mobile:        
     raw['m']=~raw['im']
@@ -759,6 +793,37 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
     
     temp['prop_state']=collect / tot
     temp['prop_labels'] = use
+    
+    ### Calculate % time in each zone:
+    t=[i for i in range(4)]
+    t[0]=0
+    t[1]=meta.task_start[0]
+    t[2]=meta.task_stop[0]
+    t[3]=meta.exp_end[0]
+    in_zone1=[]
+    for i in range(len(t)-1):
+        ind=(raw['time']>= t[i]) & (raw['time'] < t[i+1])
+        in_zone1.append(percentage(np.array(raw['iz1'].astype(int))[ind]))
+        
+    in_zone2=np.array([100,100,100])-np.array(in_zone1)
+    temp['per_time_z1']=in_zone1
+    temp['per_time_z2']=in_zone2
+    
+    #Chunk mouse locations:
+    xx,yy=trial_part_position(raw,meta, chunk_method='task')
+    temp['x_task_position']=xx #Pre, during, post
+    temp['y_task_position']=yy #Pre, during, post
+    
+    #Convert 2 2d histogram:
+    
+    hist=[]
+    for x,y in zip(xx,yy):
+        dat,xbin,ybin=np.histogram2d(x, y, bins=20, range=[[-25,25],[-25,25]], density=True)
+        # dat = np.log10(dat)
+        # dat[np.isinf(dat)]=0
+        hist.append(dat) #Log10(Probability Density)
+    temp['prob_density_edges']=xbin
+    temp['prob_density_arena']=hist
     return temp
 
 def bout_analyze(raw,meta,y_col,stim_dur=30,

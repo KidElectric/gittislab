@@ -14,6 +14,7 @@ from matplotlib.pyplot import gca
 from matplotlib.collections import PatchCollection
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
+import matplotlib.colors as colors
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
 from gittislab import behavior, ethovision_tools,\
@@ -25,6 +26,7 @@ import statistics as pystats
 import pdb 
 from pathlib import Path
 import pandas as pd 
+import scipy
 
 def get_subs(axes):
     dd=1
@@ -300,6 +302,7 @@ def mean_bar_plus_conf_array(data,xlabels,ax=None, color='k', confidence = 0.95)
         return fig, ax, h
     else:
         return ax, h 
+    
 def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b',chunk_method='task'):
     '''
     
@@ -323,30 +326,15 @@ def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b',chunk_method='
     if ax == None:
         fig,ax = plt.subplots(1,3)
         axflag=False #No axis handle passed in    
-    arena_size=23
-    if highlight == 1:
-        #Highlight Zone 1
-        ax[1].fill_between([-arena_size,0],
-                           [-arena_size,-arena_size],
-                           y2=[arena_size,arena_size],
-                           facecolor = hl_color, alpha=0.3,edgecolor='none')
-    elif highlight ==2:
-        #Highlight Zone 2
-        ax[1].fill_between([0,arena_size],
-                           [-arena_size,-arena_size],
-                           y2=[arena_size, arena_size],
-                           facecolor=hl_color, alpha=0.3,edgecolor='none')
+
         
     xx,yy=behavior.trial_part_position(raw,meta,
                                        chunk_method=chunk_method)
-    for x,y,a in zip(xx,yy,ax):
-        a.scatter(x,y,2,'k',marker='.',alpha=0.05)
-        a.plot([0,0],[-22,22],'--r')
-        # a.axis('equal')
-        a.set_xlim([-22, 22])
-        plt.sca(a)
-        plt.xlabel('cm')
-        plt.ylabel('cm')
+    arena_size=23
+    
+    pre_dur_post_arena_plotter(xx,yy,ax,highlight=highlight,color=hl_color,
+                               arena_size=arena_size)
+    
     meta=behavior.stim_xy_loc(raw,meta)
     for x,y in zip(meta['stim_on_x'],meta['stim_on_y']):
         ax[1].plot(x,y,'bo')
@@ -356,6 +344,28 @@ def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b',chunk_method='
     else:
         return ax
     
+def pre_dur_post_arena_plotter(xx,yy,ax,highlight=0,color='b',arena_size=23):
+    
+    if highlight == 1:
+        #Highlight Zone 1
+        ax[1].fill_between([-arena_size,0],
+                           [-arena_size,-arena_size],
+                           y2=[arena_size,arena_size],
+                           facecolor = color, alpha=0.3,edgecolor='none')
+    elif highlight ==2:
+        #Highlight Zone 2
+        ax[1].fill_between([0,arena_size],
+                           [-arena_size,-arena_size],
+                           y2=[arena_size, arena_size],
+                           facecolor=color, alpha=0.3,edgecolor='none')
+    for x,y,a in zip(xx,yy,ax):
+        a.scatter(x,y,2,'k',marker='.',alpha=0.05)
+        a.plot([0,0],[-22,22],'--r')
+        a.set_xlim([-22, 22])
+        plt.sca(a)
+        plt.xlabel('cm')
+        plt.ylabel('cm')    
+        
 def plot_openloop_day(raw,meta,save=False, close=False):    
     '''
     
@@ -1282,7 +1292,105 @@ def plot_zone_day(raw,meta,save=False,close = False):
         plt.close()
     else:
         return fig
+
+def plot_zone_mouse_summary(data, save=False, close=False,example_mouse=0):    
+    '''
+
+    Parameters
+    ----------
+    data - pandas.DataFrame() output from function:
+        gittislab.behavior.experiment_summary_collect()
+
+    Returns
+    -------
+    fig : TYPE
+        DESCRIPTION.
+
+    '''
+    #### Set up figure axes in desired pattern
+    plt_ver = 3
+
+    fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
+    gs = fig.add_gridspec(6, 3)
+    f_row=list(range(gs.nrows))
     
+    
+    # Determine if there is a mixture of stimulation durations:
+    durs = np.unique(data['stim_dur'])
+    f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)] #example spatial location
+    sum_i=1
+    
+    f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(3)] #Summary of spatial locations
+    f_row[2]=[fig.add_subplot(gs[2,i]) for i in range(3)]
+    f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
+    f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
+    
+    #### Row 0: Example arena exploration of mouse:
+    zone = int(data.loc[example_mouse,'proto'].split('_')[1])
+    xx=data.loc[example_mouse,'x_task_position']
+    yy=data.loc[example_mouse,'y_task_position']
+    pre_dur_post_arena_plotter(xx,yy,f_row[0],highlight=zone,color='b')
+    
+        
+    anids=np.unique(data['anid'])
+    dat=[]
+    #### Row 1: Mean spatial exploration:
+    # First a 1-D  Gaussian
+    tt = np.linspace(-35, 35, 30)
+    bump = np.exp(-0.1*tt**2)
+    bump /= np.trapz(bump) # normalize the integral to 1
+    
+    # make a 2-D kernel out of it
+    kernel = bump[:, np.newaxis] * bump[np.newaxis, :]
+    
+    anids=np.unique(data['anid'])
+    dat=[]
+    for anid in anids: #Currently assume each row is a unique animal
+        row = data.loc[:,'anid'].values == anid
+        zone = int(data.loc[row,'proto'].values[0].split('_')[1])
+        temp = data.loc[np.argwhere(row)[0][0],'prob_density_arena']
+        keep=list(range(0,3))
+        for i,t in enumerate(temp):
+            t=np.rot90(t)
+            if zone == 2:
+                t=np.fliplr(t)
+            
+            t = scipy.signal.convolve2d(t, kernel, mode='same')
+            keep[i]=t
+        dat.append(keep)
+    dat=np.stack(dat,axis=-1)      
+    dat=np.mean(dat,axis=3)
+
+    # pdb.set_trace()
+    for i,a in enumerate(f_row[1]):
+        d=dat[i,:,:]
+        # d=np.rot90(d)
+        norm=colors.LogNorm(vmin=np.min(d[:])+0.0001, vmax=np.max(d[:])*0.7)
+        a.pcolormesh(d,norm=norm,cmap='coolwarm',shading='auto')
+        a.plot([10,10],[0,20],'--w')
+        # plt.sca(a)
+        # plt.xlabel('cm')
+        # plt.ylabel('cm')   
+    
+    
+    #### Row 2: %Time in SZ analysis
+    dat=[]
+    for anid in anids:
+        row = data.loc[:,'anid'].values == anid
+        zone = int(data.loc[row,'proto'].values[0].split('_')[1])
+        if zone == 1:
+            dat.append(data.loc[row,'per_time_z1'].values[0])
+        else:
+            dat.append(data.loc[row,'per_time_z2'].values[0])
+    dat=np.stack(dat) 
+    f,h=mean_bar_plus_conf_array(dat, ['Pre','Dur','Post'],ax=f_row[2][0])
+    f_row[2][0].set_xlabel('Active RTPP')
+    f_row[2][0].set_ylabel('% Time in SZ')      
+    if close == True:
+        plt.close()
+    else:
+        return fig
 def plot_light_curve_sigmoid(pns,laser_cal_fit,sum_fun, y_col='im',
                              save=False,load_method='raw',fit_method='lm',
                              iter=50):

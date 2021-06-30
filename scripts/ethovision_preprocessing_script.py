@@ -30,13 +30,14 @@ else:
     basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
     
 # %% RUN BEFORE DLC:
-ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
+ex0=['exclude','Bad','Str','bad','Broken', 'grooming',
      'Exclude','Other XLS']
 exc=[ex0]
 #inc=[['AG','ChR2_hM3Dq','Str','15mW_cno','D2_D1',]]
 #inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
-inc=[['AG','Str','A2A','Ai32','50x2_hm4di_cno',]]
+# inc=[['AG','Str','A2A','Ai32','zone_2_0p5mw',]]
 # inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
+
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -48,13 +49,14 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% RUN AFTER DLC:
-ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
-exc=[ex0]
+# ex0=['exclude','Bad','Str','bad','Broken', 'grooming','Exclude','Other XLS']
+# exc=[ex0]
 # inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno_10hz']]
-inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
+# inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
 # inc=[['AG','10x10','Str','A2A','Ai32','AG5362_3']]
 # inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
 # inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
+# inc=[['AG','GPe','CAG','Arch','10x30',]]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
@@ -66,6 +68,21 @@ summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)
 print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
+# %% Plot zone day
+inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
+pns=dataloc.raw_csv(basepath,inc[0],ex0)
+if not isinstance(pns,list):
+    pns=[pns]
+saveit=True
+closeit=False
+for pn in pns:
+    raw,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
+    plots.plot_zone_day(raw,meta,save=saveit, close=closeit)
+    
+# %% Plot zone day summary:   
+inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
+# data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
+plots.plot_zone_mouse_summary(data,example_mouse=1)
 # %% Plot 10x10 / openloop days:
 ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]
@@ -89,11 +106,18 @@ for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc')
     plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
     
-# %% Plot 10x10 openloop mouse summary:
-ex0=['exclude','Bad','GPe','bad','Broken','15min','10hz', 'Exclude','Other XLS']
-exc=[ex0]
+# %% Plot openloop mouse summary:
+ex0=['exclude','Bad','GPe','bad',\
+     'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
+         'AG3488_7']
+# exc=[ex0]
 # inc=[['AG','hm4di','Str','A2A','Ai32','saline','10x10','3mW']]
-inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
+# inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
+# inc=[['AG','Str','A2A','Ai32','zone_1_0p5mw',]]
+# inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
+# inc=[['AG','GPe','CAG','Arch','10x30',]]
+inc=[['AG','Str','A2A','ChR2','10x30','Bilateral'],['AG','Str','A2A','Ai32','10x30','Bilateral']]
+exc=[ex0,ex0]
 data = behavior.open_loop_summary_collect(basepath,inc,exc)
 fig=plots.plot_openloop_mouse_summary(data)
 

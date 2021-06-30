@@ -20,6 +20,11 @@ if ('COMPUTERNAME' in os.environ.keys()) \
 else:
     basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 
+
+def mw2pwm(laser_cal_fit,mw):
+    xx = np.arange(0,255)
+    yy = laser_cal_fit(xx)
+    return xx[(yy < (mw+0.01)) & (yy > (mw-0.01))]
 #%% Load in light curve calibration for Dial = 740:
     
 #Dial 740 Cal:
@@ -87,6 +92,7 @@ m_clip= behavior.stim_clip_grab(raw,meta,y_col='im',
                                baseline = 2,
                                summarization_fun=percentage)
 print(np.mean(m_clip['disc'][:,1]))
+
 # %% 
 
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming',
@@ -136,6 +142,7 @@ for analyze in ans:
         oth_x=sig_x
         oth_y=sig_y
         oth_an=anid
+        
 # %% Compare 2 fits
 use_sal=cno_an
 # use_sal =[ 'AG6611_7', 'AG6846_5',  'AG6845_9', 'AG6611_6', 'AG6846_3']
@@ -297,7 +304,7 @@ for analyze in ans:
         dat['sigma'].append(po[2])
         dat['mean'].append(po[1])
         dat['amp'].append(po[0])
-        title_str='%s %s' % (meta['anid'][0],meta['protocol'][0], po[1])
+        title_str='%s %s mean = %3.1f' % (meta['anid'][0],meta['protocol'][0], po[1])
         ax[0].set_title(title_str)
         fig.canvas.set_window_title(title_str)
         
@@ -336,7 +343,7 @@ props=['mean','amp','sigma']
 
 for prop in props:
     sal=[]
-    cno=[]
+    cno=[]  
     for an in ans:
         an_ind=df['anid'] == an    
         sal.append(df.loc[sal_ind & an_ind,prop].values[0])

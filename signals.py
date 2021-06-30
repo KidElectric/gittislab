@@ -163,6 +163,10 @@ def bin_analyze(x,y,bin_dur,fun = np.mean):
         s += bin_dur
     return np.array(bin_x),np.array(bin_out)
 
+# def 2d_histogram(x,y,bins,fun=np.nansum):
+#     see: np.histogram2d(x, y, bins=10, range=None, normed=None, weights=None, density=None)    
+#     return xy
+
 def chunk_by_x(x,y,x_points,x_range):
     '''
         Take x y arrays and make a matrix of data clips from y, centered on x_points, 
@@ -245,6 +249,13 @@ def boxcar_smooth(y,samps):
     box = np.ones(samps)/samps
     y_smooth = np.convolve(y_smooth, box, mode='same')
     return y_smooth[samps:-samps]
+
+
+def gaussian_filter1d(size,sigma):
+    filter_range = np.linspace(-int(size/2),int(size/2),size)
+    gaussian_filter = [1 / (sigma * np.sqrt(2*np.pi)) * np.exp(-x**2/(2*sigma**2)) for x in filter_range]
+    return gaussian_filter
+
 
 def join_gaps(on,off,min_samp):
     on=np.concatenate(([0],on))
