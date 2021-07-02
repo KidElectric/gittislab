@@ -83,6 +83,7 @@ for pn in pns:
 inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
 # data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
 plots.plot_zone_mouse_summary(data,example_mouse=1)
+
 # %% Plot 10x10 / openloop days:
 ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]
@@ -106,10 +107,10 @@ for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc')
     plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
     
-# %% Plot openloop mouse summary:
+# %% Load openloop mouse summary data:
 ex0=['exclude','Bad','GPe','bad',\
      'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-         'AG3488_7']
+         'AG3488_7','_0p5mw','_0p25mw','gpe','muscimol','cno','hm4di','3mW','2mw']
 # exc=[ex0]
 # inc=[['AG','hm4di','Str','A2A','Ai32','saline','10x10','3mW']]
 # inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
@@ -118,8 +119,11 @@ ex0=['exclude','Bad','GPe','bad',\
 # inc=[['AG','GPe','CAG','Arch','10x30',]]
 inc=[['AG','Str','A2A','ChR2','10x30','Bilateral'],['AG','Str','A2A','Ai32','10x30','Bilateral']]
 exc=[ex0,ex0]
-data = behavior.open_loop_summary_collect(basepath,inc,exc)
-fig=plots.plot_openloop_mouse_summary(data)
+data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
+
+# %% Plot openloop mouse summary with statistics
+smooth_amnt= [33, 33*3];
+fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt)
 
 # %% Plot openloop mouse summary across conditions:
 conds = ['saline','cno']

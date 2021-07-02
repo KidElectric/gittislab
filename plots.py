@@ -21,6 +21,10 @@ from gittislab import behavior, ethovision_tools,\
     signals, dataloc, table_wrappers, model
 from scipy import stats as scistats
 import statistics as pystats
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+import pingouin as pg
+
 # from scipy.stats import ttest_rel
 # from scipy.stats import t
 import pdb 
@@ -846,7 +850,7 @@ def plot_freerunning_cond_comparison(data,save=False,close=False):
         ax.set_ylabel(ylab)
         i += 1
         
-def plot_openloop_mouse_summary(data, save=False, close=False):    
+def plot_openloop_mouse_summary(data, smooth_amnt= [33,66], save=False, close=False):    
     '''
     
 
@@ -859,6 +863,10 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     -------
     fig : TYPE
         DESCRIPTION.
+        
+    stats: List
+        Contains relevant statistics for each panel in the figure by row:
+            [[col0, col1, col3], [col0,col12] , [etc]]
 
     '''
     #### Set up figure axes in desired pattern
@@ -885,13 +893,21 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
     f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
     
+    stats=[[] for n in range(len(f_row))]
+    
     #### Row 0: Speed vs. time stim effects & bar summary 
     for i,dur in enumerate(durs):
-        dat=data.loc[data['stim_dur']==dur,'vel_trace']
+        dat=data.loc[data['stim_dur']==dur,'vel_trace'].values
         cao=data['cell_area_opsin'][1]
         x=data.loc[data['stim_dur']==dur,'x_trace'].values
-        y=np.vstack([x for x in dat])
-        ym= np.mean(y,axis=0)
+        
+        #Smooth:
+        #pdb.set_trace()
+        y=np.vstack([signals.smooth(x,window_len=smooth_amnt[i],window='blackman')\
+                     for x in dat])
+        
+        
+        ym= np.nanmean(y,axis=0)
         clip_ave={'cont_y' : ym,
                   'cont_x' : x[0],
                   'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
@@ -929,14 +945,20 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
                               clip_method=False, ax=f_row[1][0])
     plt.ylabel('Time Mobile (%)')
     plt.xlabel('Time from stim (s)')
-
+    stats[1]+=[{'stat':0}]
+    
+    ###########################################################
     #### Row 1 Right: Proportion time spent doing various behaviors:
+    ''' Consider turning this into its own function.'''
+        
     dat = np.mean(np.stack(data['prop_state'],axis=0),axis=0)
-    tot = [1,1,1]
-    labs= data['prop_labels'][0]
+    tot = [1,1,1,1]
+    labs= [s.capitalize() for s in data['prop_labels'][0]]
+    labs = ['Stop', 'Amb','FM','Rear']
     labels=['Pre','Dur','Post']
-    width = 0.4       # the width of the bars: can also be len(x) sequence
-    cols=['k','w','g']
+    width = 0.6      # the width of the bars: can also be len(x) sequence
+    #cols=['k','w','b','m']
+    cols= [ (0,0,0), (1,1,1), '0.7', (0,0,1)]
     ax=f_row[1][1]
     for i,b in enumerate(labs):
         bt=[0,0,0]
@@ -947,7 +969,67 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     ax.legend()
     ax.set_xlim([-1,5])
     ax.set_ylabel('Proportion')
+    #2-Way ANOVA:
+    # predictors of 'behavior' and 'stim_period'
     
+    dat = np.stack(data['prop_state'],axis=0)
+    behav=np.array([])
+    time=np.array([])
+    stim_period=np.array([])
+    subject = np.array([])
+    for i,b in enumerate(labs):
+        pre=dat[:,i,0] # mice x pre
+        dur=dat[:,i,1] # mice dur
+        post=dat[:,i,2]
+        time=np.concatenate((time,pre,dur,post),axis=0)
+        
+        subject=np.concatenate((subject,np.tile(data['anid'],3)),axis=0)              
+        stim_period=np.concatenate((stim_period,
+                                    np.repeat(['pre','dur','post'],len(pre))), 
+                                    axis=0)
+        
+        tb=np.repeat(b,len(pre)*3,axis=0)
+        behav=np.concatenate((behav,tb),axis=0)
+        
+    df=pd.DataFrame({'anID' : subject,
+                    'behavior': behav,
+                     'stim_period': stim_period,
+                     'prop':time}) 
+    stat_temp={}
+    print('\n\n(1,1) Behavior proportions stats:')
+    for lab in labs:
+        subset=df.iloc[df.behavior.values==lab,:]
+        res=pg.rm_anova(dv='prop', 
+                        within='stim_period', 
+                        subject='anID', 
+                        data=subset, detailed=True)
+        print('\t%s:' % lab)
+        out=tuple(res.loc[0,['DF','F','p-unc']].values)
+        print('\tRM-ANOVA: df:%d, f:%3.3f, p:%f' % out)
+        anova={}
+        anova['anova_rm']=res
+        post_hocs=pd.DataFrame({'p-corr': [1,1,1]})
+        if res.loc[0,'p-unc'] < 0.05:
+            post_hocs=pg.pairwise_ttests(dv='prop',
+                                         within='stim_period',
+                                         subject='anID',
+                                         padjust='fdr_bh',
+                                         data=subset)
+            print(('\tPOST-HOC:\n' \
+                  + '\t\tdur-post p: %1.5f\n' \
+                  + '\t\tdur-pre  p: %1.5f\n' \
+                  + '\t\tpost-pre p: %1.5f\n') \
+                  % tuple(post_hocs.loc[:,'p-corr']))
+        else:
+            print('\tPost-hocs n.s.\n')
+        anova['post_hoc']=post_hocs
+        stat_temp[lab]=anova
+    
+    # model = ols('time ~ C(behavior) + C(stim_period) + C(behavior):C(stim_period)', data=df).fit()
+    # anova2=sm.stats.anova_lm(model, typ=2)
+    stats[1] += [stat_temp]
+    
+    # stat_temp={'2WayAnova':anova2}
     ### Row 2 Left: Ambulation bout rate:
     dat= np.stack(data['amb_bout_rate'],axis=0)
     labs= data['prop_labels'][0]
@@ -1003,7 +1085,7 @@ def plot_openloop_mouse_summary(data, save=False, close=False):
     if close == True:
         plt.close()
     else:
-        return fig
+        return fig,stats
 
 def plot_openloop_cond_comparison(data,save=False,close=False):
     '''

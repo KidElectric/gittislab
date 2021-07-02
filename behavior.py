@@ -543,7 +543,7 @@ def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
     
     return out_ave
 
-def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
+def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],update_rear=False):
     '''
     
 
@@ -581,11 +581,21 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],):
         for ii,path in enumerate(csv_paths):            
             print('Inc[%d], file %d) %s loaded...' % (i,ii,str(path)))
             raw,meta=ethovision_tools.csv_load(path,method='preproc')
-            temp = experiment_summary_helper(raw,meta,min_bout=min_bout)
+            if update_rear == True:
+                raw = update_rear_logic(raw)
+            temp = experiment_summary_helper(raw,meta,
+                                             min_bout=min_bout,
+                                             update_rear=update_rear)
             data=data.append(temp,ignore_index=True)
             
     data.sort_values('anid',inplace=True,ignore_index=True)
     return data
+
+def update_rear_logic(raw):
+    old_fields=['im','fm','amb']
+    for f in old_fields:
+        raw.loc[raw.rear,f]=False
+    return raw
 
 def zone_rtpp_summary_collect(basepath, conds_inc=[],conds_exc=[],min_bout=0.5,
                               bin_size=10):
@@ -702,7 +712,11 @@ def summary_collect_to_df(summary_dict,
                                        sort_column=sort_column)
     return out
 
-def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
+def experiment_summary_helper(raw,
+                              meta,
+                              min_bout=0.5,
+                              bin_size = 10,
+                              update_rear=False):
     temp={}
     temp['anid']=meta['anid'][0]
     temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
@@ -716,6 +730,7 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
     percentage = lambda x: (np.nansum(x)/len(x))*100
     temp['stim_dur']=stim_dur
     temp['has_dlc']=meta['has_dlc'][0]
+    
     #### Calculate stim-triggered speed changes:
     if not free_running:        
         vel_clip=stim_clip_grab(raw,meta,y_col='vel',
@@ -780,7 +795,10 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
             temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
         
     ### Calculate stim-triggered Proportion: FM, AMB, IM
+    #pdb.set_trace()
     use = ['im','amb','fm']
+    if update_rear == True:
+        use += ['rear']
     collect=[]
     for col in use:       
         clip=stim_clip_grab(raw,meta,y_col=col, 
@@ -793,6 +811,8 @@ def experiment_summary_helper(raw,meta,min_bout=0.5,bin_size = 10):
     
     temp['prop_state']=collect / tot
     temp['prop_labels'] = use
+    
+    #Perform statistics on these differences
     
     ### Calculate % time in each zone:
     t=[i for i in range(4)]
