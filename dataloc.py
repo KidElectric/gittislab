@@ -186,8 +186,9 @@ def experiment_selector(cell_str,behavior_str):
         
     elif cell_str == 'GPe_A2a_ChR2_0p25':
         ex0=['exclude','Bad','Str','bad',\
-         'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-             'AG3488_7','d1r','30mW','duty','_0p5mw','str','muscimol','cno','hm4di','3mW','2mw']
+         'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',
+             'AG3488_7','d1r','30mW','duty','_0p5mw','str','muscimol','cno',
+             'AG5769_5','hm4di','3mW','2mw']
         inc=[['AG','GPe','A2A','ChR2','_0p25mw'] + behavior_list,
               ['AG','GPe','A2A','Ai32','_0p25mw'] + behavior_list]
         exc=[ex0,ex0]

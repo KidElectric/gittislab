@@ -90,7 +90,7 @@ def connected_lines(x,y,ax=None,color=''):
     
     h=[]
     for row in y:
-        h0, =ax.plot(x,row,'-o'+color)
+        h0, =ax.plot(x,row,'-o'+color, markersize=3)
         h.append(h0)
     
     if axflag == False:
@@ -936,7 +936,7 @@ def plot_openloop_mouse_summary(data,
                                           xlim=[-dur,dur*2],
                                           ylim=[0, 10],
                                           highlight=[0,dur,25],
-                                          ax=f_row[0][i])
+                                          ax=f_row[0][i],)
         plt.ylabel('Speed (cm/s)')
         plt.xlabel('Time from stim (s)')
         plt.title('%s 10x%ds (%s), n=%d' % (cao,dur,data['proto'][0],y.shape[0]))
@@ -944,7 +944,8 @@ def plot_openloop_mouse_summary(data,
                        # color='')
         
     ax_speed = mean_bar_plus_conf_clip(clip_ave,['Pre','Dur','Post'],
-                                  clip_method=False, ax=f_row[0][sum_i])
+                                  clip_method=False, ax=f_row[0][sum_i],
+                                  color='k')
     plt.ylabel('Speed (cm/s)')
     plt.xlabel('Time from stim (s)')
     plt.title('n=%d' % len(data))    
@@ -962,7 +963,8 @@ def plot_openloop_mouse_summary(data,
               'disc' : y}
               
     ax_mobile= mean_bar_plus_conf_clip(clip_ave,['Pre','Dur','Post'],
-                              clip_method=False, ax=f_row[1][0])
+                              clip_method=False, ax=f_row[1][0], 
+                              color='k')
     plt.ylabel('Time Mobile (%)')
     plt.xlabel('Time from stim (s)')
     stats[1]+=[{'stat':0}]
@@ -1059,7 +1061,8 @@ def plot_openloop_mouse_summary(data,
     ax=f_row[2][0]
     amb_bouts={'rate':dat}
     mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
-                       use_key='rate',ax=ax,clip_method=False)
+                       use_key='rate',ax=ax,clip_method=False,
+                       color='k')
     ax.set_xlim([-1,3])
     ax.set_ylabel('Amb bouts / s')
     
@@ -1072,7 +1075,8 @@ def plot_openloop_mouse_summary(data,
     ax=f_row[2][1]
     bouts={'rate':dat}
     mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
-                       use_key='rate',ax=ax,clip_method=False)
+                       use_key='rate',ax=ax,clip_method=False,
+                       color='k')
     ax.set_xlim([-1,3])
     ax.set_ylabel('Imm. bouts / s')
     
@@ -1087,7 +1091,8 @@ def plot_openloop_mouse_summary(data,
         ax=f_row[2][2]
         bouts={'rate':dat}
         mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
-                           use_key='rate',ax=ax,clip_method=False)
+                           use_key='rate',ax=ax,clip_method=False,
+                           color='k')
         ax.set_xlim([-1,3])
         ax.set_ylabel('Rear bouts / s')
     else:
@@ -1099,7 +1104,8 @@ def plot_openloop_mouse_summary(data,
     ax=f_row[3][0]
     bouts={'rate':dat}
     mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
-                       use_key='rate',ax=ax,clip_method=False)
+                       use_key='rate',ax=ax,clip_method=False,
+                       color='k')
     ax.set_xlim([-1,3])
     ax.set_ylabel('Amb. CV')
     
