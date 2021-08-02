@@ -594,7 +594,9 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],update_rear=Fal
 def update_rear_logic(raw):
     old_fields=['im','fm','amb']
     for f in old_fields:
-        raw.loc[raw.rear,f]=False
+        ind = raw.loc[:,'rear'].values
+        ind[np.isnan(ind)]=False
+        raw.loc[ind,f]=False
     return raw
 
 def zone_rtpp_summary_collect(basepath, conds_inc=[],conds_exc=[],min_bout=0.5,
@@ -773,12 +775,15 @@ def experiment_summary_helper(raw,
                                    baseline = baseline,
                                    summarization_fun=percentage)
     temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
+    
+    
     # Examine ambulation bouts:
     amb_bouts=bout_analyze(raw,meta,'amb',
                         stim_dur=stim_dur,
                         min_bout_dur_s=min_bout)
     temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
     temp['amb_bout_rate']=np.nanmean(amb_bouts['rate'],axis=0)
+    temp['amb_cv']=np.nanmean(amb_bouts['cv'],axis=0)
     
     im_bouts=bout_analyze(raw,meta,'im',
                         stim_dur=stim_dur,
@@ -950,6 +955,13 @@ def bout_analyze(raw,meta,y_col,stim_dur=30,
     bout_speed=stim_clip_grab(raw,meta,'bout_speed',stim_dur=stim_dur,
                                 summarization_fun=np.nanmedian)
     clip['speed']=bout_speed['disc']
+    
+    cv = lambda x: np.nanstd(signals.log_modulus(x))/np.nanmean(signals.log_modulus(x))
+    
+    #Add in measure of CV:
+    bout_speed=stim_clip_grab(raw,meta,'bout_speed',stim_dur=stim_dur,
+                                summarization_fun=cv)
+    clip['cv']=bout_speed['disc']
     
     return clip
 

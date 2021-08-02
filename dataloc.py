@@ -144,6 +144,57 @@ def common_paths(use_labels=[]):
         exc=exc[0]
     return basepath,inc,exc,labels
 
+def experiment_selector(cell_str,behavior_str):
+    ''' Wrapper to take in simple data ID command and output inclusion and 
+        exclusion criteria for finding relevant experiment files + pick relevant
+        light sitmulus color for plotting
+        
+        For example: cell_str ='Str_A2a_ChR2' collects all ChR2 & Ai32 experiments
+                                in Striatum in A2a cells
+                    behavior_str ='zone_1' --> collect bilateral zone 1 data
+    '''
+    
+    if 'ChR2' in cell_str:
+        color = 'b'
+    elif 'Arch' in cell_str:
+        color='g'
+    
+    bilateral_exp=['zone_1','zone_2','10x10','10x30','10x','zone_','trig_','trig_r','trig_l']
+    uni_exp = ['5x30']
+    if behavior_str in bilateral_exp:
+        behavior_list=['Bilateral', behavior_str]
+    elif behavior_str == 'uni':
+        behavior_list=['Left','Right','5x30']
+        
+    if cell_str == 'Str_A2a_ChR2':
+        inc=[['AG','Str','A2A','ChR2'] + behavior_list,
+              ['AG','Str','A2A','Ai32'] + behavior_list]
+        ex0=['exclude','Bad','GPe','bad',\
+              'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
+                  'AG3488_7','500ms_pulse','duty','_0p5mw','_0p25mw','gpe','muscimol','cno','hm4di','3mW','2mw']
+        exc=[ex0,ex0]
+        example_moouse=1
+     
+    # Identify 1mW GPe CAG Arch experiments:
+    elif cell_str =='GPe_CAG_Arch':
+        ex0=['exclude','Bad','Str','bad',\
+         'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
+             'AG3488_7','d1r','30mW','duty','_0p5mw','_0p25mw','str','muscimol','cno','hm4di','3mW','2mw']
+        inc=[['AG','GPe','CAG','Arch',]+behavior_list]
+        exc=[ex0]
+        example_mouse=9
+        
+    elif cell_str == 'GPe_A2a_ChR2_0p25':
+        ex0=['exclude','Bad','Str','bad',\
+         'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
+             'AG3488_7','d1r','30mW','duty','_0p5mw','str','muscimol','cno','hm4di','3mW','2mw']
+        inc=[['AG','GPe','A2A','ChR2','_0p25mw'] + behavior_list,
+              ['AG','GPe','A2A','Ai32','_0p25mw'] + behavior_list]
+        exc=[ex0,ex0]
+        example_mouse=2
+        
+    return inc,exc,color,example_mouse
+
 def path_to_fn(basepath,inc=[],exc= [],filetype = None, include_fn=True):
     """ Using the input methods of gen_paths_recurse(),
     return a new file name that replaces file separation ('/') with underscore '_',

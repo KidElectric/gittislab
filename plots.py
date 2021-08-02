@@ -8,7 +8,12 @@ Created on Thu May 28 11:37:06 2020
 # import cv2
 import os
 import seaborn as sns
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
 import matplotlib.pyplot as plt
+
 import numpy as np
 from matplotlib.pyplot import gca 
 from matplotlib.collections import PatchCollection
@@ -17,6 +22,8 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
 import matplotlib.colors as colors
 import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
+
+
 from gittislab import behavior, ethovision_tools,\
     signals, dataloc, table_wrappers, model
 from scipy import stats as scistats
@@ -91,7 +98,12 @@ def connected_lines(x,y,ax=None,color=''):
     else:
         return ax,h
     
-def mean_cont_plus_conf_clip(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',ax=None):
+def mean_cont_plus_conf_clip(clip_ave,
+                             xlim=[-45,60],
+                             ylim=[0, 20],
+                             highlight=None,
+                             hl_color='b',
+                             ax=None):
     '''
     Parameters
     ----------
@@ -133,7 +145,7 @@ def mean_cont_plus_conf_clip(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',
                         color=hl_color, alpha=0.3,edgecolor='none')
         
 
-    conf_int=clip_ave['cont_y_conf']
+    m,conf_int=clip_ave['cont_y_conf']
     ub = conf_int[:,0]  #Positive confidence interval
     lb = conf_int[:,1]  #Negative confidence interval
     ax.fill_between(x, ub, lb, color='k', alpha=0.3, edgecolor='none',
@@ -145,10 +157,14 @@ def mean_cont_plus_conf_clip(clip_ave,xlim=[-45,60],highlight=None,hl_color='b',
     
     #Set major and minor tick labels
     ax.yaxis.set_major_locator(MultipleLocator(5))
-    ax.yaxis.set_minor_locator(MultipleLocator(1))
-    ax.xaxis.set_major_locator(MultipleLocator(10))
-    ax.xaxis.set_minor_locator(MultipleLocator(2.5))
-    plt.ylim([0, 20])
+    # ax.yaxis.set_minor_locator(MultipleLocator(1))
+    if xlim[1] >= 30:
+        ax.xaxis.set_major_locator(MultipleLocator(30))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+    else:
+        ax.xaxis.set_major_locator(MultipleLocator(10))
+        ax.xaxis.set_minor_locator(MultipleLocator(2.5))
+    plt.ylim(ylim)
     
     if ax == None:
         return fig,ax
@@ -363,9 +379,9 @@ def pre_dur_post_arena_plotter(xx,yy,ax,highlight=0,color='b',arena_size=23):
                            y2=[arena_size, arena_size],
                            facecolor=color, alpha=0.3,edgecolor='none')
     for x,y,a in zip(xx,yy,ax):
-        a.scatter(x,y,2,'k',marker='.',alpha=0.05)
-        a.plot([0,0],[-22,22],'--r')
-        a.set_xlim([-22, 22])
+        a.scatter(x,y,2,'k',marker='.',alpha=0.05,rasterized = True)
+        a.plot([0,0],[-arena_size, arena_size],'--r')
+        a.set_xlim([-arena_size, arena_size])
         plt.sca(a)
         plt.xlabel('cm')
         plt.ylabel('cm')    
@@ -850,7 +866,10 @@ def plot_freerunning_cond_comparison(data,save=False,close=False):
         ax.set_ylabel(ylab)
         i += 1
         
-def plot_openloop_mouse_summary(data, smooth_amnt= [33,66], save=False, close=False):    
+def plot_openloop_mouse_summary(data, 
+                                smooth_amnt= [33,66],
+                                save=False,
+                                close=False):    
     '''
     
 
@@ -915,6 +934,7 @@ def plot_openloop_mouse_summary(data, smooth_amnt= [33,66], save=False, close=Fa
                   
         ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                           xlim=[-dur,dur*2],
+                                          ylim=[0, 10],
                                           highlight=[0,dur,25],
                                           ax=f_row[0][i])
         plt.ylabel('Speed (cm/s)')
@@ -958,7 +978,7 @@ def plot_openloop_mouse_summary(data, smooth_amnt= [33,66], save=False, close=Fa
     labels=['Pre','Dur','Post']
     width = 0.6      # the width of the bars: can also be len(x) sequence
     #cols=['k','w','b','m']
-    cols= [ (0,0,0), (1,1,1), '0.7', (0,0,1)]
+    cols= [ (0,0,1), (1,1,1), '0.7', (0,0,0)]
     ax=f_row[1][1]
     for i,b in enumerate(labs):
         bt=[0,0,0]
@@ -1074,6 +1094,14 @@ def plot_openloop_mouse_summary(data, smooth_amnt= [33,66], save=False, close=Fa
         plt.sca(f_row[2][2])        
         plt.title('Rear scoring incomplete. Check summary["has_dlc"]')
 
+    ### Row 3 Left: Amb CV:
+    dat=np.stack(data['amb_cv'],axis=0)
+    ax=f_row[3][0]
+    bouts={'rate':dat}
+    mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
+                       use_key='rate',ax=ax,clip_method=False)
+    ax.set_xlim([-1,3])
+    ax.set_ylabel('Amb. CV')
     
     # #### Save image option:
     # if save == True:
@@ -1375,7 +1403,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
     else:
         return fig
 
-def plot_zone_mouse_summary(data, save=False, close=False,example_mouse=0):    
+def plot_zone_mouse_summary(data, save=False,color='b', close=False,example_mouse=0):    
     '''
 
     Parameters
@@ -1392,31 +1420,29 @@ def plot_zone_mouse_summary(data, save=False, close=False,example_mouse=0):
     #### Set up figure axes in desired pattern
     plt_ver = 3
 
-    fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
-    gs = fig.add_gridspec(6, 3)
+    fig = plt.figure(constrained_layout = True,figsize=(8.5,8.5))
+    gs = fig.add_gridspec(3, 3)
     f_row=list(range(gs.nrows))
     
-    
-    # Determine if there is a mixture of stimulation durations:
-    durs = np.unique(data['stim_dur'])
     f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)] #example spatial location
     sum_i=1
     
     f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(3)] #Summary of spatial locations
     f_row[2]=[fig.add_subplot(gs[2,i]) for i in range(3)]
-    f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
-    f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
-    f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
+    # f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    # f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
+    # f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
     
     #### Row 0: Example arena exploration of mouse:
     zone = int(data.loc[example_mouse,'proto'].split('_')[1])
     xx=data.loc[example_mouse,'x_task_position']
     yy=data.loc[example_mouse,'y_task_position']
-    pre_dur_post_arena_plotter(xx,yy,f_row[0],highlight=zone,color='b')
+    pre_dur_post_arena_plotter(xx,yy,f_row[0],highlight=zone,color=color)
     
         
     anids=np.unique(data['anid'])
     dat=[]
+    
     #### Row 1: Mean spatial exploration:
     # First a 1-D  Gaussian
     tt = np.linspace(-35, 35, 30)

@@ -12,6 +12,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import math
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 from matplotlib import pyplot as plt
 import pdb
 from itertools import compress
@@ -38,6 +41,7 @@ exc=[ex0]
 # inc=[['AG','Str','A2A','Ai32','zone_2_0p5mw',]]
 # inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 
+
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -57,7 +61,10 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 # inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
 # inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
 # inc=[['AG','GPe','CAG','Arch','10x30',]]
-basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+
+analysis = 'GPe_CAG_Arch'
+inc,exc,color = dataloc.experiment_selector(analysis,'zone_1')
+
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = False)
@@ -65,9 +72,11 @@ ethovision_tools.unify_raw_to_csv(basepath,
 ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
                                              force_replace=True,win=10)
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
+
 print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
+
 # %% Plot zone day
 inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
@@ -80,10 +89,15 @@ for pn in pns:
     plots.plot_zone_day(raw,meta,save=saveit, close=closeit)
     
 # %% Plot zone day summary:   
-inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
-# data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
-plots.plot_zone_mouse_summary(data,example_mouse=1)
+# inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
 
+# analysis = 'Str_A2a_ChR2'
+analysis = 'GPe_CAG_Arch'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
+
+data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
+plots.plot_zone_mouse_summary(data,color=color,example_mouse=example_mouse)
+# plt.savefig('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 2/a2a_chr2_and_ai32_zone_1_n13.pdf')
 # %% Plot 10x10 / openloop days:
 ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]
@@ -108,23 +122,39 @@ for pn in pns:
     plots.plot_freerunning_day(df,meta,save=saveit, close=closeit)
     
 # %% Load openloop mouse summary data:
-ex0=['exclude','Bad','GPe','bad',\
-     'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-         'AG3488_7','_0p5mw','_0p25mw','gpe','muscimol','cno','hm4di','3mW','2mw']
+
 # exc=[ex0]
 # inc=[['AG','hm4di','Str','A2A','Ai32','saline','10x10','3mW']]
 # inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
 # inc=[['AG','Str','A2A','Ai32','zone_1_0p5mw',]]
 # inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
 # inc=[['AG','GPe','CAG','Arch','10x30',]]
-inc=[['AG','Str','A2A','ChR2','10x30','Bilateral'],['AG','Str','A2A','Ai32','10x30','Bilateral']]
-exc=[ex0,ex0]
+
+# inc=[['AG','Str','A2A','ChR2','10x','Bilateral'],
+#      ['AG','Str','A2A','Ai32','10x','Bilateral']]
+# ex0=['exclude','Bad','GPe','bad',\
+#      'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
+#          'AG3488_7','_0p5mw','_0p25mw','gpe','muscimol','cno','hm4di','3mW','2mw']
+
+# ex0=['exclude','Bad','Str','bad',\
+#      'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
+#          'AG3488_7','_0p5mw','_0p25mw','str','muscimol','cno','hm4di','3mW','2mw']
+# inc=[['AG','GPe','CAG','Arch','10x',]]
+
+# exc=[ex0,]
+
+analysis = 'GPe_A2a_ChR2_0p25'
+behavior_str = '10x'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
+
 data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
 
 # %% Plot openloop mouse summary with statistics
-smooth_amnt= [33, 33*3];
+smooth_amnt= [33, 33*3]
+# smooth_amnt=[33 * 3]
 fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt)
-
+# %%
+plt.savefig('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 1/narrow_a2a_10x30_n8_sumamary.pdf')
 # %% Plot openloop mouse summary across conditions:
 conds = ['saline','cno']
 ex0=['exclude','Bad','GPe','bad','Broken',

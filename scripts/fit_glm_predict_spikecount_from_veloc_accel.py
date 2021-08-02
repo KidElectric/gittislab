@@ -46,21 +46,24 @@ class GaussianFeatures(BaseEstimator, TransformerMixin):
 # %%
 pn=Path('/home/brian/Dropbox/Gittis Lab Data/Electrophysiology/GPe/Naive/Locomotion/unit_csv')
 # pp=glob.glob(str(pn.joinpath('*50ms.csv'))) # options: 500ms, 100ms, 50ms (binsize)
-pp=glob.glob(str(pn.joinpath('*frhist_100ms.csv'))) # options: 500ms, 100ms, 50ms (binsize)
+# pp=glob.glob(str(pn.joinpath('*frhist_100ms.csv'))) # options: 500ms, 100ms, 50ms (binsize)
+pp = glob.glob(str(pn.joinpath('*allfrlags_100ms.csv')))
 bin_size = 0.100 # seconds
 # For each unit (.csv file), read it into a pandas dataframe
-fit_type = 'vas'
-# fit_method='lasso'
+
+fit_type = 'sc' #In this scenario, use unit firing to predict SPEED
+# fit_type = 'vas'
+fit_method='lasso'
 # fit_method='gauss_basis'
-fit_method='bayes_ridge'
+# fit_method='bayes_ridge'
 # fit_method= 'ridge'
-plotFig= False
-saveFig = True
-# pp=[unit for unit in pp if ('AG6379-9' in unit) \
-#     and (('unit_006' in unit) or ('unit_009' in unit) \
-#          or ('unit_015' in unit) or ('unit_010' in unit) )]
-fr_lags = True
-gauss_filt=signals.gaussian_filter1d(int(1/bin_size), sigma=1)
+plotFig= True
+saveFig = False
+pp=[unit for unit in pp if ('AG6379-9' in unit) \
+    and (('unit_006' in unit) or ('unit_009' in unit) \
+          or ('unit_015' in unit) or ('unit_010' in unit) )]
+fr_lags = False
+gauss_filt=signals.gaussian_filter1d(int(2/bin_size), sigma=1)
 keep_vel=np.zeros((len(pp),21))
 keep_accel=np.zeros((len(pp),21))
 keep_spkhist=np.zeros((len(pp),8))
@@ -75,10 +78,19 @@ for ii,unit in enumerate(pp):
     accel_cols=[col for col in df.columns if 'a' in col]
     sc_col=[col for col in df.columns if 'sc' in col]      
     
+    #Convert spike counts to smooth inst. FR
+
+    if 'sc' not in fit_type:
+        y=df.loc[:,'spike_counts'].values #might only need y column name
+        y=sp.signal.convolve(y,gauss_filt, mode='same')/bin_size
+        y = (y-np.min(y))
+        y = (y/np.max(y))
+        
     #Select which data to use for the fit:
     if fit_type == 'vel':
         X = df.loc[:,vel_cols]
         X = X.transform(signals.log_modulus).values
+        
     elif fit_type == 'accel':
         X = df.loc[:,accel_cols]
         X = X.transform(signals.log_modulus).values
@@ -103,9 +115,28 @@ for ii,unit in enumerate(pp):
         sc = sc - np.min(sc)
         sc = sc / np.max(sc)
         X = np.concatenate((X,sc),axis=1)
+    elif fit_type == 'sc':
+        for j,col in enumerate(sc_col):
+            dat=df.loc[:,col].values
+            t=sp.signal.convolve(dat,gauss_filt, mode='same')/bin_size
+            if j ==0:
+                X=t[:,np.newaxis]
+            else:
+                X=np.concatenate((X,t[:,np.newaxis]),axis=1)
+        X = signals.log_modulus(X)
+        X = X - np.min(X)
+        X = X / np.max(X)
         
+        #Add in velocity history:
+        vel= df.loc[:,vel_cols[0:1]].transform(signals.log_modulus)
+        vel -= np.min(vel)
+        vel /= np.max(vel)
+        X=np.concatenate((X,vel),axis=1)
+        y=df.loc[:,'v_0']
+        y=signals.log_modulus(y)
+    
             
-    else: #Fit using all
+    else: #Predict spike count using all columns
         X = df.iloc[:,1:]
     
     if ii==0:
@@ -117,16 +148,13 @@ for ii,unit in enumerate(pp):
     # xscaler = StandardScaler()
     # X=xscaler.fit_transform(X)
     
-    #Convert spike counts to smooth inst. FR
-    y=df.loc[:,'spike_counts'].values #might only need y column name
-    y=sp.signal.convolve(y,gauss_filt, mode='same')/bin_size
+
     # y=np.diff(np.concatenate((y,y[-1,np.newaxis]),axis=0))
     
     
     # y=signals.log_modulus(y)    
     # y=(y - np.nanmean(y)) / np.nanstd(y)
-    y = (y-np.min(y))
-    y = (y/np.max(y))
+
     
     # Lasso method:
     if fit_method== 'lasso':

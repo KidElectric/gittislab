@@ -296,7 +296,8 @@ use_pred =  signals.pad_lowpass_unpad(use_pred,1,29.97)
 
 targets =obs['human_scored_rear'].values.astype(np.int16)
 fpr,tpr,thr =metrics.roc_curve(targets,use_pred)
-ix=np.argmax(tpr-fpr)
+auroc = metrics.roc_auc_score(targets,use_pred)
+ix=np.argmax(tpr-fpr) #Youlden J optimal thresh
 print('Youlden J optimal thresh hit = %1.3f, fa = %1.3f, thresh = %.3f'\
       % (tpr[ix],fpr[ix],thr[ix]))
 plt.figure()
@@ -308,7 +309,8 @@ ok_thresh = 0.296
 fr_rate_given_train_thresh = fpr[thr>ok_thresh][-1]
 hit_at_thr=tpr[thr>ok_thresh][-1]
 plt.plot([fr_rate_given_train_thresh ,fr_rate_given_train_thresh ],[0,1],'--r')
-plt.title('Thresh at %1.3f, hit rate = %1.3f, fa rate = %1.3f' % (ok_thresh,hit_at_thr,fr_rate_given_train_thresh))
+plt.title('AUROC: %1.3f, thresh at %1.3f yields hit rate = %1.3f, fa rate = %1.3f' \
+          % (auroc,ok_thresh,hit_at_thr,fr_rate_given_train_thresh))
 
 
 # %% Perform above process with data I have never looked at before:
