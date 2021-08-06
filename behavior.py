@@ -588,7 +588,7 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],update_rear=Fal
                                              update_rear=update_rear)
             data=data.append(temp,ignore_index=True)
             
-    data.sort_values('anid',inplace=True,ignore_index=True)
+    # data.sort_values('anid',inplace=True,ignore_index=True)
     return data
 
 def update_rear_logic(raw):
@@ -600,7 +600,7 @@ def update_rear_logic(raw):
     return raw
 
 def zone_rtpp_summary_collect(basepath, conds_inc=[],conds_exc=[],min_bout=0.5,
-                              bin_size=10):
+                              bin_size=10,update_rear=False):
     '''
     
     '''

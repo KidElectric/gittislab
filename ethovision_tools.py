@@ -292,11 +292,11 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[],extra_cols=[]):
         Generate a summary dataframe of metadata from .csv files specified by
         inclusion criteria.
     '''
-    df=pd.DataFrame
+    df=pd.DataFrame()
+    missing=0
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         paths=dataloc.meta_csv(basepath,inc,exc)
-        # pdb.set_trace()
         if isinstance(paths,Path):
             paths=[paths]
         if len(paths) > 0:
@@ -305,16 +305,20 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[],extra_cols=[]):
                 if i==0 and ii == 0:
                     df=pardf
                 else:
-                    df=pd.concat([df,pardf],axis=0)
+                    df=pd.concat((df,pardf),axis=0)
         else:
+            print(inc)
             print('Warning, no paths found.')
-    
+            missing +=1
+    if len(conds_inc) == missing:
+        return None
     cols_keep=['folder_anid',
                'stim_area',
                'cell_type',
                'opsin_type',
                'side',
                'protocol',
+               'stim_amp_mw',
                'stim_n', 
                'stim_mean_dur',
                'da_state',
@@ -333,15 +337,39 @@ def meta_sum_csv(basepath,conds_inc=[],conds_exc=[],extra_cols=[]):
     cols_keep += extra_cols
     df=df[cols_keep]
     df=df.reset_index().drop(['index'],axis=1)
-    cols_rename=['anid','area','cell','opsin','side','proto','stim_n','stim_dur',
+    cols_rename=['anid','area','cell','opsin','side','proto','light_power',
+                 'stim_n','stim_dur',
                  'da','sex','arena',
                  'stim','id_err','retrack','exper','room','trial','settings',
                  'has_dlc','ver','blink']
     cols_rename += extra_cols
     rename_dict={cols_keep[i] : cols_rename[i] for i in range(len(cols_rename))} 
-    
-    return df.rename(rename_dict,axis=1)
-    
+    df = df.rename(rename_dict,axis=1)
+    # pdb.set_trace()
+    df = summary_improvements(df)
+    # pdb.set_trace()
+    return df
+
+def summary_improvements(df):
+    for i,proto in enumerate(df.proto):
+        parts=proto.split('_')
+        stim_root='1mw'
+        if (parts[0] == 'Zone') or parts[0] == 'zone':
+            df.loc[i,'zone'] = parts[1]
+            if len(parts) == 3:
+                stim_root = parts[2]
+        elif ('10x' in parts[0]):
+            df.loc[i,'zone'] = np.nan
+            if len(parts) == 2:
+                stim_root = parts[1]
+        if 'm' in stim_root:
+            stim_parts=stim_root.split('m')
+            val=stim_parts[0]
+            if 'p' in val:
+                val=float(val.replace('p','.'))
+        df.loc[i,'light_power']=val
+    return df
+        
 def analyze_df(fun,basepath,conds_inc=[],conds_exc=[]):
     
     all_out=dict()

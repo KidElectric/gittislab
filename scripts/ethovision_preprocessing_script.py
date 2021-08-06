@@ -53,24 +53,20 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% RUN AFTER DLC:
-# ex0=['exclude','Bad','Str','bad','Broken', 'grooming','Exclude','Other XLS']
-# exc=[ex0]
-# inc=[['AG','hm4di','Str','A2A','Ai32','10x10','cno_10hz']]
-# inc=[['AG','hm4di','Str','A2A','Ai32','10x10','3mW']]
-# inc=[['AG','10x10','Str','A2A','Ai32','AG5362_3']]
-# inc=[['AG','Str','A2A','Ai32','50x2_hm4di_sal',]]
-# inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
-# inc=[['AG','GPe','CAG','Arch','10x30',]]
 
-analysis = 'GPe_CAG_Arch'
-inc,exc,color = dataloc.experiment_selector(analysis,'zone_1')
+analysis = 'GPe_A2a_ChR2_0p25'
+behavior_str = 'zone_' #'10x'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
+
+# analysis = 'GPe_CAG_Arch'
+# inc,exc,color = dataloc.experiment_selector(analysis,'zone_1')
 
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = False)
 
 ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
-                                             force_replace=True,win=10)
+                                             force_replace=False,win=10)
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
 
 print(summary.stim_dur)
@@ -78,8 +74,12 @@ print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% Plot zone day
-inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
-pns=dataloc.raw_csv(basepath,inc[0],ex0)
+# inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
+analysis = 'GPe_A2a_ChR2_0p25'
+behavior_str = 'zone_' #'10x'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
+
+pns=dataloc.raw_csv(basepath,inc[1],exc[1])
 if not isinstance(pns,list):
     pns=[pns]
 saveit=True
@@ -92,11 +92,13 @@ for pn in pns:
 # inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
 
 # analysis = 'Str_A2a_ChR2'
-analysis = 'GPe_CAG_Arch'
+# analysis = 'GPe_CAG_Arch'
+analysis = 'GPe_A2a_ChR2_0p25'
+behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
-
+# inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
 data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
-plots.plot_zone_mouse_summary(data,color=color,example_mouse=example_mouse)
+plots.plot_zone_mouse_summary(data,color='k',example_mouse=example_mouse)
 # plt.savefig('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 2/a2a_chr2_and_ai32_zone_1_n13.pdf')
 # %% Plot 10x10 / openloop days:
 ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
