@@ -54,7 +54,7 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% RUN AFTER DLC:
 
-analysis = 'GPe_A2a_ChR2_0p25'
+analysis = 'Str_A2a_ChR2_1mw'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
 
@@ -75,6 +75,7 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% Plot zone day
 # inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
+
 analysis = 'GPe_A2a_ChR2_0p25'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
@@ -91,9 +92,9 @@ for pn in pns:
 # %% Plot zone day summary:   
 # inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
 
-# analysis = 'Str_A2a_ChR2'
+analysis = 'Str_A2a_ChR2_1mw'
 # analysis = 'GPe_CAG_Arch'
-analysis = 'GPe_A2a_ChR2_0p25'
+# analysis = 'GPe_A2a_ChR2_0p25'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
 # inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
@@ -145,7 +146,8 @@ for pn in pns:
 
 # exc=[ex0,]
 
-analysis = 'GPe_A2a_ChR2_0p25'
+# analysis = 'GPe_A2a_ChR2_0p25'
+analysis = 'Str_A2a_ChR2_1mw'
 behavior_str = '10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
 
@@ -154,7 +156,7 @@ data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
 # %% Plot openloop mouse summary with statistics
 smooth_amnt= [33, 33*3]
 # smooth_amnt=[33 * 3]
-fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt)
+fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt,method=[9,1])
 # %%
 plt.savefig('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 1/narrow_a2a_10x30_n8_sumamary.pdf')
 # %% Plot openloop mouse summary across conditions:

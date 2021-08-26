@@ -977,29 +977,33 @@ def plot_openloop_mouse_summary(data,
         
         datx = data.loc[:,'x_trace'].values
         cao=data['cell_area_opsin'][1]
+        t2 = method[1]
+        t1 = method[0]-method[1]
+        t0 = method[0]
         
         for x,y,dur in zip(datx,daty,datDur):
-            ind1 = (x >= -method[0]) &  (x < method[0])
-            endT = datDur - method[1]
-            ind2 = (x >= endT) & (x < (datDur + method[0]))
+            ind1 = (x >= -t0) &  (x < t1)
+            endT = dur - t2
+            ind2 = (x >= endT) & (x < (dur + t0))
             ys[0].append(y[ind1])
             ys[1].append(y[ind2])
             
         final_x1 = x[ind1]
-        final_x2 = x[ind2] - datDur + method[0]
+        final_x2 = x[ind2] - dur + t0
         xx = [ final_x1, final_x2]
-        for i,dat in enumerate(ys):
-            y=np.vstack([signals.smooth(x,window_len=smooth_amnt[i],window='blackman')\
+        for i, dat in enumerate(ys):
+            lens = [len(x) for x in dat]
+            m = np.min(lens)
+            y=np.vstack([signals.smooth(x[0:m],window_len=smooth_amnt[i],window='blackman')\
                          for x in dat])
             
             
             ym= np.nanmean(y,axis=0)
-            dummy = np.vstack(data['stim_speed'].values)
             clip_ave={'cont_y' : ym,
-                      'cont_x' : xx[i],
+                      'cont_x' : xx[i][0:m],
                       'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
-                      'disc' : dummy}
-                      
+                      'disc' : np.vstack(data['stim_speed'].values)}
+                     
             ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                               xlim=[xx[i][0],xx[i][-1]],
                                               ylim=[0, 10],
