@@ -99,7 +99,7 @@ inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
 # inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
 data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
 plots.plot_zone_mouse_summary(data,color='k',example_mouse=example_mouse)
-# plt.savefig('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 2/a2a_chr2_and_ai32_zone_1_n13.pdf')
+
 # %% Plot 10x10 / openloop days:
 ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]

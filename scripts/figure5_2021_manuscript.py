@@ -11,6 +11,7 @@ from gittislab import signals, behavior, dataloc, ethovision_tools, plots, model
 import os
 from pathlib import Path
 import numpy as np
+import scipy.stats as stats
 import pandas as pd
 import math
 import matplotlib
@@ -19,6 +20,7 @@ matplotlib.rcParams['ps.fonttype'] = 42
 from matplotlib import pyplot as plt
 import pdb
 from itertools import compress
+import seaborn as sns
 
 
 ex0=['exclude','Bad','GPe','bad','Broken', 'grooming','Exclude','Other XLS']
@@ -32,13 +34,12 @@ if ('COMPUTERNAME' in os.environ.keys()) \
     basepath = 'F:\\Users\\Gittis\\Dropbox\\Gittis Lab Data\\OptoBehavior\\'
 else:
     basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-    outpath = Path('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 5')
+    savepath = Path('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 5')
 
 
 # %% Preprocess if necessary:
     
-ethovision_tools.unify_raw_to_csv(basepath,
-                                  inc,exc,force_replace=False,
+ethovision_tools.unify_raw_to_csv(basepath, inc, exc, force_replace=False,
                                   win=10,make_preproc = False)
 
 ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
@@ -82,15 +83,16 @@ out = {'anid':[],
        'norm_amb_speed': []}
 
 for a in analyses:
-    temp = a.split('_')[-1].split('m')[0]
-    if 'p' in temp:
-        temp=temp.replace('p','.')
-    intensity= float(temp)
-    inc,exc,color,example_mouse = dataloc.experiment_selector(a,behavior_str=behavior_str)
-    data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
+
+    inc,exc,color,example_mouse = dataloc.experiment_selector(a, behavior_str=behavior_str)
+    data = behavior.open_loop_summary_collect(basepath, inc, exc, 
+                                              update_rear=True,
+                                              stim_analyze_dur=10)
+    summary = ethovision_tools.meta_sum_csv(basepath, inc, exc) 
+        
     for index,row in data.iterrows():
         out['anid'].append(row.anid)
-        out['light_power'].append(intensity)
+        out['light_power'].append(summary.loc[index,'light_power'])
         out['cell_area_opsin'].append(row.cell_area_opsin)
         out['stim_dur'].append(row.stim_dur)
         for f in use_fields:
@@ -99,7 +101,7 @@ for a in analyses:
             out['norm_'+f].append(norm_val)
         
 df = pd.DataFrame(out)
-df.to_csv(outpath.joinpath('norm_a2a_chr2_gpe_motor_by_light.csv'))
+df.to_csv(savepath.joinpath('norm_a2a_chr2_gpe_motor_by_light.csv'))
 
 
 # %% Gather GPe zone data related to immobility and stim intensity
@@ -108,7 +110,7 @@ analyses = ['GPe_A2a_ChR2_0p25mw',
             'GPe_A2a_ChR2_1mw',
             'GPe_A2a_ChR2_2mw']
 
-behavior_str = 'zone_'
+behavior_str = 'zone_1'
 use_fields=['per_time_z1','per_time_z2']
 out = {'anid':[],
        'cell_area_opsin':[],
@@ -125,7 +127,9 @@ for a in analyses:
         temp=temp.replace('p','.')
     intensity= float(temp)
     inc,exc,color,example_mouse = dataloc.experiment_selector(a,behavior_str=behavior_str)
-    data = behavior.zone_rtpp_summary_collect(basepath,inc,exc,)
+    data = behavior.zone_rtpp_summary_collect(basepath,inc,exc,
+                                              stim_analyze_dur='mean',
+                                              zone_analyze_dur=10*60)
     for index,row in data.iterrows():
         out['anid'].append(row.anid)
         out['light_power'].append(intensity)
@@ -142,7 +146,7 @@ for a in analyses:
             out['norm_per_time_sz'].append(out['norm_per_time_z2'][-1])
         
 df = pd.DataFrame(out)
-df.to_csv(outpath.joinpath('norm_a2a_gpe_zone_1_by_light.csv'))
+df.to_csv(savepath.joinpath('norm_a2a_gpe_zone_1_by_light.csv'))
 x=df.light_power
 y=df.norm_per_time_sz
 plt.figure()
@@ -178,7 +182,9 @@ for a in analyses:
         temp=temp.replace('p','.')
     intensity= float(temp)
     inc,exc,color,example_mouse = dataloc.experiment_selector(a,behavior_str=behavior_str)
-    data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
+    data = behavior.open_loop_summary_collect(basepath,inc,exc,
+                                              update_rear=True,
+                                              stim_analyze_dur=10)
     for index,row in data.iterrows():
         out['anid'].append(row.anid)
         out['light_power'].append(intensity)
@@ -190,7 +196,7 @@ for a in analyses:
             out['norm_'+f].append(norm_val)
         
 df = pd.DataFrame(out)
-# df.to_csv(outpath.joinpath('norm_a2a_chr2_str_motor_by_light.csv'))
+# df.to_csv(savepath.joinpath('norm_a2a_chr2_str_motor_by_light.csv'))
 
 
 #%% Collect A2a Zone behavior:
@@ -204,30 +210,40 @@ behavior_str = 'zone_1'
 use_fields=['per_time_z1','per_time_z2']
 out = {'anid':[],
        'cell_area_opsin':[],
+       'proto':[],
        'stim_dur':[],
        'light_power':[],
        'norm_per_time_z1': [],
-       'norm_per_time_z2': []}
+       'norm_per_time_z2': [],
+       'norm_per_time_sz': []}
 
 for a in analyses:
     temp = a.split('_')[-1].split('m')[0]
     if 'p' in temp:
         temp=temp.replace('p','.')
     intensity= float(temp)
-    inc,exc,color,example_mouse = dataloc.experiment_selector(a,behavior_str=behavior_str)
-    data = behavior.zone_rtpp_summary_collect(basepath,inc,exc,)
+    inc,exc,color,example_mouse = dataloc.experiment_selector(a,
+                                                              behavior_str=behavior_str)
+    data = behavior.zone_rtpp_summary_collect(basepath,inc,exc,
+                                              stim_analyze_dur='mean',
+                                              zone_analyze_dur=10*60)
     for index,row in data.iterrows():
         out['anid'].append(row.anid)
         out['light_power'].append(intensity)
         out['cell_area_opsin'].append(row.cell_area_opsin)
         out['stim_dur'].append(row.stim_dur)
+        out['proto'].append(row.proto)
         for f in use_fields:
             val=row[f]
             norm_val = (val[1]-val[0]) / (val[1]+val[0]) 
             out['norm_'+f].append(norm_val)
+        if 'zone_1' in row.proto:
+            out['norm_per_time_sz'].append(out['norm_per_time_z1'][-1])
+        else:
+            out['norm_per_time_sz'].append(out['norm_per_time_z2'][-1])
         
 df = pd.DataFrame(out)
-df.to_csv(outpath.joinpath('norm_a2a_str_zone_1_by_light.csv'))
+df.to_csv(savepath.joinpath('norm_a2a_str_zone_1_by_light.csv'))
 x=df.light_power
 y=df.norm_per_time_z1
 plt.figure()
@@ -274,10 +290,11 @@ for a in analyses:
             out['norm_'+f].append(norm_val)
         
 df = pd.DataFrame(out)
-df.to_csv(outpath.joinpath('norm_d1_arch_str_motor_by_light.csv'))
+df.to_csv(savepath.joinpath('norm_d1_arch_str_motor_by_light.csv'))
+
 #%% Plot im bout rate vs. intesnity: D1 Arch:
 
-str = pd.read_csv(outpath.joinpath('norm_d1_arch_str_motor_by_light.csv'))
+str = pd.read_csv(savepath.joinpath('norm_d1_arch_str_motor_by_light.csv'))
 conds = [str]
 cols = ['g']
 use_fields=['stim_speed']
@@ -302,11 +319,12 @@ for f in use_fields:
     plt.ylim()
     plt.xlabel('Green light power (mW)')
 plt.legend()
-plt.savefig(outpath.joinpath('d1_str_arch_vs_lightpower.png'))
+plt.savefig(savepath.joinpath('d1_str_arch_vs_lightpower.png'))
+
 #%% Plot im bout rate vs. intensity: GPe & Str:
 
-gpe = pd.read_csv(outpath.joinpath('norm_a2a_chr2_gpe_motor_by_light.csv'))
-str = pd.read_csv(outpath.joinpath('norm_a2a_chr2_str_motor_by_light.csv'))
+gpe = pd.read_csv(savepath.joinpath('norm_a2a_chr2_gpe_motor_by_light.csv'))
+str = pd.read_csv(savepath.joinpath('norm_a2a_chr2_str_motor_by_light.csv'))
 conds = [str,gpe]
 cols = ['b','r' ]
 offset=[-0.025,0.025]
@@ -331,6 +349,98 @@ for f in use_fields:
     plt.ylabel(f)
     plt.xlabel('Blue light power (mW)')
     plt.legend()
-plt.savefig(outpath.joinpath('a2a_str_vs_gpe_vs_lightpower.png'))
+plt.savefig(savepath.joinpath('a2a_str_vs_gpe_vs_lightpower.png'))
 
-#%%
+#%% Measure difference between 1mw GPe and 1mw Str on speed:
+    
+gpe = pd.read_csv(savepath.joinpath('norm_a2a_chr2_gpe_motor_by_light.csv'))
+str = pd.read_csv(savepath.joinpath('norm_a2a_chr2_str_motor_by_light.csv'))
+conds = [str,gpe]
+cols = ['b','r' ]
+offset=[-0.25,0.25]
+labels=['A2a Str','A2a GPe term',]
+use_fields=['stim_speed']
+# plt.close('all')
+iter = 30
+xs=[i/4 for i in range(0,9,1)]
+light_power = 1.00
+t={'norm_stim_speed':[],'label':[],'anid':[]}
+for f in use_fields:
+    data=[]
+    for df,label in zip(conds,labels):
+        use = df.light_power <= light_power
+        df = df.loc[use,:]
+        df = df.groupby('anid').mean().reset_index()    #Average all data by mouse    
+        dat = df.loc[:,'norm_'+ f].values
+        data.append(dat)
+        t['norm_'+ f] += list(dat)
+        t['label'] += list(np.tile(label,len(dat)))
+        t['anid'] += list(df.anid.values)
+        
+        print(len(df))
+    fig,a,h=plots.mean_bar_plus_conf_array(data,
+                                        xlabels=labels,
+                                        color='k',
+                                        confidence = 0.95,
+                                        paired = False,)
+    # plt.xlabel('Blue light power (mW)')
+    
+    fig.set_size_inches([6,6])
+    plt.plot([-0.5,1.5],[0,0],'-k')
+    plt.ylim([-0.75, 0.75])
+    plt.yticks(ticks=[-0.5,0,0.5])
+    # plt.box(on=False,)
+    
+    
+    df=pd.DataFrame(t)
+    sns.swarmplot(x='label', y='norm_stim_speed',data=t, orient='v')
+    
+    plt.title('0.25-%1.2fmW light' % (light_power))
+    plt.ylabel('Norm. light-induced speed change')
+# plt.savefig(savepath.joinpath('a2a_str_vs_gpe_0.25-%1.2fmw_norm_speed.pdf' % light_power))
+
+#%% Measure difference between 1mw GPe and 1mw Str on avoidance:
+gpe = pd.read_csv(savepath.joinpath('norm_a2a_gpe_zone_1_by_light.csv'))
+str = pd.read_csv(savepath.joinpath('norm_a2a_str_zone_1_by_light.csv'))
+conds = [str,gpe]
+labels=['A2a Str','A2a GPe term',]
+use_fields=['per_time_sz']
+# plt.close('all')
+iter = 30
+xs=[i/4 for i in range(0,9,1)]
+light_power = 1
+t={'norm_per_time_sz':[],'label':[],'anid':[]}
+
+for f in use_fields:
+    data=[]    
+    for df,label in zip(conds,labels):
+        use = df.light_power <= light_power #ASSUMES ALL ARE ZONE 1 PROTOCOL for now
+        df = df.loc[use,:]
+        df = df.groupby('anid').mean().reset_index()        
+        dat = df.loc[:,'norm_'+ f].values
+        data.append(dat)
+        t['norm_'+ f] += list(dat)
+        t['label'] += list(np.tile(label,len(dat)))
+        t['anid'] += list(df.anid.values)
+        print(len(df))
+        
+    fig,a,h=plots.mean_bar_plus_conf_array(data,
+                                        xlabels=labels,
+                                        color='k',
+                                        confidence = 0.95,
+                                        paired = False,)    
+
+    fig.set_size_inches([6,6])
+    plt.plot([-0.5,1.5],[0,0],'-k')
+    plt.ylim([-0.75, 0.75])
+    
+    plt.yticks(ticks=[-0.5,0,0.5])
+    # plt.box(on=False,)
+    
+    
+    df=pd.DataFrame(t)
+    sns.swarmplot(x='label', y='norm_per_time_sz',data=t, orient='v')
+    plt.title('0.25-%1.2fmW light' % (light_power))
+    plt.ylabel('Norm. light-induced RTPP stim side pref.')
+    
+plt.savefig(savepath.joinpath('a2a_str_vs_gpe_0.25-%1.2fmw_norm_avoidance.pdf' % light_power))

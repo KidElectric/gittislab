@@ -259,7 +259,10 @@ def mean_bar_plus_conf_clip(clip,xlabels,use_key='disc',ax=None,clip_method=True
     else:
         return ax, h
     
-def mean_bar_plus_conf_array(data,xlabels,ax=None, color='k', confidence = 0.95):
+def mean_bar_plus_conf_array(data,xlabels,ax=None,
+                             color='k',
+                             confidence = 0.95,
+                             paired=True):
     '''
     Calc mean of data columns as bar plots +/- conf. 
     Create figure /axis and return handles if no axis passed.
@@ -293,27 +296,44 @@ def mean_bar_plus_conf_array(data,xlabels,ax=None, color='k', confidence = 0.95)
         fig,ax = plt.subplots()
         axflag=False
     plt.sca(ax)
-    values=np.nanmean(data,axis=0)
-    n=data.shape[0]
-    
     conf=[]
-    for i,col in enumerate(data.T):
-        std_err = np.nanstd(col)/np.sqrt(n)
-        h = std_err * scistats.t.ppf((1 + confidence) / 2, n - 1)
-        conf.append(h)
-            
+    if paired == True:
+        values=np.nanmean(data,axis=0)
+        n=data.shape[0]        
+
+        for i,col in enumerate(data.T):
+            std_err = np.nanstd(col)/np.sqrt(n)
+            ci = std_err * scistats.t.ppf((1 + confidence) / 2, n - 1)
+            conf.append(ci)
+                
+        not_isnan =  [not any(x) for x in np.isnan(data)]
+        nan_removed=data[not_isnan,:]
+        
+        #Perform paired t-test:
+        _,p = scistats.ttest_rel(nan_removed[:,0],nan_removed[:,1])
+    else:
+        values=[]
+        data_clean=[]
+        for col in data:
+            col=np.array(col)
+            n=len(col)
+            values.append(np.nanmean(col))
+            std_err = np.nanstd(col)/np.sqrt(n)
+            ci = std_err * scistats.t.ppf((1 + confidence) / 2, n - 1)
+            conf.append(ci)            
+            data_clean.append(col[~np.isnan(col)])
+        # pdb.set_trace()
+        _,p= scistats.ttest_ind(data_clean[0],data_clean[1])
+        h=[]
     #bar plot with errorbars:
     ax.bar(xlabels, values, yerr=conf)
     my=np.nanmax(values)
-    not_isnan =  [not any(x) for x in np.isnan(data)]
-    x_connect=[i for i in range(0,len(xlabels))]
-    nan_removed=data[not_isnan,:]
-    ax,h=connected_lines(x_connect,nan_removed,ax=ax,color=color)
-    
-    #Perform paired t-test:
-    _,p = scistats.ttest_rel(nan_removed[:,0],nan_removed[:,1])
-    
-    sig_star([0,1],p,my,ax)
+
+    if paired == True:        
+        x_connect=[i for i in range(0,len(xlabels))]        
+        ax,h=connected_lines(x_connect,nan_removed,ax=ax,color=color)
+        
+    sig_star([0,1],p,my *1.1,ax)
     print(str(p))
     
     #Axis labels (here or outside of this to be more generalized)
@@ -379,7 +399,7 @@ def pre_dur_post_arena_plotter(xx,yy,ax,highlight=0,color='b',arena_size=23):
                            y2=[arena_size, arena_size],
                            facecolor=color, alpha=0.3,edgecolor='none')
     for x,y,a in zip(xx,yy,ax):
-        a.scatter(x,y,2,'k',marker='.',alpha=0.05,rasterized = True)
+        a.scatter(x,y,10,'k',marker='.',alpha=0.05,rasterized = True)
         a.plot([0,0],[-arena_size, arena_size],'--r')
         a.set_xlim([-arena_size, arena_size])
         plt.sca(a)
@@ -869,7 +889,8 @@ def plot_freerunning_cond_comparison(data,save=False,close=False):
 def plot_openloop_mouse_summary(data, 
                                 smooth_amnt= [33,66],
                                 save=False,
-                                close=False):    
+                                close=False,
+                                method = 'each_dur'):    
     '''
     
 
@@ -898,11 +919,15 @@ def plot_openloop_mouse_summary(data,
     
     # Determine if there is a mixture of stimulation durations:
     durs = np.unique(data['stim_dur'])
-    if len(durs) == 1:
-        f_row[0]=[fig.add_subplot(gs[0,0:2]) , fig.add_subplot(gs[0,2])]
-        sum_i=1
-    elif len(durs)>=2:
-        durs=durs[0:2]
+    if method == 'each_dur':
+        if (len(durs) == 1):
+            f_row[0]=[fig.add_subplot(gs[0,0:2]) , fig.add_subplot(gs[0,2])]
+            sum_i=1
+        elif (len(durs)>=2):
+            durs=durs[0:2]
+            f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
+            sum_i=2
+    else: #Method is a list
         f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
         sum_i=2
         
@@ -914,35 +939,76 @@ def plot_openloop_mouse_summary(data,
     
     stats=[[] for n in range(len(f_row))]
     
-    #### Row 0: Speed vs. time stim effects & bar summary 
-    for i,dur in enumerate(durs):
-        dat=data.loc[data['stim_dur']==dur,'vel_trace'].values
+    #### Row 0: Speed vs. time stim effects & bar summary     
+    # Note: add each dur as method 1, and method 2 will be first 9s stim & last 1s stim
+    if method == 'each_dur':            
+        for i,dur in enumerate(durs):
+            dat=data.loc[data['stim_dur']==dur,'vel_trace'].values
+            cao=data['cell_area_opsin'][1]
+            x=data.loc[data['stim_dur']==dur,'x_trace'].values
+            
+            #Smooth:
+            #pdb.set_trace()
+            y=np.vstack([signals.smooth(x,window_len=smooth_amnt[i],window='blackman')\
+                         for x in dat])
+            
+            
+            ym= np.nanmean(y,axis=0)
+            clip_ave={'cont_y' : ym,
+                      'cont_x' : x[0],
+                      'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+                      'disc' : np.vstack(data['stim_speed'].values)}
+                      
+            ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
+                                              xlim=[-dur,dur*2],
+                                              ylim=[0, 10],
+                                              highlight=[0,dur,25],
+                                              ax=f_row[0][i],)
+            plt.ylabel('Speed (cm/s)')
+            plt.xlabel('Time from stim (s)')
+            plt.title('%s 10x%ds (%s), n=%d' % (cao,dur,data['proto'][0],y.shape[0]))
+            # mean_bar_plus_conf_clip(clip,xlabels,use_key='disc',ax=None,clip_method=True,
+                           # color='')
+    else: #Method is a list of how to make split axis plot
+        daty = data.loc[:,'vel_trace'].values
+        datDur = data.loc[:,'stim_dur'] 
+        ys = [ [] , [] ]
+    
+        
+        datx = data.loc[:,'x_trace'].values
         cao=data['cell_area_opsin'][1]
-        x=data.loc[data['stim_dur']==dur,'x_trace'].values
         
-        #Smooth:
-        #pdb.set_trace()
-        y=np.vstack([signals.smooth(x,window_len=smooth_amnt[i],window='blackman')\
-                     for x in dat])
-        
-        
-        ym= np.nanmean(y,axis=0)
-        clip_ave={'cont_y' : ym,
-                  'cont_x' : x[0],
-                  'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
-                  'disc' : np.vstack(data['stim_speed'].values)}
-                  
-        ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
-                                          xlim=[-dur,dur*2],
-                                          ylim=[0, 10],
-                                          highlight=[0,dur,25],
-                                          ax=f_row[0][i],)
-        plt.ylabel('Speed (cm/s)')
-        plt.xlabel('Time from stim (s)')
-        plt.title('%s 10x%ds (%s), n=%d' % (cao,dur,data['proto'][0],y.shape[0]))
-        # mean_bar_plus_conf_clip(clip,xlabels,use_key='disc',ax=None,clip_method=True,
-                       # color='')
-        
+        for x,y,dur in zip(datx,daty,datDur):
+            ind1 = (x >= -method[0]) &  (x < method[0])
+            endT = datDur - method[1]
+            ind2 = (x >= endT) & (x < (datDur + method[0]))
+            ys[0].append(y[ind1])
+            ys[1].append(y[ind2])
+            
+        final_x1 = x[ind1]
+        final_x2 = x[ind2] - datDur + method[0]
+        xx = [ final_x1, final_x2]
+        for i,dat in enumerate(ys):
+            y=np.vstack([signals.smooth(x,window_len=smooth_amnt[i],window='blackman')\
+                         for x in dat])
+            
+            
+            ym= np.nanmean(y,axis=0)
+            dummy = np.vstack(data['stim_speed'].values)
+            clip_ave={'cont_y' : ym,
+                      'cont_x' : xx[i],
+                      'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+                      'disc' : dummy}
+                      
+            ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
+                                              xlim=[xx[i][0],xx[i][-1]],
+                                              ylim=[0, 10],
+                                              highlight=[0,dur,25],
+                                              ax=f_row[0][i],)
+            plt.ylabel('Speed (cm/s)')
+            plt.xlabel('Time from stim (s)')
+            plt.title('%s 10x%ds (%s), n=%d' % (cao,dur,data['proto'][0],y.shape[0]))
+            
     ax_speed = mean_bar_plus_conf_clip(clip_ave,['Pre','Dur','Post'],
                                   clip_method=False, ax=f_row[0][sum_i],
                                   color='k')
@@ -968,6 +1034,8 @@ def plot_openloop_mouse_summary(data,
     plt.ylabel('Time Mobile (%)')
     plt.xlabel('Time from stim (s)')
     stats[1]+=[{'stat':0}]
+    
+    
     
     ###########################################################
     #### Row 1 Right: Proportion time spent doing various behaviors:

@@ -543,7 +543,11 @@ def stim_clip_average(clip,continuous_y_key='cont_y',discrete_key='disc'):
     
     return out_ave
 
-def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],update_rear=False):
+def open_loop_summary_collect(basepath,
+                              conds_inc=[],
+                              conds_exc=[],
+                              update_rear=False,
+                              stim_analyze_dur=10):
     '''
     
 
@@ -570,9 +574,11 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],update_rear=Fal
     data=pd.DataFrame([],columns=['anid','proto','cell_area_opsin',
                               'stim_dur','vel_trace','amb_speed','amb_bouts','per_mobile'])
     use_cols=['time','vel','im','dir','ambulation','meander']
+    
     #### Loop through experimental mice to load & process all data
     version=3 #Version where versioning is formally implemented (all at version 3)
     # version = 4 #Change rear threshold to 0.6 and min thresh to 0.55
+    
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         csv_paths=dataloc.raw_csv(basepath,inc,exc)
@@ -585,7 +591,8 @@ def open_loop_summary_collect(basepath,conds_inc=[],conds_exc=[],update_rear=Fal
                 raw = update_rear_logic(raw)
             temp = experiment_summary_helper(raw,meta,
                                              min_bout=min_bout,
-                                             update_rear=update_rear)
+                                             update_rear=update_rear,
+                                             stim_analyze_dur=stim_analyze_dur)
             data=data.append(temp,ignore_index=True)
             
     # data.sort_values('anid',inplace=True,ignore_index=True)
@@ -599,8 +606,12 @@ def update_rear_logic(raw):
         raw.loc[ind,f]=False
     return raw
 
-def zone_rtpp_summary_collect(basepath, conds_inc=[],conds_exc=[],min_bout=0.5,
-                              bin_size=10,update_rear=False):
+def zone_rtpp_summary_collect(basepath, conds_inc=[],conds_exc=[],
+                              min_bout=0.5,
+                              bin_size=10,
+                              update_rear=False,
+                              stim_analyze_dur=10,
+                              zone_analyze_dur= 10 * 60):
     '''
     
     '''
@@ -624,7 +635,9 @@ def zone_rtpp_summary_collect(basepath, conds_inc=[],conds_exc=[],min_bout=0.5,
 
             temp = experiment_summary_helper(raw,meta,
                                              min_bout=min_bout,
-                                             bin_size = bin_size)
+                                             bin_size = bin_size,
+                                             stim_analyze_dur=stim_analyze_dur,
+                                             zone_analyze_dur = zone_analyze_dur)
             
             data=data.append(temp,ignore_index=True)
     return data
@@ -718,7 +731,9 @@ def experiment_summary_helper(raw,
                               meta,
                               min_bout=0.5,
                               bin_size = 10,
-                              update_rear=False):
+                              update_rear=False,
+                              stim_analyze_dur=10,
+                              zone_analyze_dur= 10 *60):
     temp={}
     temp['anid']=meta['anid'][0]
     temp['cell_area_opsin']='%s_%s_%s' % (meta['cell_type'][0],
@@ -726,22 +741,31 @@ def experiment_summary_helper(raw,
                                           meta['opsin_type'][0])
     temp['proto']=meta['protocol'][0]
     stim_dur = round(np.nanmean(meta['stim_dur']))
-    
-    baseline= stim_dur
+    baseline = stim_dur
+    if stim_analyze_dur == 'mean':
+        stim_analyze_dur = stim_dur
+    temp['stim_dur'] = stim_dur
+
     free_running = meta['no_trial_structure'][0]
     percentage = lambda x: (np.nansum(x)/len(x))*100
-    temp['stim_dur']=stim_dur
+    temp['analysis_stim_dur'] = stim_analyze_dur
     temp['has_dlc']=meta['has_dlc'][0]
     
     #### Calculate stim-triggered speed changes:
     if not free_running:        
-        vel_clip=stim_clip_grab(raw,meta,y_col='vel',
-                                         stim_dur=stim_dur,
-                                         baseline = baseline)
+        vel_clip=stim_clip_grab(raw,meta,
+                                y_col='vel',
+                                stim_dur = stim_analyze_dur,
+                                baseline = stim_analyze_dur)
         
         clip_ave=stim_clip_average(vel_clip)
         temp['stim_speed']=clip_ave['disc_m'].T
     
+        vel_clip=stim_clip_grab(raw,meta,
+                                y_col='vel',
+                                stim_dur = stim_dur,
+                                baseline = baseline)
+        clip_ave=stim_clip_average(vel_clip)
         temp['vel_trace']=np.median(vel_clip['cont_y'],axis=1)
         temp['x_trace']=clip_ave['cont_x']
         
@@ -771,22 +795,22 @@ def experiment_summary_helper(raw,
     #### Calculate stim-triggered %time mobile:        
     raw['m']=~raw['im']
     m_clip=stim_clip_grab(raw,meta,y_col='m', 
-                                   stim_dur=stim_dur,
-                                   baseline = baseline,
+                                   stim_dur= stim_analyze_dur,
+                                   baseline = stim_analyze_dur,
                                    summarization_fun=percentage)
     temp['per_mobile']=np.nanmean(m_clip['disc'],axis=0)
     
     
     # Examine ambulation bouts:
     amb_bouts=bout_analyze(raw,meta,'amb',
-                        stim_dur=stim_dur,
+                        stim_dur = stim_analyze_dur,
                         min_bout_dur_s=min_bout)
     temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
     temp['amb_bout_rate']=np.nanmean(amb_bouts['rate'],axis=0)
     temp['amb_cv']=np.nanmean(amb_bouts['cv'],axis=0)
     
     im_bouts=bout_analyze(raw,meta,'im',
-                        stim_dur=stim_dur,
+                        stim_dur=stim_analyze_dur,
                         min_bout_dur_s=min_bout)
     temp['im_bout_rate']=np.nanmean(im_bouts['rate'],axis=0)
     
@@ -794,7 +818,7 @@ def experiment_summary_helper(raw,
     if 'rear' in raw.columns:
         if any(~np.isnan(raw['rear'])):
             rear_bouts=bout_analyze(raw,meta,'rear',
-                        stim_dur=stim_dur,
+                        stim_dur = stim_analyze_dur,
                         min_bout_dur_s=min_bout)
     
             temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
@@ -807,8 +831,8 @@ def experiment_summary_helper(raw,
     collect=[]
     for col in use:       
         clip=stim_clip_grab(raw,meta,y_col=col, 
-                                   stim_dur=stim_dur,
-                                   baseline=baseline,
+                                   stim_dur = stim_analyze_dur,
+                                   baseline = stim_analyze_dur,
                                    summarization_fun=np.nansum)
         collect.append(np.nansum(clip['disc'],axis=0))
     collect=np.vstack(collect)
@@ -820,14 +844,18 @@ def experiment_summary_helper(raw,
     #Perform statistics on these differences
     
     ### Calculate % time in each zone:
-    t=[i for i in range(4)]
-    t[0]=0
-    t[1]=meta.task_start[0]
-    t[2]=meta.task_stop[0]
-    t[3]=meta.exp_end[0]
+    t=[i for i in range(3)]
+    t[0]=[0, zone_analyze_dur]
+    t[1]=[meta.task_start[0], meta.task_start[0] + zone_analyze_dur ]
+    t[2]=[meta.task_stop[0], meta.task_stop[0] + zone_analyze_dur]
+    
+    # t[0]=0
+    # t[1]=analyze_dur #meta.task_start[0]
+    # t[2]=meta.task_stop[0]
+    # t[3]=meta.exp_end[0]
     in_zone1=[]
-    for i in range(len(t)-1):
-        ind=(raw['time']>= t[i]) & (raw['time'] < t[i+1])
+    for ts in t:
+        ind=(raw['time']>= ts[0]) & (raw['time'] < ts[1])
         in_zone1.append(percentage(np.array(raw['iz1'].astype(int))[ind]))
         
     in_zone2=np.array([100,100,100])-np.array(in_zone1)
@@ -851,7 +879,7 @@ def experiment_summary_helper(raw,
     temp['prob_density_arena']=hist
     return temp
 
-def bout_analyze(raw,meta,y_col,stim_dur=30,
+def bout_analyze(raw,meta,y_col,stim_dur=10,
                  min_bout_dur_s=0.5,
                  min_bout_spacing_s=0.1,
                  use_dlc=False,
@@ -1102,6 +1130,8 @@ def detect_rear_from_model(raw,meta,prob_thresh=0.5,low_pass_freq=None,
     print("\u001b[36m Detected %d rears in this video \u001b[0m" % len(start))
    
     return p_rear, rear_logical
+
+
 def detect_rear_from_mouseheight(df,rear_thresh=0.65,min_thresh=0.25,save_figs=False):    
     '''
     
