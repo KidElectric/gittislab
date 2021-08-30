@@ -1279,6 +1279,69 @@ def plot_openloop_cond_comparison(data,save=False,close=False):
         ax.set_xlabel('Stim periods (%ds)' % dur)
         ax.set_ylabel(ylab)
         i += 1
+        
+        
+def plot_unilateral_rotation_analysis(data, 
+                                smooth_amnt= [33,33],
+                                save=False,
+                                close=False,
+                                method = 'each_dur'):    
+    '''
+    
+
+    Parameters
+    ----------
+    data - pandas.DataFrame() output from function:
+        gittislab.experiment_summary_collect()
+
+    Returns
+    -------
+    fig : TYPE
+        DESCRIPTION.
+        
+    stats: List
+        Contains relevant statistics for each panel in the figure by row:
+            [[col0, col1, col3], [col0,col12] , [etc]]
+
+    '''
+    #### Set up figure axes in desired pattern
+    plt_ver = 1
+
+    fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
+    gs = fig.add_gridspec(3, 3)
+    f_row=list(range(gs.nrows))
+    
+    
+    # Determine if there is a mixture of stimulation durations:
+    f_row[0]=[fig.add_subplot(gs[0,0:2]) , fig.add_subplot(gs[0,2])]        
+    f_row[1]=[fig.add_subplot(gs[1,0:2]) , fig.add_subplot(gs[1,2])]
+    f_row[2]=[fig.add_subplot(gs[2,i]) for i in range(3)]
+    
+    
+    stats=[[] for n in range(len(f_row))]
+    
+    #### Row 0: Speed vs. time stim effects & bar summary     
+    ''' Possibly: plot example rotation'''
+    
+    #### Row 1 Left: Ipsilateral vs. Contralateral rotations pre dur post
+
+    dat=data.loc[:,'per_mobile']
+    y=np.vstack([x for x in dat])
+    ym= np.mean(y,axis=0)
+    
+    
+    clip_ave={'cont_y' : ym,
+              'cont_x' : [0, 1, 2],
+              'cont_y_conf' : signals.conf_int_on_matrix(y,axis=0),
+              'disc' : y}
+              
+    ax_mobile= mean_bar_plus_conf_clip(clip_ave,['Pre','Dur','Post'],
+                              clip_method=False, ax=f_row[1][0], 
+                              color='k')
+    plt.ylabel('Time Mobile (%)')
+    plt.xlabel('Time from stim (s)')
+    stats[1]+=[{'stat':0}]
+    
 def plot_zone_day(raw,meta,save=False,close = False):    
     '''
     
@@ -1481,7 +1544,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
     else:
         return fig
 
-def plot_zone_mouse_summary(data, save=False,color='b', close=False,example_mouse=0):    
+def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mouse=0):    
     '''
 
     Parameters

@@ -164,7 +164,7 @@ def experiment_selector(cell_str,behavior_str):
     if behavior_str in bilateral_exp:
         behavior_list=['Bilateral', behavior_str]
     elif behavior_str == 'uni':
-        behavior_list=['Left','Right','5x30']
+        behavior_list=['5x30']
         
     if cell_str[0:12] == 'Str_A2a_ChR2':
         all_intense=['0p25mw','0p5mw','1mw','2mw','3mw']
@@ -180,7 +180,8 @@ def experiment_selector(cell_str,behavior_str):
                   'gpe','muscimol','cno','hm4di'] + exc_int
         exc=[ex0,ex0]
         example_mouse=1
-        
+    
+    
     if cell_str[0:11] == 'Str_D1_Arch':
         all_intense=['0p25mw','0p5mw','1mw','2mw','3mw','30mw','20mw']
         intensity=cell_str.split('_')[-1] #desired intensity
@@ -218,6 +219,17 @@ def experiment_selector(cell_str,behavior_str):
               ['AG','GPe','A2A','Ai32',] + behavior_list + ['_%s' % intensity]]
         exc=[ex0,ex0]
         example_mouse=2
+        
+    if behavior_str == 'uni':        
+        add=[['Left'],['Right']]
+        inc_temp=[]
+        exc_temp=[]
+        for a in add:
+            for i in inc:
+                inc_temp.append(i+a)
+                exc_temp.append(exc[0])
+        inc = inc_temp
+        exc = exc_temp
         
     return inc,exc,color,example_mouse
 

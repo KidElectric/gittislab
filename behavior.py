@@ -149,9 +149,9 @@ def preproc_raw(raw,meta,win=10):
 
     preproc['dir']=smooth_direction(raw,meta,use_dlc=False, win=win)
     if 'dlc_top_head_x' in raw.columns:
-        raw['dlc_dir']=smooth_direction(raw,meta,use_dlc=True,win=win)
+        preproc['dlc_dir']=smooth_direction(raw,meta,use_dlc=True,win=win)
     else:
-        raw['dlc_dir']=np.ones(raw['x'].shape)*np.nan
+        preproc['dlc_dir']=np.ones(raw['x'].shape)*np.nan
         
     # preproc['meander'] = measure_meander(raw,meta,use_dlc=False)
     return preproc,meta
@@ -343,19 +343,35 @@ def trial_part_position(raw,meta,chunk_method='task'):
     x=raw['x']
     y=raw['y']
     t=[i for i in range(4)]
+    
     t[0]=0
     if chunk_method == 'task':        
         t[1]=meta.task_start[0]
-        t[2]=meta.task_stop[0]        
+        t[2]=meta.task_stop[0]       
+        t[3]=meta.exp_end[0]
+        wins = [[t[0], t[1]],
+                [t[1], t[2]],
+                [t[2], t[3]]]
     elif chunk_method == 'thirds':
         third=meta.exp_end[0]/3
         t[1]=1*third
         t[2]=2*third
-    t[3]=meta.exp_end[0]
+        t[3]=meta.exp_end[0]
+        wins = [[t[0], t[1]],
+                [t[1], t[2]],
+                [t[2], t[3]]]
+    elif chunk_method == '10min' :
+        t[1] = meta.task_start[0]
+        t[2] = meta.task_stop[0]
+        
+        wins=[[0, 10*60],
+              [t[1], t[1]+(10*60)],
+              [t[2], t[2]+(10*60)], 
+              ]
     xx=[]
     yy=[]
-    for i in range(len(t)-1):
-        ind=(raw['time']>= t[i]) & (raw['time'] < t[i+1])
+    for win in wins:
+        ind=(raw['time']>= win[0]) & (raw['time'] < win[1])
         xx.append(x[ind])
         yy.append(y[ind])
     return xx,yy
@@ -805,6 +821,7 @@ def experiment_summary_helper(raw,
     amb_bouts=bout_analyze(raw,meta,'amb',
                         stim_dur = stim_analyze_dur,
                         min_bout_dur_s=min_bout)
+    
     temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
     temp['amb_bout_rate']=np.nanmean(amb_bouts['rate'],axis=0)
     temp['amb_cv']=np.nanmean(amb_bouts['cv'],axis=0)
@@ -822,6 +839,36 @@ def experiment_summary_helper(raw,
                         min_bout_dur_s=min_bout)
     
             temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
+    
+    #Examine stim-triggered ipsi and contra rotations:
+    # pdb.set_trace()
+    if meta.loc[0,'side'] == 'Left':
+        ipsi = raw.loc[:,'full_rot_ccw'].values
+        contra = raw.loc[:,'full_rot_cw'].values
+    elif meta.loc[0,'side'] == 'Right':
+        ipsi = raw.loc[:,'full_rot_cw'].values
+        contra = raw.loc[:,'full_rot_ccw'].values
+    else: #Bilateral trial, but can still look at cw & ccw rotations:
+        ipsi = raw.loc[:,'full_rot_cw'].values
+        contra = raw.loc[:,'full_rot_ccw'].values
+    ipsi[np.isnan(ipsi)] = 0
+    contra[np.isnan(contra)]=0
+    raw['ipsi'] = ipsi
+    raw['contra'] = contra
+    
+    #Isolate rotations > 1s & < 10s:
+    ipsi_rot_bouts=bout_analyze(raw,meta,'ipsi',
+                                stim_dur = stim_analyze_dur,
+                                min_bout_dur_s = 1,
+                                max_bout_dur_s = 10)
+    temp['side'] = meta.loc[0,'side']
+    temp['ipsi_rot_rate']=np.nanmean(ipsi_rot_bouts['rate'],axis=0)
+    
+    contra_rot_bouts=bout_analyze(raw,meta,'contra',
+                                stim_dur = stim_analyze_dur,
+                                min_bout_dur_s = 1,
+                                max_bout_dur_s = 10)
+    temp['contra_rot_rate']=np.nanmean(contra_rot_bouts['rate'],axis=0)
         
     ### Calculate stim-triggered Proportion: FM, AMB, IM
     #pdb.set_trace()
@@ -863,7 +910,11 @@ def experiment_summary_helper(raw,
     temp['per_time_z2']=in_zone2
     
     #Chunk mouse locations:
-    xx,yy=trial_part_position(raw,meta, chunk_method='task')
+    if zone_analyze_dur == 'mean':
+        xx,yy=trial_part_position(raw,meta, chunk_method='task')
+    else:
+        xx,yy=trial_part_position(raw,meta, chunk_method='10min')
+        
     temp['x_task_position']=xx #Pre, during, post
     temp['y_task_position']=yy #Pre, during, post
     
@@ -882,6 +933,7 @@ def experiment_summary_helper(raw,
 def bout_analyze(raw,meta,y_col,stim_dur=10,
                  min_bout_dur_s=0.5,
                  min_bout_spacing_s=0.1,
+                 max_bout_dur_s = 1e6,
                  use_dlc=False,
                  calc_meander = False):
 
@@ -905,6 +957,8 @@ def bout_analyze(raw,meta,y_col,stim_dur=10,
     min_bout_spacing_samps=round(meta.fs[0]*min_bout_spacing_s)
     new_on,new_off=signals.join_gaps(onset_samps,offset_samps,min_bout_spacing_samps)
     
+    
+    
     #Also remove detected bouts from bout_onset arrays:
     # bout_onset[[x for x in onset_samps if x not in new_on]]=0 #quite slow
     # bout_offset[[x for x in offset_samps if x not in new_off]]=0
@@ -922,7 +976,7 @@ def bout_analyze(raw,meta,y_col,stim_dur=10,
     keep=np.zeros(dat.shape)
     for on,off in zip(onset_samps,offset_samps): #zip() aligns to shortest of onset/offset
         dur_temp=(off-on)/meta.fs[0]
-        if dur_temp >= min_bout_dur_s:
+        if (dur_temp >= min_bout_dur_s) and (dur_temp < max_bout_dur_s):
             dur[on]=dur_temp #Bout duration in seconds
         else:
             #do not include this bout

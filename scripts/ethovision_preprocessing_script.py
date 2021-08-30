@@ -154,9 +154,9 @@ inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=
 data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
 
 # %% Plot openloop mouse summary with statistics
-smooth_amnt= [33, 33*3]
+smooth_amnt= [33, 33]
 # smooth_amnt=[33 * 3]
-fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt,method=[9,1])
+fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt,method=[10,1])
 # %%
 plt.savefig('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 1/narrow_a2a_10x30_n8_sumamary.pdf')
 # %% Plot openloop mouse summary across conditions:
