@@ -460,6 +460,40 @@ def smooth_direction(raw,meta,
         angle.append(signals.one_line_angle(x2,y2,x1,y1))
     
     return np.array(angle)*multiplier
+def measure_rotations(raw,meta,
+                      max_dur=10, 
+                      min_dur = 0.5,
+                      min_rot = 90,
+                      rot_thresh = 340):
+    
+    '''
+        RETURN: 
+            cw = -1 when mouse turned CCW within min_dur to max_dur time
+               =  1 when mouse turned CW within time window
+    '''
+    fs=meta['fs'][0]
+    d = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dir'])))
+    d = d - d[0]
+    ad = np.abs(d)
+    a=0
+    cw = np.zeros(d.shape)
+    while np.any(ad > rot_thresh):
+        cross = np.argwhere(ad > rot_thresh)
+        if np.any(cross):
+            b= int(cross[0])
+            dur = (b - a) / fs
+            if (dur < max_dur) and (dur > min_dur):
+                if d[b] < 0:
+                    cw[(a+1):(b-1)] = 1
+                else:
+                    cw[(a+1):(b-1)] = -1
+            d= d- d[b]
+            d[0:b] = 0
+            # pdb.set_trace()
+            a = b
+            ad = np.abs(d)
+    return cw
+   
 def measure_directedness(raw,meta):
     '''
     Change in direction vs. change in distance traveled.
@@ -841,35 +875,45 @@ def experiment_summary_helper(raw,
             temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
     
     #Examine stim-triggered ipsi and contra rotations:
-    # pdb.set_trace()
+    cw = measure_rotations(raw,meta)
     if meta.loc[0,'side'] == 'Left':
-        ipsi = raw.loc[:,'full_rot_ccw'].values
-        contra = raw.loc[:,'full_rot_cw'].values
+        ipsi = cw == -1  #CCW
+        contra = cw == 1 #CW
     elif meta.loc[0,'side'] == 'Right':
-        ipsi = raw.loc[:,'full_rot_cw'].values
-        contra = raw.loc[:,'full_rot_ccw'].values
+        ipsi = cw == 1 #CW
+        contra = cw == -1 #CCW
     else: #Bilateral trial, but can still look at cw & ccw rotations:
-        ipsi = raw.loc[:,'full_rot_cw'].values
-        contra = raw.loc[:,'full_rot_ccw'].values
+        ipsi = cw == 1
+        contra = cw == -1
     ipsi[np.isnan(ipsi)] = 0
     contra[np.isnan(contra)]=0
-    raw['ipsi'] = ipsi
-    raw['contra'] = contra
+    raw['ipsi'] = ipsi.astype(bool)
+    raw['contra'] = contra.astype(bool)
     
     #Isolate rotations > 1s & < 10s:
-    ipsi_rot_bouts=bout_analyze(raw,meta,'ipsi',
-                                stim_dur = stim_analyze_dur,
-                                min_bout_dur_s = 1,
-                                max_bout_dur_s = 10)
     temp['side'] = meta.loc[0,'side']
-    temp['ipsi_rot_rate']=np.nanmean(ipsi_rot_bouts['rate'],axis=0)
-    
-    contra_rot_bouts=bout_analyze(raw,meta,'contra',
-                                stim_dur = stim_analyze_dur,
-                                min_bout_dur_s = 1,
-                                max_bout_dur_s = 10)
-    temp['contra_rot_rate']=np.nanmean(contra_rot_bouts['rate'],axis=0)
+    if np.any(ipsi):
+        ipsi_rot_bouts=bout_analyze(raw,meta,'ipsi',
+                                    stim_dur = stim_analyze_dur,
+                                    min_bout_spacing_s = 0,
+                                    min_bout_dur_s = 1,
+                                    max_bout_dur_s = 10)
         
+        temp['ipsi_rot_rate']=np.nanmean(ipsi_rot_bouts['rate'],axis=0)
+    else:
+        temp['ipsi_rot_rate']=np.array([0,0,0])
+    
+    if np.any(contra):
+        contra_rot_bouts=bout_analyze(raw,meta,'contra',
+                                    stim_dur = stim_analyze_dur,
+                                    min_bout_spacing_s = 0,
+                                    min_bout_dur_s = 1,
+                                    max_bout_dur_s = 10)
+        temp['contra_rot_rate']=np.nanmean(contra_rot_bouts['rate'],axis=0)
+    else:
+        temp['contra_rot_rate']=np.array([0,0,0])
+        
+    # pdb.set_trace()
     ### Calculate stim-triggered Proportion: FM, AMB, IM
     #pdb.set_trace()
     use = ['im','amb','fm']
@@ -983,7 +1027,8 @@ def bout_analyze(raw,meta,y_col,stim_dur=10,
             bout_onset[on]=0 
             bout_offset[off]=0
     raw[y_col_bout] = bout_onset 
-    
+    # if y_col == 'ipsi':
+    #     pdb.set_trace()
     #Use "_bout" column to calculate discrete # of occurences (min duration?)
     bout_disc=stim_clip_grab(raw,meta,y_col_bout,stim_dur=stim_dur,
                    summarization_fun=np.nansum)
