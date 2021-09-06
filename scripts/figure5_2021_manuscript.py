@@ -48,11 +48,14 @@ ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
 # %% Plot 0.25mW GPe stim openloop mouse summary with statistics
 
 analysis = 'GPe_A2a_ChR2_0p25mw'
-behavior_str = '10x'
-inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
-data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
-smooth_amnt= [33, 33*3] #Pass 2 here because there are 4 mice w/ 10x30 and 5 mice with 10x10
-# fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt)
+b = '10x'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,
+                                                          behavior_str=b)
+data = behavior.open_loop_summary_collect(basepath,inc,exc,
+                                          stim_analyze_dur=10,
+                                          update_rear=True)
+smooth_amnt= [33, 33] #Pass 2 here because there are 4 mice w/ 10x30 and 5 mice with 10x10
+fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt)
 
 # %% Plot zone day summary for 0.25mw:   
 analysis = 'GPe_A2a_ChR2_0p5mw'

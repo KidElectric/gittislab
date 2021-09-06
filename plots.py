@@ -887,10 +887,10 @@ def plot_freerunning_cond_comparison(data,save=False,close=False):
         i += 1
         
 def plot_openloop_mouse_summary(data, 
-                                smooth_amnt= [33,66],
+                                smooth_amnt= [33,33],
                                 save=False,
                                 close=False,
-                                method = 'each_dur'):    
+                                method = [10,1]):    
     '''
     
 
@@ -1170,7 +1170,7 @@ def plot_openloop_mouse_summary(data,
     else:
         plt.sca(f_row[2][2])        
         plt.title('Rear scoring incomplete. Check summary["has_dlc"]')
-
+    # pdb.set_trace()
     ### Row 3 Left: Amb CV:
     dat=np.stack(data['amb_cv'],axis=0)
     ax=f_row[3][0]
@@ -1180,6 +1180,40 @@ def plot_openloop_mouse_summary(data,
                        color='k')
     ax.set_xlim([-1,3])
     ax.set_ylabel('Amb. CV')
+    
+    ### Row 3 Middle: CW or Ipsi rotations:
+    dat=np.stack(data.loc[:,'ipsi_rot_rate'],axis=0) * 10 #Per 10 seconds
+    bouts={'rate':dat}
+    ax=f_row[3][1]
+    mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
+                       use_key='rate',ax=ax,clip_method=False,
+                       color='k')
+    if np.any(data.loc[:,'side']=='Left') \
+        or np.any(data.loc[:,'side']=='Right'):
+            axis_lab='Ipsi Rot. per 10s'
+    else:
+        axis_lab = 'CW Rot. per 10s'
+        
+    ax.set_ylabel(axis_lab)
+    ax.set_xlim([-1,3])
+    ax.set_ylim([0,2])
+    
+    ### Row 3 Right: CCW or Contra rotations:
+    dat=np.stack(data.loc[:,'contra_rot_rate'],axis=0) * 10 #Per 10 seconds
+    bouts={'rate':dat}
+    ax=f_row[3][2]
+    mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
+                       use_key='rate',ax=ax,clip_method=False,
+                       color='k')
+    if np.any(data.loc[:,'side']=='Left') \
+        or np.any(data.loc[:,'side']=='Right'):
+            axis_lab='Contra Rot. per 10s'
+    else:
+        axis_lab = 'CCW Rot. per 10s'
+        
+    ax.set_ylabel(axis_lab)
+    ax.set_xlim([-1,3])
+    ax.set_ylim([0,2]) 
     
     # #### Save image option:
     # if save == True:

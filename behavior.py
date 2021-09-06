@@ -875,7 +875,7 @@ def experiment_summary_helper(raw,
             temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
     
     #Examine stim-triggered ipsi and contra rotations:
-    cw = measure_rotations(raw,meta)
+    cw = measure_rotations(raw,meta) #currently may drop first rotation if occurs at the end of 10s window
     if meta.loc[0,'side'] == 'Left':
         ipsi = cw == -1  #CCW
         contra = cw == 1 #CW
@@ -883,21 +883,23 @@ def experiment_summary_helper(raw,
         ipsi = cw == 1 #CW
         contra = cw == -1 #CCW
     else: #Bilateral trial, but can still look at cw & ccw rotations:
-        ipsi = cw == 1
-        contra = cw == -1
+        ipsi = cw == 1 #CW rotations stored ipsi
+        contra = cw == -1 # CCW rotations stored in contra
     ipsi[np.isnan(ipsi)] = 0
     contra[np.isnan(contra)]=0
     raw['ipsi'] = ipsi.astype(bool)
     raw['contra'] = contra.astype(bool)
     
-    #Isolate rotations > 1s & < 10s:
+    #Isolate rotations > 0.3s & < 10s:
     temp['side'] = meta.loc[0,'side']
+    min_rot_dur = 0.3 # seconds
+    max_rot_dur = 10 # seconds
     if np.any(ipsi):
         ipsi_rot_bouts=bout_analyze(raw,meta,'ipsi',
                                     stim_dur = stim_analyze_dur,
                                     min_bout_spacing_s = 0,
-                                    min_bout_dur_s = 1,
-                                    max_bout_dur_s = 10)
+                                    min_bout_dur_s = min_rot_dur,
+                                    max_bout_dur_s = max_rot_dur)
         
         temp['ipsi_rot_rate']=np.nanmean(ipsi_rot_bouts['rate'],axis=0)
     else:
@@ -907,8 +909,8 @@ def experiment_summary_helper(raw,
         contra_rot_bouts=bout_analyze(raw,meta,'contra',
                                     stim_dur = stim_analyze_dur,
                                     min_bout_spacing_s = 0,
-                                    min_bout_dur_s = 1,
-                                    max_bout_dur_s = 10)
+                                    min_bout_dur_s = min_rot_dur,
+                                    max_bout_dur_s = max_rot_dur)
         temp['contra_rot_rate']=np.nanmean(contra_rot_bouts['rate'],axis=0)
     else:
         temp['contra_rot_rate']=np.array([0,0,0])

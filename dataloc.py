@@ -158,66 +158,78 @@ def experiment_selector(cell_str,behavior_str):
         color = 'b'
     elif 'Arch' in cell_str:
         color='g'
-    
+
+    inc=[]
+    exc=[]
     bilateral_exp=['zone_1','zone_2','10x10','10x30','10x','zone_','trig_','trig_r','trig_l']
-    uni_exp = ['5x30']
+    uni_exp = ['5x30','10x30']
     if behavior_str in bilateral_exp:
-        behavior_list=['Bilateral', behavior_str]
+        base=['Bilateral']
+        behavior_list = [behavior_str] #
     elif behavior_str == 'uni':
-        behavior_list=['5x30']
-        
-    if cell_str[0:12] == 'Str_A2a_ChR2':
-        all_intense=['0p25mw','0p5mw','1mw','2mw','3mw']
-        intensity=cell_str.split('_')[-1] #desired intensity
-        exc_int = [a for a in all_intense if a != intensity] #exclude these        
-        if intensity == '1mw':
-            intensity = ''
-        inc=[['AG','Str','A2A','ChR2'] + behavior_list + ['_%s' % intensity],
-              ['AG','Str','A2A','Ai32'] + behavior_list + ['_%s' % intensity]]
+        base=[]
+        behavior_list = uni_exp
+    all_intense=['0p25mw','0p5mw','1mw','2mw','3mw','20mw','30mw',]
+    intensity=cell_str.split('_')[-1] #desired intensity
+    exc_int = [a for a in all_intense if a != intensity] #exclude these 
+    if intensity == '1mw':
+        intensity = ''
+    base = base + ['_%s' % intensity]
+    
+    # A2a ChR2 (Combines A2a x Ai32 and ChR2 injections):
+    if cell_str[0:12] == 'Str_A2a_ChR2':        
         ex0=['exclude','Bad','GPe','bad',\
-              'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-                  'AG3488_7','500ms_pulse','duty',
-                  'gpe','muscimol','cno','hm4di'] + exc_int
-        exc=[ex0,ex0]
+                  'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
+                      'AG3488_7','500ms_pulse','duty',
+                      'gpe','muscimol','cno','hm4di'] 
+        unique_base=[['AG','Str','A2A','ChR2'],
+                     ['AG','Str','A2A','Ai32'] ]
+        for u in unique_base:
+            for behav in behavior_list:            
+                inc.append(u + [behav] + base)         
+                exc.append(ex0 + exc_int)
         example_mouse=1
     
-    
+    #D1 Arch Striatum
     if cell_str[0:11] == 'Str_D1_Arch':
-        all_intense=['0p25mw','0p5mw','1mw','2mw','3mw','30mw','20mw']
-        intensity=cell_str.split('_')[-1] #desired intensity
-        exc_int = [a for a in all_intense if a != intensity] #exclude these        
-        if intensity == '1mw':
-            intensity = ''
-        inc=[['AG','Str','D1','Arch'] + behavior_list + ['_%s' % intensity],]
         ex0=['exclude','Bad','GPe','bad',\
               'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
                   'AG3488_7','500ms_pulse','duty',
-                  'gpe','muscimol','cno','hm4di'] + exc_int
-        exc=[ex0]
+                  'gpe','muscimol','cno','hm4di'] 
+
+        unique_base=[['AG','Str','D1','Arch']  ]
+        for u in unique_base:
+            for behav in behavior_list:            
+                inc.append(u + [behav] + base)         
+                exc.append(ex0 + exc_int)
         example_mouse=0
      
-    # Identify 1mW GPe CAG Arch experiments:
+    # Identify GPe CAG Arch experiments:
     elif cell_str =='GPe_CAG_Arch':
         ex0=['exclude','Bad','Str','bad',\
          'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-             'AG3488_7','d1r','30mW','duty','_0p5mw','_0p25mw','str','muscimol','cno','hm4di','3mW','2mw']
-        inc=[['AG','GPe','CAG','Arch',]+behavior_list]
-        exc=[ex0]
+             'AG3488_7','d1r','duty','str','muscimol','cno','hm4di']
+        
+        unique_base=[['AG','GPe','CAG','Arch',] ]
+        for u in unique_base:
+            for behav in behavior_list:            
+                inc.append(u + [behav] + base)         
+                exc.append(ex0 + exc_int)
         example_mouse=9
         
+    # GPe A2a terminal chr2:
     elif cell_str[0:12] == 'GPe_A2a_ChR2':
-        all_intense=['0p25mw','0p5mw','1mw','2mw','3mw']
-        intensity=cell_str.split('_')[-1] #desired intensity
-        exc_int = [a for a in all_intense if a != intensity] #exclude these        
-        if intensity == '1mw':
-            intensity = ''
         ex0=['exclude','Bad','Str','bad',\
          'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',
              'AG3488_7','d1r','30mW','duty','str','muscimol','cno',
-             'AG5769_5','hm4di','2s_on_8s_off','switch'] + exc_int
-        inc=[['AG','GPe','A2A','ChR2',] + behavior_list + ['_%s' % intensity],
-              ['AG','GPe','A2A','Ai32',] + behavior_list + ['_%s' % intensity]]
-        exc=[ex0,ex0]
+             'AG5769_5','hm4di','2s_on_8s_off','switch']
+        unique_base = [['AG','GPe','A2A','ChR2',] ,
+                       ['AG','GPe','A2A','Ai32',] ] 
+
+        for u in unique_base:
+            for behav in behavior_list:            
+                inc.append(u + [behav] + base)         
+                exc.append(ex0 + exc_int)
         example_mouse=2
         
     if behavior_str == 'uni':        
