@@ -1124,7 +1124,7 @@ def plot_openloop_mouse_summary(data,
     stats[1] += [stat_temp]
     
     # stat_temp={'2WayAnova':anova2}
-    ### Row 2 Left: Ambulation bout rate:
+    #### Row 2 Left: Ambulation bout rate:
     dat= np.stack(data['amb_bout_rate'],axis=0)
     labs= data['prop_labels'][0]
     labels=['Pre','Dur','Post']
@@ -1138,7 +1138,7 @@ def plot_openloop_mouse_summary(data,
     ax.set_xlim([-1,3])
     ax.set_ylabel('Amb bouts / s')
     
-    ### Row 2 Middle: Immobility bout rate:
+    #### Row 2 Middle: Immobility bout rate:
     dat= np.stack(data['im_bout_rate'],axis=0)
     labs= data['prop_labels'][0]
     labels=['Pre','Dur','Post']
@@ -1153,7 +1153,7 @@ def plot_openloop_mouse_summary(data,
     ax.set_ylabel('Imm. bouts / s')
     
     
-    ### Row 2 Right: Rear bout rate:
+    #### Row 2 Right: Rear bout rate:
     if not any(data['has_dlc'] == False):
         dat= np.stack(data['rear_bout_rate'],axis=0)
         labs= data['prop_labels'][0]
@@ -1171,7 +1171,8 @@ def plot_openloop_mouse_summary(data,
         plt.sca(f_row[2][2])        
         plt.title('Rear scoring incomplete. Check summary["has_dlc"]')
     # pdb.set_trace()
-    ### Row 3 Left: Amb CV:
+    
+    #### Row 3 Left: Amb CV:
     dat=np.stack(data['amb_cv'],axis=0)
     ax=f_row[3][0]
     bouts={'rate':dat}
@@ -1182,11 +1183,17 @@ def plot_openloop_mouse_summary(data,
     ax.set_ylabel('Amb. CV')
     
     ### Row 3 Middle: CW or Ipsi rotations:
+    
     dat=np.stack(data.loc[:,'ipsi_rot_rate'],axis=0) * 10 #Per 10 seconds
-    bouts={'rate':dat}
+    u_mice=np.unique(data['anid'])
+    temp=[]
+    for mouse in u_mice:
+        ind = data.loc[:,'anid'] == mouse
+        temp.append(np.mean(dat[ind,:],axis=0))
+    bouts={'rate' : np.array(temp)}
     ax=f_row[3][1]
     mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
-                       use_key='rate',ax=ax,clip_method=False,
+                       use_key='rate', ax=ax, clip_method=False,
                        color='k')
     if np.any(data.loc[:,'side']=='Left') \
         or np.any(data.loc[:,'side']=='Right'):
@@ -1196,11 +1203,16 @@ def plot_openloop_mouse_summary(data,
         
     ax.set_ylabel(axis_lab)
     ax.set_xlim([-1,3])
-    ax.set_ylim([0,2])
-    
-    ### Row 3 Right: CCW or Contra rotations:
+    ax.set_ylim([0,3])
+    plt.title('n=%d' % (len(temp)))
+
+    #### Row 3 Right: CCW or Contra rotations:
     dat=np.stack(data.loc[:,'contra_rot_rate'],axis=0) * 10 #Per 10 seconds
-    bouts={'rate':dat}
+    temp=[]
+    for mouse in u_mice:
+        ind = data.loc[:,'anid'] == mouse
+        temp.append(np.mean(dat[ind,:],axis=0))
+    bouts={'rate' : np.array(temp)}
     ax=f_row[3][2]
     mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False,
@@ -1213,7 +1225,8 @@ def plot_openloop_mouse_summary(data,
         
     ax.set_ylabel(axis_lab)
     ax.set_xlim([-1,3])
-    ax.set_ylim([0,2]) 
+    ax.set_ylim([0,3])
+    plt.title('n=%d' % (len(temp)))
     
     # #### Save image option:
     # if save == True:
@@ -1674,6 +1687,7 @@ def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mou
         plt.close()
     else:
         return fig
+    
 def plot_light_curve_sigmoid(pns,laser_cal_fit,sum_fun, y_col='im',
                              save=False,load_method='raw',fit_method='lm',
                              iter=50):

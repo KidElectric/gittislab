@@ -158,6 +158,8 @@ def experiment_selector(cell_str,behavior_str):
         color = 'b'
     elif 'Arch' in cell_str:
         color='g'
+    else:
+        color = 'k'
 
     inc=[]
     exc=[]
@@ -175,63 +177,56 @@ def experiment_selector(cell_str,behavior_str):
     if intensity == '1mw':
         intensity = ''
     base = base + ['_%s' % intensity]
+    general_exc = ['exclude','Bad','bad','Broken','Exclude','Other XLS',
+                   '500ms_pulse','duty','15min','10hz','2s_on_8s_off','switch']
+    str_exc= general_exc + ['GPe','gpe','AG3233_5','AG3233_4',
+                            'AG3488_7',]
+    pharm_exc = ['muscimol','cno','hm4di'] 
+    gpe_exc = general_exc + ['Str','d1r', 'str']
     
     # A2a ChR2 (Combines A2a x Ai32 and ChR2 injections):
     if cell_str[0:12] == 'Str_A2a_ChR2':        
-        ex0=['exclude','Bad','GPe','bad',\
-                  'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-                      'AG3488_7','500ms_pulse','duty',
-                      'gpe','muscimol','cno','hm4di'] 
+        ex0 = str_exc + pharm_exc
         unique_base=[['AG','Str','A2A','ChR2'],
                      ['AG','Str','A2A','Ai32'] ]
-        for u in unique_base:
-            for behav in behavior_list:            
-                inc.append(u + [behav] + base)         
-                exc.append(ex0 + exc_int)
         example_mouse=1
     
     #D1 Arch Striatum
     if cell_str[0:11] == 'Str_D1_Arch':
-        ex0=['exclude','Bad','GPe','bad',\
-              'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-                  'AG3488_7','500ms_pulse','duty',
-                  'gpe','muscimol','cno','hm4di'] 
-
+        ex0 = str_exc + pharm_exc 
         unique_base=[['AG','Str','D1','Arch']  ]
-        for u in unique_base:
-            for behav in behavior_list:            
-                inc.append(u + [behav] + base)         
-                exc.append(ex0 + exc_int)
         example_mouse=0
      
     # Identify GPe CAG Arch experiments:
     elif cell_str =='GPe_CAG_Arch':
-        ex0=['exclude','Bad','Str','bad',\
-         'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',\
-             'AG3488_7','d1r','duty','str','muscimol','cno','hm4di']
-        
+        ex0= gpe_exc + pharm_exc      
         unique_base=[['AG','GPe','CAG','Arch',] ]
-        for u in unique_base:
-            for behav in behavior_list:            
-                inc.append(u + [behav] + base)         
-                exc.append(ex0 + exc_int)
         example_mouse=9
         
     # GPe A2a terminal chr2:
     elif cell_str[0:12] == 'GPe_A2a_ChR2':
-        ex0=['exclude','Bad','Str','bad',\
-         'Broken','15min','10hz', 'Exclude','Other XLS','AG3233_5','AG3233_4',
-             'AG3488_7','d1r','30mW','duty','str','muscimol','cno',
-             'AG5769_5','hm4di','2s_on_8s_off','switch']
+        ex0= gpe_exc + pharm_exc + ['AG5769_5','2s_on_8s_off','switch']
         unique_base = [['AG','GPe','A2A','ChR2',] ,
                        ['AG','GPe','A2A','Ai32',] ] 
-
-        for u in unique_base:
-            for behav in behavior_list:            
-                inc.append(u + [behav] + base)         
-                exc.append(ex0 + exc_int)
         example_mouse=2
         
+    # Attempt to make a reasonable query based off cell_str alone:
+    else:
+        area,cell,opsin = cell_str[0:12].split('_')[0:3]
+        if area == 'GPe':
+            ex0 = gpe_exc + pharm_exc
+        else:
+            ex0 = str_exc + pharm_exc 
+
+        unique_base = [['AG',area,cell,opsin,]]
+        example_mouse = 0
+    
+        
+    for u in unique_base:
+        for behav in behavior_list:            
+            inc.append(u + [behav] + base)         
+            exc.append(ex0 + exc_int)  
+            
     if behavior_str == 'uni':        
         add=[['Left'],['Right']]
         inc_temp=[]

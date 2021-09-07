@@ -795,7 +795,7 @@ def experiment_summary_helper(raw,
     if stim_analyze_dur == 'mean':
         stim_analyze_dur = stim_dur
     temp['stim_dur'] = stim_dur
-
+    temp['file_path']=meta['pn'][0]
     free_running = meta['no_trial_structure'][0]
     percentage = lambda x: (np.nansum(x)/len(x))*100
     temp['analysis_stim_dur'] = stim_analyze_dur
@@ -976,6 +976,63 @@ def experiment_summary_helper(raw,
     temp['prob_density_arena']=hist
     return temp
 
+def experiment_summary_saver(data,path=[],use_cols=[],groupby=False,method='compact'):
+    meta_cols=['anid','proto','cell_area_opsin','side','file_path',
+               'stim_dur', 'analysis_stim_dur','has_dlc',]
+    pdp_labs = ['prestim','durstim','poststim']
+    pdp_cols = [ 'stim_speed', 'amb_speed', 'amb_bouts', 'per_mobile',
+                'amb_bout_rate', 'amb_cv','contra_rot_rate',
+                'im_bout_rate', 'ipsi_rot_rate', 'per_time_z1', 
+                'per_time_z2','rear_bout_rate','prop_state',]
+    
+    per_ten_s = ['ipsi_rot_rate','contra_rot_rate']
+    new_dat = pd.DataFrame(data.loc[:,meta_cols])
+    temp = new_dat['analysis_stim_dur'].values[:,np.newaxis]
+    for lab in pdp_labs:
+        new_dat.loc[:,'%s_analysis_dur' % lab] = temp
+
+    new_dat.drop(columns=['analysis_stim_dur'],inplace=True)
+    
+    uni = np.any(data.loc[:,'side']=='Left') or np.any(data.loc[:,'side']=='Right')
+    if method == 'compact':
+        if uni == True:
+            use_cols=['ipsi_rot_rate','contra_rot_rate']
+            groupby= True #In this case, average ipsi/contra in 'Left' and 'Right' experiments.
+    elif len(use_cols) == 0:
+        use_cols=pdp_cols
+        groupby = False
+    
+    
+    if 'prop_state' in use_cols: # Separate out into multiple columns:
+        prop_dict = {}
+        for i,lab in enumerate(data.prop_labels[0]):
+            newlab = 'prop_'+ lab
+            for ii,win in enumerate(pdp_labs):
+                temp=np.stack(data.loc[:,'prop_state'],axis=2)[i,:,:].T
+                save_col=newlab
+                new_dat.loc[:,'%s_%s' % (win,save_col)] = temp[:,ii]
+        use_cols.remove('prop_state')
+    for col in use_cols:
+        if col in pdp_cols:
+            temp = np.vstack(data.loc[:,col])
+            
+            for i,win in enumerate(pdp_labs):
+                if col in per_ten_s:
+                    save_col = col + '_per_10s'
+                    mod = 10
+                else:
+                    save_col = col
+                    mod = 1
+                    
+                new_dat.loc[:,'%s_%s' % (win,save_col)] = temp[:,i]*mod
+        else:
+            temp = data.loc[:,col]
+    if groupby == True:
+       new_dat = new_dat.groupby('anid').mean().reset_index() 
+    if len(path) > 0:
+        print('Save not yet implemented.')
+    
+    return new_dat
 def bout_analyze(raw,meta,y_col,stim_dur=10,
                  min_bout_dur_s=0.5,
                  min_bout_spacing_s=0.1,
