@@ -756,15 +756,21 @@ def summary_collect_to_df(summary_dict,
                           var_name, 
                           value_name,                        
                           static_columns,
-                          sort_column=None):
+                          sort_column=None,
+                          method='list'):
     df_conds=summary_dict.keys()
     dfs= []
     for cond_label in df_conds:
         temp=summary_dict[cond_label].loc[:,use_columns]
         if not(sort_column == None):
             temp=temp.sort_values(by=[sort_column])
-        temp2=pd.DataFrame(temp[value_name].to_list(),
-                           columns=label_columns)
+        if method == 'list':
+            temp2=pd.DataFrame(temp[value_name].to_list(),
+                               columns=label_columns)
+        else:
+            temp2=pd.DataFrame(np.vstack(temp[value_name]),
+                               columns=label_columns)
+            
         for col in static_columns:
             temp2[col]=temp[col]
         dfs.append(temp2)
@@ -867,12 +873,14 @@ def experiment_summary_helper(raw,
     
     #Examine rear rate /dur if evailable:
     if 'rear' in raw.columns:
-        if any(~np.isnan(raw['rear'])):
+        if any(~np.isnan(raw['rear'])) and np.any(raw['rear']):
             rear_bouts=bout_analyze(raw,meta,'rear',
                         stim_dur = stim_analyze_dur,
                         min_bout_dur_s=min_bout)
     
             temp['rear_bout_rate']=np.nanmean(rear_bouts['rate'],axis=0)
+        else:
+            temp['rear_bout_rate']=np.zeros((1,3))
     
     #Examine stim-triggered ipsi and contra rotations:
     cw = measure_rotations(raw,meta) #currently may drop first rotation if occurs at the end of 10s window
@@ -937,29 +945,37 @@ def experiment_summary_helper(raw,
     #Perform statistics on these differences
     
     ### Calculate % time in each zone:
-    t=[i for i in range(3)]
-    t[0]=[0, zone_analyze_dur]
-    t[1]=[meta.task_start[0], meta.task_start[0] + zone_analyze_dur ]
-    t[2]=[meta.task_stop[0], meta.task_stop[0] + zone_analyze_dur]
-    
-    # t[0]=0
-    # t[1]=analyze_dur #meta.task_start[0]
-    # t[2]=meta.task_stop[0]
-    # t[3]=meta.exp_end[0]
+
+    if zone_analyze_dur == 'mean': #Currently not implemented
+        t=[i for i in range(4)]
+        t[0]=0
+        t[1]=meta.task_start[0]
+        t[2]=meta.task_stop[0]
+        t[3]=meta.exp_end[0]
+    else:
+        t=[i for i in range(3)]
+        t[0]=[0, zone_analyze_dur]
+        t[1]=[meta.task_start[0], meta.task_start[0] + zone_analyze_dur ]
+        t[2]=[meta.task_stop[0], meta.task_stop[0] + zone_analyze_dur]
     in_zone1=[]
     for ts in t:
         ind=(raw['time']>= ts[0]) & (raw['time'] < ts[1])
-        in_zone1.append(percentage(np.array(raw['iz1'].astype(int))[ind]))
+        if 'iz1' in raw:
+            in_zone1.append(percentage(np.array(raw['iz1'].astype(int))[ind]))
+        else:
+            in_zone1.append(percentage(np.array(raw.loc[ind,'x']<0).astype(int)))
         
     in_zone2=np.array([100,100,100])-np.array(in_zone1)
     temp['per_time_z1']=in_zone1
     temp['per_time_z2']=in_zone2
     
     #Chunk mouse locations:
+    temp['zone_analyze_dur'] = zone_analyze_dur
     if zone_analyze_dur == 'mean':
         xx,yy=trial_part_position(raw,meta, chunk_method='task')
     else:
-        xx,yy=trial_part_position(raw,meta, chunk_method='10min')
+        xx,yy=trial_part_position(raw,meta, chunk_method='10min') 
+        
         
     temp['x_task_position']=xx #Pre, during, post
     temp['y_task_position']=yy #Pre, during, post
@@ -976,9 +992,10 @@ def experiment_summary_helper(raw,
     temp['prob_density_arena']=hist
     return temp
 
-def experiment_summary_saver(data,path=[],use_cols=[],groupby=False,method='compact'):
+def experiment_summary_saver(data,path=[],use_cols=[],
+                             groupby=False,method='compact'):
     meta_cols=['anid','proto','cell_area_opsin','side','file_path',
-               'stim_dur', 'analysis_stim_dur','has_dlc',]
+               'stim_dur', 'analysis_stim_dur','has_dlc','zone_analyze_dur']
     pdp_labs = ['prestim','durstim','poststim']
     pdp_cols = [ 'stim_speed', 'amb_speed', 'amb_bouts', 'per_mobile',
                 'amb_bout_rate', 'amb_cv','contra_rot_rate',
@@ -988,10 +1005,11 @@ def experiment_summary_saver(data,path=[],use_cols=[],groupby=False,method='comp
     per_ten_s = ['ipsi_rot_rate','contra_rot_rate']
     new_dat = pd.DataFrame(data.loc[:,meta_cols])
     temp = new_dat['analysis_stim_dur'].values[:,np.newaxis]
-    for lab in pdp_labs:
-        new_dat.loc[:,'%s_analysis_dur' % lab] = temp
-
-    new_dat.drop(columns=['analysis_stim_dur'],inplace=True)
+    if 'zone_' not in data.loc[:,'proto'][0]:
+        for lab in pdp_labs:
+            new_dat.loc[:,'%s_analysis_dur' % lab] = temp
+    
+        new_dat.drop(columns=['analysis_stim_dur'],inplace=True)
     
     uni = np.any(data.loc[:,'side']=='Left') or np.any(data.loc[:,'side']=='Right')
     if method == 'compact':
@@ -1001,7 +1019,7 @@ def experiment_summary_saver(data,path=[],use_cols=[],groupby=False,method='comp
     elif len(use_cols) == 0:
         use_cols=pdp_cols
         groupby = False
-    
+    # pdb.set_trace()
     
     if 'prop_state' in use_cols: # Separate out into multiple columns:
         prop_dict = {}
@@ -1027,12 +1045,14 @@ def experiment_summary_saver(data,path=[],use_cols=[],groupby=False,method='comp
                 new_dat.loc[:,'%s_%s' % (win,save_col)] = temp[:,i]*mod
         else:
             temp = data.loc[:,col]
+            new_dat.loc[:,col]=temp
     if groupby == True:
-       new_dat = new_dat.groupby('anid').mean().reset_index() 
+       new_dat = new_dat.groupby(by='anid').mean().reset_index() 
     if len(path) > 0:
         print('Save not yet implemented.')
-    
+    new_dat =new_dat.sort_values('anid').reset_index()
     return new_dat
+
 def bout_analyze(raw,meta,y_col,stim_dur=10,
                  min_bout_dur_s=0.5,
                  min_bout_spacing_s=0.1,
