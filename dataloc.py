@@ -193,7 +193,7 @@ def experiment_selector(cell_str,behavior_str):
         example_mouse=1
     
     #D1 Arch Striatum
-    if cell_str[0:11] == 'Str_D1_Arch':
+    elif cell_str[0:11] == 'Str_D1_Arch':
         ex0 = str_exc + pharm_exc 
         unique_base=[['AG','Str','D1','Arch']  ]
         example_mouse=0

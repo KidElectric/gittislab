@@ -632,11 +632,16 @@ def open_loop_summary_collect(basepath,
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         csv_paths=dataloc.raw_csv(basepath,inc,exc)
+
         if isinstance(csv_paths,Path):
             csv_paths=[csv_paths]
+        if len(csv_paths) == 0:
+            print('No files found.')
+            # pdb.set_trace()
         for ii,path in enumerate(csv_paths):            
             print('Inc[%d], file %d) %s loaded...' % (i,ii,str(path)))
             raw,meta=ethovision_tools.csv_load(path,method='preproc')
+
             if update_rear == True:
                 raw = update_rear_logic(raw)
             temp = experiment_summary_helper(raw,meta,

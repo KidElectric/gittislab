@@ -8,6 +8,46 @@ Created on Thu Apr  8 10:10:27 2021
 import pandas as pd
 import numpy as np
 import pdb
+def groupby_concat_mean(df,gbcol,datcol):
+    '''
+    Take grouped mean of column of arrays in pandas dataframe.
+    
+    I.e. if a column has many array objects of the same length, use df.groupby()
+    and apply np.mean(axis=0) to np.vstack() of grouped rows
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        must contain gbcol and datcol columns
+    gbcol : String
+        Column of df to groupby
+
+    datcol : String
+        Column of arrays of same length to be concatenated vertically:
+            
+
+              
+            
+    Returns
+    -------
+    pandas.DataFrame
+        Grouped rows w/ concatenated means of arrays.
+        
+      for example: df, gbcol = 'anid', datcol = 'speed'
+                df=
+            'anid'          'speed'
+              'AB1'        [0,1,1]
+              'AB1'        [0,2,1]
+              
+         returns:
+             df = 'anid' 'speed'
+                 'AB1'     [0, 1.5, 1]
+
+    '''
+    temp=df.groupby(by=gbcol).apply(lambda x: np.mean(np.vstack(x.loc[:,datcol]),axis=0))
+    temp0=df.groupby(by=gbcol).mean()
+    temp0.loc[:,datcol]=temp.values
+    return temp0.reset_index()
 
 def consolidate_columns_to_labels(df,label_columns,
                                   value_column_name='value',
