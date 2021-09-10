@@ -72,7 +72,8 @@ def preproc_raw(raw,meta,win=10):
     
     x_s=signals.pad_lowpass_unpad(raw['x'],cutoff,fs,order=5)
     y_s=signals.pad_lowpass_unpad(raw['y'],cutoff,fs,order=5)
-
+    # pdb.set_trace()
+    
     #Calculate distance between smoothed (x,y) points for smoother velocity
     vel=[]
     dist=[]
@@ -107,9 +108,9 @@ def preproc_raw(raw,meta,win=10):
     else:
         preproc['rear']=np.ones(raw['x'].shape)*np.nan
         
-    if 'vel_smooth_win_ms' not in meta.columns:
-        preproc['vel']=vel
-        meta['vel_smooth_win_ms']=win/fs * 1000 # ~333ms
+    # if 'vel_smooth_win_ms' not in meta.columns:
+    preproc['vel']=vel
+    meta['vel_smooth_win_ms']=win/fs * 1000 # ~333ms
                     
     thresh=2; #cm/s; Kravitz & Kreitzer 2010
     # min_bout_dur=0.5; #0.5s used in Kravitz & Kreitzer 2010 #Implement in bout_analyze
