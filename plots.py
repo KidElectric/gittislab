@@ -1797,7 +1797,7 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,sum_fun, y_col='im',
         
         xs=[i/100 for i in range(-100,800,1)]
 
-        all_po=model.boostrap_model(x,y,
+        all_po=model.bootstrap_model(x,y,
                                     model.fit_sigmoid,
                                     model_method='lm',
                                     iter = iter, 

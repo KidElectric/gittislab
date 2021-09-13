@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sept 13 2021
+
+@author: brian
+"""
+import os
+from pathlib import Path
+import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+from gittislab import signals, plots, behavior, dataloc, ethovision_tools, model
+if ('COMPUTERNAME' in os.environ.keys()) \
+    and (os.environ['COMPUTERNAME'] == 'DESKTOP-UR8URCE'):
+        
+    basepath = 'F:\\Users\\Gittis\\Dropbox\\Gittis Lab Data\\OptoBehavior\\'
+else:
+    basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
+# %%
+base = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/A2A/Ai32/Bilateral/50x2/exclude/2021-08-23-laser_cal/')
+fns = [base.joinpath('gpe_buttonB3_0-255_11mW_max_cal_cleaned.csv'),
+       base.joinpath('gpe_buttonB6_0-255_11mW_max_cal_cleaned.csv'),
+       base.joinpath('gpe_buttonB8_0-255_11mW_max_cal_cleaned.csv'),
+       base.joinpath('gpe_buttonB11_0-255_11mW_max_cal_cleaned.csv'),
+       base.joinpath('gpe_buttonB13_0-255_11mW_max_cal_cleaned.csv'),
+       
+       ]
+mins = [3662, 3726, 3628,3552,3523]
+threshs = [-2,-2,-2,-1.5,-2]
+cals = []
+for t,m,fn in zip(threshs,mins, fns):
+        
+    df_cal=pd.read_csv(fn)
+    fig,ax=plt.subplots(1,2)
+    y=df_cal.loc[:,' Power(W)'] *1000 # Put in mW
+    ax[0].plot([x for x in range(0,len(y))],y)
+    ax[0].set_title(fn.parts[-1])
+    #locate drop offs:
+    d=np.diff(y)
+    on,off=signals.thresh(d,t,'Neg')
+    for o in off:
+        ax[0].plot([o,o],[0,33],'--r')
+    
+    onsets= [2] + off[0:-1]
+    offsets = on
+    durs = [f-o for o,f in zip(onsets,offsets)]
+    use_dur = m
+    print(durs)
+    newclips=[]
+    
+    for o,f in zip(onsets,offsets):
+        dd= f-o        
+        if dd > 3500 :
+            if dd > use_dur:
+                o=f-use_dur    
+            t=y[o:f]            
+            newclips.append(t.values)
+    
+    dat=np.stack(newclips)
+    
+    x=[x for x in np.arange(0,255,255/use_dur)]
+    mean_power=np.mean(dat,axis=0)
+    f = np.polyfit(x,mean_power,deg=3)
+    laser_cal_fit = np.poly1d(f)
+    cals.append(laser_cal_fit)
+    ax[1].plot(x,mean_power,'k')
+    ax[1].plot(x,laser_cal_fit(x),'r')
+    # ax=plt.gca()
+    ax[1].set_ylabel('Blue laser output (mW)')
+    ax[1].set_xlabel('Arduino PWM level')
+# %%
+
+plt.figure()
+for cal in cals:
+    plt.plot(x,cal(x))
+plt.xlim([0,150])
+plt.ylim([0,4])
+plt.ylabel('Fiber output power (mW)')
+plt.xlabel('PWM')

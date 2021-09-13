@@ -41,7 +41,7 @@ exc=[ex0]
 # inc=[['AG','Str','A2A','Ai32','zone_2_0p5mw',]]
 # inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 
-
+inc=[['AG','A2A','Ai32','GPe','50x2']]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
