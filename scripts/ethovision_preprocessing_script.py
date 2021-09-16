@@ -41,7 +41,7 @@ exc=[ex0]
 # inc=[['AG','Str','A2A','Ai32','zone_2_0p5mw',]]
 # inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 
-inc=[['AG','A2A','Ai32','GPe','50x2']]
+inc=[['AG','A2A','Ai32','GPe','zone_1']]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -54,8 +54,8 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
 # %% RUN AFTER DLC:
 
-analysis = 'Str_A2a_ChR2_1mw'
-behavior_str = 'zone_' #'10x'
+analysis = 'GPe_A2a_ChR2_0p25mw'
+behavior_str = '10x' # 'zone_'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
 
 # analysis = 'GPe_CAG_Arch'
@@ -66,7 +66,7 @@ ethovision_tools.unify_raw_to_csv(basepath,
                                   win=10,make_preproc = False)
 
 ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
-                                             force_replace=False,win=10)
+                                             force_replace=True,win=10)
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
 
 print(summary.stim_dur)
@@ -76,10 +76,10 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 # %% Plot zone day
 # inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
 
-analysis = 'GPe_A2a_ChR2_0p25'
+analysis = 'GPe_A2a_ChR2_0p25mw'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
-
+inc[1] += ['AG7192_4']
 pns=dataloc.raw_csv(basepath,inc[1],exc[1])
 if not isinstance(pns,list):
     pns=[pns]
@@ -92,24 +92,32 @@ for pn in pns:
 # %% Plot zone day summary:   
 # inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
 
-analysis = 'Str_A2a_ChR2_1mw'
+# analysis = 'Str_A2a_ChR2_1mw'
 # analysis = 'GPe_CAG_Arch'
-# analysis = 'GPe_A2a_ChR2_0p25'
+analysis = 'GPe_A2a_ChR2_0p25mw'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
+inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
 # inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
 data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
 plots.plot_zone_mouse_summary(data,color='k',example_mouse=example_mouse)
 
 # %% Plot 10x10 / openloop days:
-ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
+# ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]
-inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
-pns=dataloc.raw_csv(basepath,inc[0],ex0)
+# inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
+
+
+analysis = 'GPe_A2a_ChR2_0p25mw'
+b = '10x'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,
+                                                          behavior_str=b)
+
+pns=dataloc.raw_csv(basepath,inc[1],exc[1])
 if not isinstance(pns,list):
     pns=[pns]
 saveit=True
-closeit=False
+closeit=True
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
     plots.plot_openloop_day(df,meta,save=saveit, close=closeit)
@@ -146,11 +154,12 @@ for pn in pns:
 
 # exc=[ex0,]
 
-# analysis = 'GPe_A2a_ChR2_0p25'
-analysis = 'Str_A2a_ChR2_1mw'
+analysis = 'GPe_A2a_ChR2_0p25mw'
+# analysis = 'Str_A2a_ChR2_1mw'
 behavior_str = '10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
 
+inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
 
 # %% Plot openloop mouse summary with statistics

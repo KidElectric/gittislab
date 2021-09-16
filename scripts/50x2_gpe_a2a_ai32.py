@@ -26,6 +26,8 @@ def mw2pwm(laser_cal_fit,mw):
     yy = laser_cal_fit(xx)
     return xx[(yy < (mw+0.01)) & (yy > (mw-0.01))]
 
+import pickle
+
 
 # %% 
 #Dial 740 Cal:
@@ -97,12 +99,24 @@ inc=[['AG','GPe','A2A','Ai32','50x2',]]
 pns=dataloc.raw_csv(basepath,inc[0],ex0)
 if not isinstance(pns,list):
     pns=[pns]
+button_base = Path(basepath).joinpath('GPe/Naive/A2A/Ai32/Bilateral/50x2/exclude/2021-08-23-laser_cal/')
+button_dict={'AG7128_4':button_base.joinpath('gpe_buttonB6_0-255_11mW_max_cal_cleaned_model.pkl'),
+             'AG7128_5':button_base.joinpath('gpe_buttonB3_0-255_11mW_max_cal_cleaned_model.pkl'),
+             'AG7192_2':button_base.joinpath('gpe_buttonB11_0-255_11mW_max_cal_cleaned_model.pkl'),
+             'AG7192_3':button_base.joinpath('gpe_buttonB13_0-255_11mW_max_cal_cleaned_model.pkl'),
+             'AG7192_4':button_base.joinpath('gpe_buttonB8_0-255_11mW_max_cal_cleaned_model.pkl')}
+#For better precision, load each mouse's calibration file separately.
 
-sig_x,sig_y,anid,par = plots.plot_light_curve_sigmoid(pns,
-                                                      laser_cal_fit,
-                                                      sum_fun,
-                                                      y_col=y_col,
-                                                      load_method=load_method,
-                                                      save=save,iter=100) #Includes bootstrapping 
+for pn in pns:
+    meta=pd.read_csv(dataloc.meta_csv(basepath,inc=[str(pn.parent)]))
+    with open(button_dict[meta.anid[0]],'rb') as pickle_file:
+        laser_cal_fit=pickle.load(pickle_file)
+ 
+    sig_x,sig_y,anid,par = plots.plot_light_curve_sigmoid([pn],
+                                                          laser_cal_fit,
+                                                          sum_fun,
+                                                          y_col=y_col,
+                                                          load_method=load_method,
+                                                          save=save,iter=100) #Includes bootstrapping 
 
     

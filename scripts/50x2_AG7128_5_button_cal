@@ -11,7 +11,6 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 from gittislab import signals, plots, behavior, dataloc, ethovision_tools, model
-import pickle
 if ('COMPUTERNAME' in os.environ.keys()) \
     and (os.environ['COMPUTERNAME'] == 'DESKTOP-UR8URCE'):
         
@@ -24,7 +23,8 @@ fns = [base.joinpath('gpe_buttonB3_0-255_11mW_max_cal_cleaned.csv'),
        base.joinpath('gpe_buttonB6_0-255_11mW_max_cal_cleaned.csv'),
        base.joinpath('gpe_buttonB8_0-255_11mW_max_cal_cleaned.csv'),
        base.joinpath('gpe_buttonB11_0-255_11mW_max_cal_cleaned.csv'),
-       base.joinpath('gpe_buttonB13_0-255_11mW_max_cal_cleaned.csv')       
+       base.joinpath('gpe_buttonB13_0-255_11mW_max_cal_cleaned.csv'),
+       
        ]
 mins = [3662, 3726, 3628,3552,3523]
 threshs = [-2,-2,-2,-1.5,-2]
@@ -69,9 +69,6 @@ for t,m,fn in zip(threshs,mins, fns):
     # ax=plt.gca()
     ax[1].set_ylabel('Blue laser output (mW)')
     ax[1].set_xlabel('Arduino PWM level')
-    with open(fn.parent.joinpath(fn.parts[-1].split('.')[0]+'_model.pkl'),'wb') as ff:
-        pickle.dump(laser_cal_fit,ff)
-    
 # %%
 
 plt.figure()
@@ -79,25 +76,4 @@ for cal in cals:
     plt.plot(x,cal(x))
 plt.xlim([0,150])
 plt.ylim([0,4])
-plt.ylabel('Fiber output power (mW)')
-plt.xlabel('PWM')
-
-# %% Plot each separately:
-    
-button_base = Path(basepath).joinpath('GPe/Naive/A2A/Ai32/Bilateral/50x2/exclude/2021-08-23-laser_cal/')
-button_dict={'AG7128_4':button_base.joinpath('gpe_buttonB6_0-255_11mW_max_cal_cleaned_model.pkl'),
-             'AG7128_5':button_base.joinpath('gpe_buttonB3_0-255_11mW_max_cal_cleaned_model.pkl'),
-             'AG7192_2':button_base.joinpath('gpe_buttonB11_0-255_11mW_max_cal_cleaned_model.pkl'),
-             'AG7192_3':button_base.joinpath('gpe_buttonB13_0-255_11mW_max_cal_cleaned_model.pkl'),
-             'AG7192_4':button_base.joinpath('gpe_buttonB8_0-255_11mW_max_cal_cleaned_model.pkl')}
-x=[x for x in range(0,120)]
-for an in button_dict.keys():
-    fn=button_dict[an]
-    with open(fn,'rb') as pickle_fn:
-        cal=pickle.load(pickle_fn)
-    plt.figure()
-    plt.plot(x,cal(x))
-    plt.title(an)
-    plt.xlabel('PWM')
-    plt.ylabel('Power (mW)')
-        
+plt.yl

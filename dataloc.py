@@ -14,6 +14,7 @@
 """
 import os
 from pathlib import Path
+import pdb
 if os.name == 'posix':
     sep='/'
 else:
@@ -184,7 +185,7 @@ def experiment_selector(cell_str,behavior_str):
                             'AG3488_7',]
     pharm_exc = ['muscimol','cno','hm4di','caspase'] 
     gpe_exc = general_exc + ['Str','d1r', 'str','SNr']
-    
+    # pdb.set_trace()
     # A2a ChR2 (Combines A2a x Ai32 and ChR2 injections):
     if cell_str[0:12] == 'Str_A2a_ChR2':        
         ex0 = str_exc + pharm_exc
