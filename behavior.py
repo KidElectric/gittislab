@@ -90,9 +90,13 @@ def preproc_raw(raw,meta,win=10):
         #Add rearing to preproc:
         p_thresh=0.296 #Determined emprically on test set as having FA rate <0.05
         rear_lp = 1 #Hz
-        rf_model_fn = '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/rf_model_v3.joblib'
-        weights_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/bi_rearing_nn_weightsv3'
-        tab_fn='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/to_nnv3.pkl'
+        if ('COMPUTERNAME' in os.environ.keys()) and (os.environ['COMPUTERNAME'] == 'DESKTOP-UR8URCE'):
+            base = Path(r'F:/Users/Gittis/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/')
+        else:
+            base =Path( '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/')
+        rf_model_fn = base.joinpath('rf_model_v3.joblib')
+        weights_fn= base.joinpath('bi_rearing_nn_weightsv3')
+        tab_fn= base.joinpath('to_nnv3.pkl')
         p_rear, rear = detect_rear_from_model(raw,meta,
                                               prob_thresh=p_thresh,
                                               low_pass_freq=rear_lp,

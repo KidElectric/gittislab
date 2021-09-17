@@ -441,7 +441,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         plt_ver = 3
         fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
         gs = fig.add_gridspec(6, 3)
-        f_row=list(range(gs.nrows))
+        f_row=list(range(gs.get_geometry()[0]))
         f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
         f_row[1]=[fig.add_subplot(gs[1,0:2]) , fig.add_subplot(gs[1,2])]
         f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
@@ -599,7 +599,7 @@ def plot_freerunning_day(raw,meta,save=False, close=False):
         plt_ver = 3
         fig = plt.figure(constrained_layout = True,figsize=(10,7))
         gs = fig.add_gridspec(4, 3)
-        f_row=list(range(gs.nrows))
+        f_row=list(range(gs.get_geometry()[0]))
         f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
         f_row[1]=[fig.add_subplot(gs[1,0:3])]
         f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
@@ -745,7 +745,7 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
 
     fig = plt.figure(constrained_layout = True,figsize=(10,7))
     gs = fig.add_gridspec(3, 3)
-    f_row=list(range(gs.nrows))
+    f_row=list(range(gs.get_geometry()[0]))
     
     
     # Determine if there is a mixture of stimulation durations:
@@ -834,7 +834,7 @@ def plot_freerunning_mouse_summary(data, save=False, close=False):
 def plot_freerunning_cond_comparison(data,save=False,close=False):
     fig = plt.figure(constrained_layout = True,figsize=(10,7))
     gs = fig.add_gridspec(2, 5)
-    f_row=list(range(gs.nrows))
+    f_row=list(range(gs.get_geometry()[0]))
     conds = [i for i in data.keys()]
     f_row[0]=[fig.add_subplot(gs[0,0:gs.ncols])]
     f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(gs.ncols)]
@@ -927,7 +927,7 @@ def plot_openloop_mouse_summary(data,
 
     fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
     gs = fig.add_gridspec(6, 3)
-    f_row=list(range(gs.nrows))
+    f_row=list(range(gs.get_geometry()[0]))
     
     
     # Determine if there is a mixture of stimulation durations:
@@ -1299,7 +1299,7 @@ def plot_openloop_cond_comparison(data,save=False,close=False):
     '''
     fig = plt.figure(constrained_layout = True,figsize=(10,7))
     gs = fig.add_gridspec(2, 5)
-    f_row=list(range(gs.nrows))
+    f_row=list(range(gs.get_geometry()[0]))
     conds = [i for i in data.keys()]
     f_row[0]=[fig.add_subplot(gs[0,0:gs.ncols])]
     f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(gs.ncols)]
@@ -1448,7 +1448,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
     plt_ver=3
     fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
     gs = fig.add_gridspec(6, 3)
-    f_row=list(range(gs.nrows))
+    f_row=list(range(gs.get_geometry()[0]))
     f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)] #Position
     f_row[1]=[fig.add_subplot(gs[1,0:3])] #% Time spent pre,dur,post
     f_row[2]=[fig.add_subplot(gs[2,0:2]) , fig.add_subplot(gs[2,2])]
@@ -1648,7 +1648,7 @@ def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mou
 
     fig = plt.figure(constrained_layout = True,figsize=(8.5,8.5))
     gs = fig.add_gridspec(3, 3)
-    f_row=list(range(gs.nrows))
+    f_row=list(range(gs.get_geometry()[0]))
     
     f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)] #example spatial location
     sum_i=1
@@ -1854,7 +1854,7 @@ def zone_day_crossing_stats(raw,meta):
     fig = plt.figure(constrained_layout = True,figsize=(9.48, 7.98))
     col_labs=['Pre','Dur','Post']
     gs = fig.add_gridspec(6, 3)
-    f_row=list(range(gs.nrows))
+    f_row=list(range(gs.get_geometry()[0]))
     f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
     f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(3)]
     f_row[2]=[fig.add_subplot(gs[2,i]) for i in range(3)]

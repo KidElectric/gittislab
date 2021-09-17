@@ -41,7 +41,7 @@ exc=[ex0]
 # inc=[['AG','Str','A2A','Ai32','zone_2_0p5mw',]]
 # inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 
-inc=[['AG','A2A','Ai32','GPe','zone_1']]
+inc=[['AG','A2A','Ai32','GPe','10x']]
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -79,7 +79,7 @@ print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 analysis = 'GPe_A2a_ChR2_0p25mw'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
-inc[1] += ['AG7192_4']
+inc[1] += ['AG7128']
 pns=dataloc.raw_csv(basepath,inc[1],exc[1])
 if not isinstance(pns,list):
     pns=[pns]
@@ -97,9 +97,11 @@ for pn in pns:
 analysis = 'GPe_A2a_ChR2_0p25mw'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
-inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
+# inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
 # inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
 data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
+
+
 plots.plot_zone_mouse_summary(data,color='k',example_mouse=example_mouse)
 
 # %% Plot 10x10 / openloop days:
@@ -108,16 +110,16 @@ plots.plot_zone_mouse_summary(data,color='k',example_mouse=example_mouse)
 # inc=[['AG','Str','A2A','Ai32','10x10','0p25mw']]
 
 
-analysis = 'GPe_A2a_ChR2_0p25mw'
-b = '10x'
+analysis = 'GPe_A2a_ChR2_2mw'
+b = '10x' 
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,
                                                           behavior_str=b)
-
-pns=dataloc.raw_csv(basepath,inc[1],exc[1])
+inc = inc[1] + ['AG7192']
+pns=dataloc.raw_csv(basepath,inc,exc[1])
 if not isinstance(pns,list):
     pns=[pns]
 saveit=True
-closeit=True
+closeit=False
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
     plots.plot_openloop_day(df,meta,save=saveit, close=closeit)
@@ -154,18 +156,18 @@ for pn in pns:
 
 # exc=[ex0,]
 
-analysis = 'GPe_A2a_ChR2_0p25mw'
+analysis = 'GPe_A2a_ChR2_2mw'
 # analysis = 'Str_A2a_ChR2_1mw'
 behavior_str = '10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
 
-inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
+# inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
 
 # %% Plot openloop mouse summary with statistics
 smooth_amnt= [33, 33]
 # smooth_amnt=[33 * 3]
-fig,stats=plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt,method=[10,1])
+fig,stats,ax =plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt,method=[10,1])
 # %%
 plt.savefig('/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 1/narrow_a2a_10x30_n8_sumamary.pdf')
 # %% Plot openloop mouse summary across conditions:
