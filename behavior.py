@@ -137,7 +137,7 @@ def preproc_raw(raw,meta,win=10):
     is_zone=('zone' in meta['protocol'][0]) 
     is_openloop=('10x' in meta['protocol'][0])
     if  is_zone or (is_openloop and ('iz1' in raw.columns)):
-        #Normalize coordinates to zone-cross
+        #Normalize coordinates to zone-cross x value == 0
         cross=np.concatenate(([0],np.diff(raw['iz1'].astype(int)) > 0)).astype('bool')
         if any(cross):
             meta['iz1_center_zero']=True
@@ -245,7 +245,7 @@ def norm_position(raw):
     '''
     Normalize mouse running coordinates so that the center of (x,y) position is
     (0,0). Use method of binning observed (x,y) in cm and finding center bin.
-    
+    Note: This could fail if the mouse never moves.
     Returns:
         xn - np.array, normalized x center coordinate of mouse
         yn - np.array, normalized y center coordinate of mouse
@@ -323,6 +323,11 @@ def z2_to_z1_cross_detect(raw,meta,start_cross_dist=15,stop_cross_dist=10,
     return cross, no_cross
 
 def trial_part_count_cross(cross,non_cross,meta):
+    ''' Break trial into parts (pre, dur, post) and count crossings in each period
+        (Make customized time binning? )
+        
+        Uses cross and non_cross output from z2_to_z1_cross_detect()
+    '''
     t=[i for i in range(4)]
     t[0]=0
     t[1]=meta.task_start[0] * meta['fs'][0]
@@ -405,6 +410,66 @@ def measure_bearing(raw,meta):
     
     return raw['time'].values[0]
 
+def measure_crossings(in_zone_data,fs, binsize=1, analysis_dur=10):
+    '''
+    Measure number and duration of crosses into specified zone of 
+    open field during 'zone' (RTPP) task.
+
+    Parameters
+    ----------
+    in_zone_data: np.array of int
+        Logical array turned to int of whether mouse is in zone of interest
+    binsize: int
+        Bin size to use (minutes)
+    analysis_dur: int
+        Duration of time to use during task and post period (assumes pre period is 10minutes)
+
+    Returns
+    -------
+    binned_counts : array
+        Binned cross counts into use_zone.
+    med_dur : array
+        Binned median cross durations (in seconds)
+    keep_t : array
+        Center of bins used.
+
+    '''
+    
+    ac_on,ac_off= signals.thresh(in_zone_data,0.5,'Pos')
+    min=0 #min cross duration
+    all_cross=[]
+    cross_t=[]
+    for on,off in zip(ac_on,ac_off):
+        if (off-on) > min:
+            all_cross.append([on,off])
+            cross_t.append(on/fs)
+    durs = np.diff(np.array(all_cross),axis=1) / fs
+    # print('%d crossings detected. Median dur: %1.2fs' % \
+    #       (len(all_cross),np.median(durs)))
+    
+        
+    
+    maxt = round((len(in_zone_data)/fs)/60)
+    t0=0
+    all_on=(np.array(all_cross)[:,0]/fs) / 60 #in minutes
+    time_bins = np.array([x for x in range (t0,maxt+binsize,binsize)])
+    binned_counts=[]
+    med_dur=[]
+    keep_t=[]
+    
+    for t0,t1 in zip(time_bins[0:-1],time_bins[1:]):
+        ind = (all_on > t0) & (all_on <=t1)
+        binned_counts.append(np.sum(ind))
+        if any(ind):
+            med_dur.append(np.median(durs[ind]))
+        else:
+            med_dur.append(np.nan)
+        
+        keep_t.append(t0+((t1-t0)/2))
+    
+
+    return np.array(binned_counts),np.array(med_dur),np.array(keep_t)
+    
 def measure_meander(raw,meta,use_dlc=False):
     '''
     Change in direction vs. change in distance traveled.
@@ -816,7 +881,7 @@ def experiment_summary_helper(raw,
     percentage = lambda x: (np.nansum(x)/len(x))*100
     temp['analysis_stim_dur'] = stim_analyze_dur
     temp['has_dlc']=meta['has_dlc'][0]
-    
+    fs=meta['fs'][0]
     #### Calculate stim-triggered speed changes:
     if not free_running:        
         vel_clip=stim_clip_grab(raw,meta,
@@ -871,15 +936,19 @@ def experiment_summary_helper(raw,
     amb_bouts=bout_analyze(raw,meta,'amb',
                         stim_dur = stim_analyze_dur,
                         min_bout_dur_s=min_bout)
-    
-    temp['amb_speed']=np.nanmean(amb_bouts['speed'],axis=0)
+    # pdb.set_trace()
+    temp['amb_bout_speed']=np.nanmean(amb_bouts['speed'],axis=0)
     temp['amb_bout_rate']=np.nanmean(amb_bouts['rate'],axis=0)
-    temp['amb_cv']=np.nanmean(amb_bouts['cv'],axis=0)
+    temp['amb_bout_speed_cv']=np.nanmean(amb_bouts['cv'],axis=0)
+    temp['amb_bout_dur'] = np.nanmean(amb_bouts['dur'],axis=0)
+    
     
     im_bouts=bout_analyze(raw,meta,'im',
                         stim_dur=stim_analyze_dur,
                         min_bout_dur_s=min_bout)
     temp['im_bout_rate']=np.nanmean(im_bouts['rate'],axis=0)
+    temp['im_bout_dur']=np.nanmean(im_bouts['dur'],axis=0)
+    
     
     #Examine rear rate /dur if evailable:
     if 'rear' in raw.columns:
@@ -955,29 +1024,49 @@ def experiment_summary_helper(raw,
     #Perform statistics on these differences
     
     ### Calculate % time in each zone:
-
-    if zone_analyze_dur == 'mean': #Currently not implemented
-        t=[i for i in range(4)]
-        t[0]=0
-        t[1]=meta.task_start[0]
-        t[2]=meta.task_stop[0]
-        t[3]=meta.exp_end[0]
+    t=[i for i in range(3)]
+    if zone_analyze_dur == 'mean': #Currently not implemented        
+        t[0]=[0,meta.task_start[0]]
+        t[1]=[meta.task_start[0],meta.task_stop[0]]
+        t[2]=[meta.task_stop[0],meta.exp_end[0]]
     else:
-        t=[i for i in range(3)]
         t[0]=[0, zone_analyze_dur]
         t[1]=[meta.task_start[0], meta.task_start[0] + zone_analyze_dur ]
         t[2]=[meta.task_stop[0], meta.task_stop[0] + zone_analyze_dur]
+    
     in_zone1=[]
+    in_zone2=[]
+    if 'iz1' in raw:
+        z1=np.array(raw.loc[:,'iz1'].astype(int))
+        z2=np.array(raw.loc[:,'iz2'].astype(int))
+    else:
+        z1=np.array(raw.loc[:,'x']<0).astype(int)
+        z2=np.array(raw.loc[:,'x']>0).astype(int)        
     for ts in t:
-        ind=(raw['time']>= ts[0]) & (raw['time'] < ts[1])
-        if 'iz1' in raw:
-            in_zone1.append(percentage(np.array(raw['iz1'].astype(int))[ind]))
-        else:
-            in_zone1.append(percentage(np.array(raw.loc[ind,'x']<0).astype(int)))
+        ind=(raw.loc[:,'time']>= ts[0]) & (raw.loc[:,'time'] < ts[1])
+        in_zone1.append(percentage(z1[ind]))
+        in_zone2.append(percentage(z2[ind]))
         
-    in_zone2=np.array([100,100,100])-np.array(in_zone1)
     temp['per_time_z1']=in_zone1
     temp['per_time_z2']=in_zone2
+    
+    #Measure crossing:
+    cross_bin=1 #minute
+    z1_counts,z1_durs,z1_time= measure_crossings(z1,fs,
+                                        binsize=cross_bin, 
+                                        analysis_dur=zone_analyze_dur)
+    temp['zone_1_cross_counts_binned']=z1_counts
+    temp['zone_1_cross_durs_binned']=z1_durs
+    temp['zone_1_cross_bin_times']=z1_time
+    temp['zone_1_cross_bin_size']=cross_bin
+    
+    z2_counts,z2_durs,z2_time= measure_crossings(z2,fs,
+                                        binsize=cross_bin, 
+                                        analysis_dur=zone_analyze_dur)
+    temp['zone_2_cross_counts_binned']=z2_counts
+    temp['zone_2_cross_durs_binned']=z2_durs
+    temp['zone_2_cross_bin_times']=z2_time
+    temp['zone_2_cross_bin_size']=cross_bin
     
     #Chunk mouse locations:
     temp['zone_analyze_dur'] = zone_analyze_dur
@@ -986,7 +1075,7 @@ def experiment_summary_helper(raw,
     else:
         xx,yy=trial_part_position(raw,meta, chunk_method='10min') 
         
-        
+    
     temp['x_task_position']=xx #Pre, during, post
     temp['y_task_position']=yy #Pre, during, post
     

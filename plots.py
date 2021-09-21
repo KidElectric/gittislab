@@ -957,7 +957,7 @@ def plot_openloop_mouse_summary(data,
     if method == 'each_dur':            
         for i,dur in enumerate(durs):
             dat=data.loc[data['stim_dur']==dur,'vel_trace'].values
-            cao=data['cell_area_opsin'][1]
+            
             x=data.loc[data['stim_dur']==dur,'x_trace'].values
             
             #Smooth:
@@ -979,6 +979,7 @@ def plot_openloop_mouse_summary(data,
                                               ax=f_row[0][i],)
             plt.ylabel('Speed (cm/s)')
             plt.xlabel('Time from stim (s)')
+            cao=data['cell_area_opsin'][1]
             plt.title('%s 10x%ds (%s), n=%d' % (cao,dur,data['proto'][0],y.shape[0]))
             # mean_bar_plus_conf_clip(clip,xlabels,use_key='disc',ax=None,clip_method=True,
                            # color='')
@@ -1149,53 +1150,103 @@ def plot_openloop_mouse_summary(data,
                        use_key='rate',ax=ax,clip_method=False,
                        color='k')
     ax.set_xlim([-1,3])
-    ax.set_ylabel('Amb bouts / s')
+    ax.set_ylabel('(bouts / s)')
+    ax.set_title('Ambulation bout rate')
     
-    #### Row 2 Middle: Immobility bout rate:
-    dat= np.stack(data['im_bout_rate'],axis=0)
+    #### Row 2 Middle: Amb bout speed:
+    dat= np.stack(data['amb_bout_speed'],axis=0)
     labs= data['prop_labels'][0]
     labels=['Pre','Dur','Post']
     width = 0.4       # the width of the bars: can also be len(x) sequence
     cols=['k','w','g']
     ax=f_row[2][1]
-    bouts={'rate':dat}
-    mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
+    amb_bouts={'rate':dat}
+    mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False,
                        color='k')
     ax.set_xlim([-1,3])
-    ax.set_ylabel('Imm. bouts / s')
+    ax.set_ylabel('(cm/s)')
+    ax.set_title('Ambulation bout speed')
     
+    #### Row 2 Right: Amb bout duration
+    dat= np.stack(data['amb_bout_dur'],axis=0)
+    labs= data['prop_labels'][0]
+    labels=['Pre','Dur','Post']
+    width = 0.4       # the width of the bars: can also be len(x) sequence
+    cols=['k','w','g']
+    ax=f_row[2][2]
+    amb_bouts={'rate':dat}
+    mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
+                       use_key='rate',ax=ax,clip_method=False,
+                       color='k')
+    ax.set_xlim([-1,3])
+    ax.set_ylabel('(s)')
+    ax.set_title('Ambulation bout dur.')
     
-    #### Row 2 Right: Rear bout rate:
-    if not any(data['has_dlc'] == False):
-        dat= np.stack(data['rear_bout_rate'],axis=0)
-        labs= data['prop_labels'][0]
-        labels=['Pre','Dur','Post']
-        width = 0.4       # the width of the bars: can also be len(x) sequence
-        cols=['k','w','g']
-        ax=f_row[2][2]
-        bouts={'rate':dat}
-        mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
-                           use_key='rate',ax=ax,clip_method=False,
-                           color='k')
-        ax.set_xlim([-1,3])
-        ax.set_ylabel('Rear bouts / s')
-    else:
-        plt.sca(f_row[2][2])        
-        plt.title('Rear scoring incomplete. Check summary["has_dlc"]')
+
     # pdb.set_trace()
     
-    #### Row 3 Left: Amb CV:
-    dat=np.stack(data['amb_cv'],axis=0)
+    ## Row 3 Left: Amb CV:
+    # dat=np.stack(data['amb_cv'],axis=0)
+    # ax=f_row[3][0]
+    # bouts={'rate':dat}
+    # mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
+    #                    use_key='rate',ax=ax,clip_method=False,
+    #                    color='k')
+    # ax.set_xlim([-1,3])
+    # ax.set_ylabel('Amb. CV')
+    
+    #### Row 3 Left: Immobility bout rate:
+    dat= np.stack(data['im_bout_rate'],axis=0)
+    labs= data['prop_labels'][0]
+    labels=['Pre','Dur','Post']
+    width = 0.4       # the width of the bars: can also be len(x) sequence
+    cols=['k','w','g']
     ax=f_row[3][0]
     bouts={'rate':dat}
     mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False,
                        color='k')
     ax.set_xlim([-1,3])
-    ax.set_ylabel('Amb. CV')
+    ax.set_ylabel('(bouts / s)')
+    ax.set_title('Immobility bout rate')
+        
+    #### Row 3 Middle: Imm. bout dur:
+    dat= np.stack(data['im_bout_dur'],axis=0)
+    labs= data['prop_labels'][0]
+    labels=['Pre','Dur','Post']
+    width = 0.4       # the width of the bars: can also be len(x) sequence
+    cols=['k','w','g']
+    ax=f_row[3][1]
+    bouts={'rate':dat}
+    mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
+                       use_key='rate',ax=ax,clip_method=False,
+                       color='k')
+    ax.set_xlim([-1,3])
+    ax.set_ylabel('(s)')
+    ax.set_title('Immobility bout dur.')
+        
+    #### Row 3 Right: Rear bout rate
+    if not any(data['has_dlc'] == False):
+        dat= np.stack(data['rear_bout_rate'],axis=0)
+        labs= data['prop_labels'][0]
+        labels=['Pre','Dur','Post']
+        width = 0.4       # the width of the bars: can also be len(x) sequence
+        cols=['k','w','g']
+        ax=f_row[3][2]
+        bouts={'rate':dat}
+        mean_bar_plus_conf_clip(bouts,['Pre','Dur','Post'],
+                            use_key='rate',ax=ax,clip_method=False,
+                            color='k')
+        ax.set_xlim([-1,3])
+        ax.set_ylabel('Rear bouts / s')
+    else:
+        plt.sca(f_row[2][2])        
+        plt.title('Rear scoring incomplete. Check summary["has_dlc"]')    
     
-    ### Row 3 Middle: CW or Ipsi rotations:
+
+            
+     ### Row 5 Middle: CW or Ipsi rotations:
     
     dat=np.stack(data.loc[:,'ipsi_rot_rate'],axis=0) * 10 #Per 10 seconds
     u_mice=np.unique(data['anid'])
@@ -1204,7 +1255,7 @@ def plot_openloop_mouse_summary(data,
         ind = data.loc[:,'anid'] == mouse
         temp.append(np.mean(dat[ind,:],axis=0))
     bouts_cw={'rate' : np.array(temp)}
-    ax=f_row[3][1]
+    ax=f_row[5][1]
     mean_bar_plus_conf_clip(bouts_cw,['Pre','Dur','Post'],
                        use_key='rate', ax=ax, clip_method=False,
                        color='k')
@@ -1219,14 +1270,14 @@ def plot_openloop_mouse_summary(data,
     ax.set_ylim([0,3])
     plt.title('n=%d' % (len(temp)))
 
-    #### Row 3 Right: CCW or Contra rotations:
+    #### Row 5 Right: CCW or Contra rotations:
     dat=np.stack(data.loc[:,'contra_rot_rate'],axis=0) * 10 #Per 10 seconds
     temp=[]
     for mouse in u_mice:
         ind = data.loc[:,'anid'] == mouse
         temp.append(np.mean(dat[ind,:],axis=0))
     bouts_ccw={'rate' : np.array(temp)}
-    ax=f_row[3][2]
+    ax=f_row[5][2]
     mean_bar_plus_conf_clip(bouts_ccw,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False,
                        color='k')
@@ -1239,11 +1290,11 @@ def plot_openloop_mouse_summary(data,
     ax.set_ylabel(axis_lab)
     ax.set_xlim([-1,3])
     ax.set_ylim([0,3])
-    plt.title('n=%d' % (len(temp)))
+    plt.title('n=%d' % (len(temp)))  
     
-    #### Row 4 Left: Ipsi and Contra barplot horizontal:
+    #### Row 5 Left: Ipsi and Contra barplot horizontal:
     use_sns = True
-    ax = f_row[4][0]
+    ax = f_row[5][0]
     if use_sns is False:
         mean_bar_plus_conf_clip(bouts_cw,['Pre','Dur','Post'],
                        use_key='rate',ax=ax,clip_method=False,
@@ -1262,11 +1313,8 @@ def plot_openloop_mouse_summary(data,
         ax.set_xticks(ticks=[i for i in range(-3,4)])
         ax.set_xticklabels(labels=[str(abs(i)) for i in range(-3,4)])
         ax.set_xlabel('Rotations / 10s')
-        ax.set_ylabel('Unilateral stimulation')
-            
+        ax.set_ylabel('Stimulation period')
         
-    
-    
     # #### Save image option:
     # if save == True:
     #     path_dir = str(meta['pn'][0].parent)
@@ -1616,6 +1664,51 @@ def plot_zone_day(raw,meta,save=False,close = False):
     f_row[4][1].set_xticklabels(labels)
     f_row[4][1].set_ylim([0,2])
     
+    
+    #### Row 5: Cross counts & durations vs. time
+    width=5
+    sz_counts=[]
+    sz_durs=[]
+    # data=behavior.experiment_summary_helper(raw, meta)
+    counts,durs,time= behavior.measure_crossings(raw[sz],fs=meta['fs'][0],
+                                        binsize=width, 
+                                        analysis_dur=10)
+    # for i in range(len(t)-1):
+    #     ind=(( time >= t[i]) & (time < t[i+1]))
+    #     sz_counts.append(counts[ind])
+    #     sz_durs.append(durs[ind])
+    
+    
+    x = (time*60 - t[1])/60
+    pbins=counts
+    baseline= np.nanmean(pbins[x<0])
+    pbins=pbins/baseline
+    hl_color = 'b'
+    f_row[5][0].fill_between([0,(t[2]-t[1])/60],[6,6],y2=[0,0],
+                        color= hl_color, alpha=0.3,edgecolor='none')
+    f_row[5][0].bar(x,pbins,width-0.5,facecolor='k')
+    f_row[5][0].set_ylabel('# SZ Crosses')
+    f_row[5][0].set_xlabel('Time (m)')
+
+    f_row[5][0].set_xlim((x[0] - width, x[-1]))
+    f_row[5][0].set_ylim((0,4))
+    f_row[5][0].plot([x[0]-width,x[-1]],[1,1],'--r')
+    
+    
+    pbins=durs
+    baseline= np.nanmean(pbins[x<0])
+    pbins=pbins/baseline
+    hl_color = 'b'
+    f_row[5][1].fill_between([0,(t[2]-t[1])/60],[6,6],y2=[0,0],
+                        color= hl_color, alpha=0.3,edgecolor='none')
+    f_row[5][1].bar(x,pbins,width-0.5,facecolor='k')
+    f_row[5][1].set_ylabel('Crossing durations')
+    f_row[5][1].set_xlabel('Time (m)')
+
+    f_row[5][1].set_xlim((x[0] - width, x[-1]))
+    f_row[5][1].set_ylim((0,4))
+    f_row[5][1].plot([x[0]-width,x[-1]],[1,1],'--r')
+    
     #### Save image option:
     if save == True:
         path_dir = str(meta['pn'][0].parent)
@@ -1664,7 +1757,10 @@ def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mou
     xx=data.loc[example_mouse,'x_task_position']
     yy=data.loc[example_mouse,'y_task_position']
     pre_dur_post_arena_plotter(xx,yy,f_row[0],highlight=zone,color=color)
-    
+    cao=data['cell_area_opsin'][example_mouse]
+    f_row[0][0].set_title('%s RTPP (%s), n=%d' % (cao,
+                                        data['proto'][example_mouse],
+                                        data.shape[0]))
         
     anids=np.unique(data['anid'])
     dat=[]

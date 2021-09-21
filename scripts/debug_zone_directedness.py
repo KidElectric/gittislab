@@ -37,7 +37,74 @@ pns=dataloc.raw_csv(basepath,inc[1],ex0)
 raw,meta=ethovision_tools.csv_load(pns[1],method='preproc' )
 r,_=ethovision_tools.csv_load(pns[1])
 # raw,meta=ethovision_tools.csv_load(pns[0])
+# %% ID Crossings:
+    
+    
+ac_on,ac_off= signals.thresh(raw['iz1'].astype(int),0.5,'Pos')
+min=0 #meta['fs'][0] * 4 #4 seconds
+all_cross=[]
+cross_t=[]
+fs= meta['fs'][0]
+for on,off in zip(ac_on,ac_off):
+    if (off-on) > min:
+        all_cross.append([on,off])
+        cross_t.append(on/fs)
+durs = np.diff(np.array(all_cross),axis=1) / fs
+print('%d crossings detected. Median dur: %1.2fs' % \
+      (len(all_cross),np.median(durs)))
 
+maxt=round(meta.task_start[0]/60)+10 #should be 20 minutes
+t0=0
+binsize=1 #minutes
+all_on=(np.array(all_cross)[:,0]/fs) / 60 #in minutes
+time_bins = np.array([x for x in range (t0,maxt+binsize,binsize)])
+binned_counts=[]
+med_dur=[]
+keep_t=[]
+
+for t0,t1 in zip(time_bins[0:-1],time_bins[1:]):
+    ind = (all_on > t0) & (all_on <=t1)
+    binned_counts.append(np.sum(ind))
+    if any(ind):
+        med_dur.append(np.median(durs[ind]))
+    else:
+        med_dur.append(np.nan)
+    
+    keep_t.append(t0+((t1-t0)/2))
+
+
+t0=round(meta.task_stop[0]/60)
+maxt=t0 + 10
+time_bins = np.array([x for x in range (t0,maxt+binsize,binsize)])
+
+for t0,t1 in zip(time_bins[0:-1],time_bins[1:]):
+    ind = (all_on > t0) & (all_on <=t1)
+    binned_counts.append(np.sum(ind))
+    if any(ind):
+        med_dur.append(np.median(durs[ind]))
+    else:
+        med_dur.append(np.nan)
+    keep_t.append(t0+((t1-t0)/2))
+
+# plt.figure()
+# plt.plot(keep_t,med_dur,'o-')
+# plt.plot(keep_t,binned_counts,'o-')
+        #     dist_mat[i,:],_ = np.histogram(-dist,dist_bins)
+        #     ii += 1
+        #     tot_hist=np.nansum(dist_mat,axis=0)
+        #     tot_hist = 100*(tot_hist/np.nansum(tot_hist))
+        # a.bar(dist_bins[0:-1] - width/2,tot_hist,width,)    
+        # a.set_ylabel('% of 8s Crossing')
+        # a.set_xlabel('Dist (cm)')
+        # a.set_ylim([0,10])
+# new_meta=meta
+# baseline=4 # seconds before / after crossing
+# for i,cross in enumerate(all_cross):
+#     new_meta.loc[i,'stim_on']=raw['time'][cross[0]]
+#     new_meta.loc[i,'stim_off']=raw['time'][cross[0]]
+# fs=meta['fs'][0]
+# on_time =raw['time'][np.array(all_cross)[:,0]].values
+    
 # %%
 plots.plot_zone_day(raw,meta);
 
@@ -86,16 +153,35 @@ ex0=['exclude','and_GPe','and_Str','Left','Right',
      '_gpe_muscimol','_gpe_pbs','mW','mw']
 
 inc=[['AG','GPe','CAG','Arch','zone_1'],
+     ['AG','GPe','A2A','Ai32','zone_1'],
      ['AG','Str','A2A','Ai32','zone_1'],
-     ['AG','Str','A2A','ChR2','zone_1']]
+     ['AG','Str','A2A','ChR2','zone_1'],
+     ]
 
-exc=[ex0,ex0]
+# inc = [inc[0]]
 
+exc=[ex0,ex0,ex0,ex0]
+lens=[]
+all_dur=[]
+all_count=[]
+all_time=[]
 basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
-pns=dataloc.raw_csv(basepath,inc[0],exc[0])
-for pn in pns:
-    raw,meta=ethovision_tools.csv_load(pn,method='preproc' )
-    plots.zone_day_crossing_stats(raw,meta)
+for i,e in zip (inc,exc):
+    pns=dataloc.raw_csv(basepath,i,e)
+    
+    for pn in pns:
+        raw,meta=ethovision_tools.csv_load(pn,method='preproc' )
+        # data=behavior.experiment_summary_helper(raw, meta)
+        plots.plot_zone_day(raw,meta)
+        # # plots.zone_day_crossing_stats(raw,meta)
+        # a,b,c=behavior.measure_crossings(raw,meta)
+        # all_count.append(a)
+        # all_dur.append(b)
+        # all_time.append(c)
+        # print(pn)
+        # print(len(c))
+        # lens.append(len(c))
+    
 #Row 4: approaches that do not lead to crossing.
 
 #Row 5: Micro-crossing, %crossing in center vs. edges, other parameters?
