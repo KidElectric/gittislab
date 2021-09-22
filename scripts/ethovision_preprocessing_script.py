@@ -93,11 +93,12 @@ for pn in pns:
 # inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
 
 # analysis = 'Str_A2a_ChR2_1mw'
-# analysis = 'GPe_CAG_Arch'
+# analysis = 'Str_D1_Arch_30mw'
+# analysis = 'GPe_CAG_Arch_1mw'
 analysis = 'GPe_A2a_ChR2_0p25mw'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
-# inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
+inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
 # inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
 data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
 
@@ -156,15 +157,17 @@ for pn in pns:
 
 # exc=[ex0,]
 
-analysis = 'GPe_A2a_ChR2_2mw'
-# analysis = 'Str_A2a_ChR2_1mw'
+# analysis = 'GPe_A2a_ChR2_2mw'
+analysis = 'Str_A2a_ChR2_1mw'
+# analysis = 'Str_D1_Arch_30mw'
+analysis = 'GPe_CAG_Arch_1mw'
 behavior_str = '10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
 
 # inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
 data = behavior.open_loop_summary_collect(basepath,inc,exc,update_rear=True)
 
-# %% Plot openloop mouse summary with statistics
+# Plot openloop mouse summary with statistics
 smooth_amnt= [33, 33]
 # smooth_amnt=[33 * 3]
 fig,stats,ax =plots.plot_openloop_mouse_summary(data,smooth_amnt=smooth_amnt,method=[10,1])

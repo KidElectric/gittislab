@@ -410,7 +410,7 @@ def measure_bearing(raw,meta):
     
     return raw['time'].values[0]
 
-def measure_crossings(in_zone_data,fs, binsize=1, analysis_dur=10):
+def measure_crossings(in_zone_data,fs, binsize=1):
     '''
     Measure number and duration of crosses into specified zone of 
     open field during 'zone' (RTPP) task.
@@ -421,8 +421,6 @@ def measure_crossings(in_zone_data,fs, binsize=1, analysis_dur=10):
         Logical array turned to int of whether mouse is in zone of interest
     binsize: int
         Bin size to use (minutes)
-    analysis_dur: int
-        Duration of time to use during task and post period (assumes pre period is 10minutes)
 
     Returns
     -------
@@ -511,10 +509,10 @@ def smooth_direction(raw,meta,
     if use_dlc == True:
         head_tail=['dlc_top_head_x','dlc_top_head_y',
            'dlc_top_tail_base_x','dlc_top_tail_base_y']
-        multiplier= -1
+        # multiplier= -1
     else:
         head_tail=['x_nose','y_nose','x_tail','y_tail']
-        multiplier=1
+        # multiplier=1
         
     #Interpolate NaNs with nearyby values and convert to floats:
     cutoff= 3 #Hz
@@ -528,9 +526,9 @@ def smooth_direction(raw,meta,
     angle=[]
     for x1,y1,x2,y2 in zip(x_n,y_n,x_t,y_t):
         angle.append(signals.one_line_angle(x2,y2,x1,y1))
-    
-    return np.array(angle)*multiplier
-def measure_rotations(raw,meta,
+    # pdb.set_trace()
+    return np.array(angle)
+def measure_rotations(raw,meta, use_dlc=False,
                       max_dur=10, 
                       min_dur = 0.5,
                       min_rot = 90,
@@ -542,7 +540,11 @@ def measure_rotations(raw,meta,
                =  1 when mouse turned CW within time window
     '''
     fs=meta['fs'][0]
-    d = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dir'])))
+    # pdb.set_trace()
+    if use_dlc == True:
+         d = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dlc_dir'])))
+    else:
+        d = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dir'])))
     d = d - d[0]
     ad = np.abs(d)
     a=0
@@ -962,7 +964,7 @@ def experiment_summary_helper(raw,
             temp['rear_bout_rate']=np.zeros((1,3))
     
     #Examine stim-triggered ipsi and contra rotations:
-    cw = measure_rotations(raw,meta) #currently may drop first rotation if occurs at the end of 10s window
+    cw = measure_rotations(raw,meta,use_dlc=True) #currently may drop first rotation if occurs at the end of 10s window
     if meta.loc[0,'side'] == 'Left':
         ipsi = cw == -1  #CCW
         contra = cw == 1 #CW
@@ -1051,22 +1053,46 @@ def experiment_summary_helper(raw,
     temp['per_time_z2']=in_zone2
     
     #Measure crossing:
-    cross_bin=1 #minute
+    cross_bin=1 #minutes
     z1_counts,z1_durs,z1_time= measure_crossings(z1,fs,
-                                        binsize=cross_bin, 
-                                        analysis_dur=zone_analyze_dur)
-    temp['zone_1_cross_counts_binned']=z1_counts
-    temp['zone_1_cross_durs_binned']=z1_durs
-    temp['zone_1_cross_bin_times']=z1_time
-    temp['zone_1_cross_bin_size']=cross_bin
+                                        binsize=cross_bin)
     
     z2_counts,z2_durs,z2_time= measure_crossings(z2,fs,
-                                        binsize=cross_bin, 
-                                        analysis_dur=zone_analyze_dur)
-    temp['zone_2_cross_counts_binned']=z2_counts
-    temp['zone_2_cross_durs_binned']=z2_durs
-    temp['zone_2_cross_bin_times']=z2_time
+                                        binsize=cross_bin)    
+    
+    temp['zone_1_cross_counts_binned']=[]
+    temp['zone_1_cross_durs_binned']=[]
+    temp['zone_1_cross_bin_times']=[]
+    temp['zone_1_cross_bin_size']=cross_bin
+    temp['zone_2_cross_counts_binned']=[]
+    temp['zone_2_cross_durs_binned']=[]
+    temp['zone_2_cross_bin_times']=[]
     temp['zone_2_cross_bin_size']=cross_bin
+    
+    fields = ['zone_1_cross_counts_binned',
+              'zone_1_cross_durs_binned',
+              'zone_1_cross_bin_times',
+              'zone_2_cross_counts_binned',
+              'zone_2_cross_durs_binned',
+              'zone_2_cross_bin_times']
+    use_dat=[z1_counts,
+             z1_durs,
+             z1_time,
+             z2_counts,
+             z2_durs,
+             z2_time]
+    
+    target_len = zone_analyze_dur/60 / cross_bin
+    for ts in t:
+        ind= (z1_time>= round(ts[0]/60)) & (z1_time <= round( ts[1]/60))        
+        if np.sum(ind) < target_len:
+            off_by=int(target_len - np.sum(ind))
+            append=[np.nan]*off_by
+        else:
+            append=[]
+        for d,f in zip(use_dat,fields):
+            dt= np.hstack((d[ind],append))
+            temp[f].append(dt)    
     
     #Chunk mouse locations:
     temp['zone_analyze_dur'] = zone_analyze_dur

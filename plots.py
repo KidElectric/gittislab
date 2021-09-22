@@ -1251,6 +1251,7 @@ def plot_openloop_mouse_summary(data,
     dat=np.stack(data.loc[:,'ipsi_rot_rate'],axis=0) * 10 #Per 10 seconds
     u_mice=np.unique(data['anid'])
     temp=[]
+    #Note: Data must first be averaged per mouse (left & right data)
     for mouse in u_mice:
         ind = data.loc[:,'anid'] == mouse
         temp.append(np.mean(dat[ind,:],axis=0))
@@ -1273,6 +1274,7 @@ def plot_openloop_mouse_summary(data,
     #### Row 5 Right: CCW or Contra rotations:
     dat=np.stack(data.loc[:,'contra_rot_rate'],axis=0) * 10 #Per 10 seconds
     temp=[]
+    #Note: Data must first be averaged per mouse (left & right data)
     for mouse in u_mice:
         ind = data.loc[:,'anid'] == mouse
         temp.append(np.mean(dat[ind,:],axis=0))
@@ -1740,7 +1742,7 @@ def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mou
     plt_ver = 3
 
     fig = plt.figure(constrained_layout = True,figsize=(8.5,8.5))
-    gs = fig.add_gridspec(3, 3)
+    gs = fig.add_gridspec(4, 3)
     f_row=list(range(gs.get_geometry()[0]))
     
     f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)] #example spatial location
@@ -1748,7 +1750,8 @@ def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mou
     
     f_row[1]=[fig.add_subplot(gs[1,i]) for i in range(3)] #Summary of spatial locations
     f_row[2]=[fig.add_subplot(gs[2,i]) for i in range(3)]
-    # f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    f_row[3]=[fig.add_subplot(gs[3,i]) for i in range(3)]
+    
     # f_row[4]=[fig.add_subplot(gs[4,i]) for i in range(3)]
     # f_row[5]=[fig.add_subplot(gs[5,i]) for i in range(3)]
     
@@ -1816,7 +1819,81 @@ def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mou
     dat=np.stack(dat) 
     f,h=mean_bar_plus_conf_array(dat, ['Pre','Dur','Post'],ax=f_row[2][0])
     f_row[2][0].set_xlabel('Active RTPP')
-    f_row[2][0].set_ylabel('% Time in SZ')      
+    f_row[2][0].set_ylabel('% Time in SZ')   
+    
+    
+    #### Row 3: Left: Stim zone cross counts
+    dat_cross=[]
+    dat_dur=[]
+    norm = True
+    width=int(data.loc[0,'zone_1_cross_bin_size'])
+    time = np.array([x for x in range(1,30+width,width)]) #Note: using first 10 minutes of pre,dur,post regardless of original duration
+    
+    for anid in anids:
+        row = data.loc[:,'anid'].values == anid
+        zone = int(data.loc[row,'proto'].values[0].split('_')[1])
+        if zone == 1:
+            c=np.hstack(data.loc[row,'zone_1_cross_counts_binned'].values[0])    
+            d=np.hstack(data.loc[row,'zone_1_cross_durs_binned'].values[0])
+            # time=np.hstack(data.loc[row,'zone_1_cross_bin_times'].values[0])
+        else:
+            c=np.hstack(data.loc[row,'zone_2_cross_counts_binned'].values[0])
+            d=np.hstack(data.loc[row,'zone_2_cross_durs_binned'].values[0])
+            # time=np.hstack(data.loc[row,'zone_2_cross_bin_times'].values[0])
+        if norm == True:
+            c = c / np.nanmean(c[time < 10])
+            d = d /  np.nanmean(d[time < 10])
+            
+        dat_dur.append(d)
+        dat_cross.append(c)
+    dat_dur=np.vstack(dat_dur)
+    dat_cross=np.vstack(dat_cross)
+    mc=np.nanmean(dat_cross,axis=0)
+    md=np.nanmean(dat_dur,axis=0)
+        
+    t=[0,10,20,30]
+    # width=data.loc[0,'zone_1_cross_bin_size']
+    
+    # time = range(0,30+width,width) #Note: using first 10 minutes of pre,dur,post regardless of original duration
+    x = (time - t[1])
+    pbins=mc
+    
+    # baseline= np.nanmean(pbins[x<0])
+    # pbins=pbins/baseline
+    hl_color = 'b'
+    f_row[3][0].fill_between([0,(t[2]-t[1])],[6,6],y2=[0,0],
+                        color= hl_color, alpha=0.3,edgecolor='none')
+    f_row[3][0].bar(x,pbins,width-0.1,facecolor='k')
+    f_row[3][0].set_ylabel('# SZ Crosses')
+    f_row[3][0].set_xlabel('Time (m)')
+
+    f_row[3][0].set_xlim((x[0] - width, x[-1]))
+    f_row[3][0].set_ylim((0,4))
+    if norm == True:
+        f_row[3][0].plot([x[0]-width,x[-1]],[1,1],'--r')
+        f_row[3][1].set_ylim((0,2))
+    
+    #### Row 3 middle: Stim zone durs
+    # pbins=pbins/baseline
+    pbins=md
+    baseline= np.nanmean(pbins[x<0])
+    hl_color = 'b'
+    f_row[3][1].fill_between([0,(t[2]-t[1])],[70,70],y2=[0,0],
+                        color= hl_color, alpha=0.3,edgecolor='none')
+    f_row[3][1].bar(x,pbins,width-0.1,facecolor='k')
+    f_row[3][1].set_ylabel('SZ Cross Dur (s)')
+    f_row[3][1].set_xlabel('Time (m)')
+
+    f_row[3][1].set_xlim((x[0] - width, x[-1]))
+    f_row[3][1].set_ylim((0,70))
+    if norm == True:
+        f_row[3][1].plot([x[0]-width,x[-1]],[1,1],'--r')
+        f_row[3][1].set_ylim((0,2))
+    
+    
+    
+    
+    
     if close == True:
         plt.close()
     else:
