@@ -407,6 +407,7 @@ def csv_load(exp_path,columns='All',method='raw'):
         rawfn=dataloc.path_to_preprocfn(exp_path) + '.csv'
     else: 
         print('Invalid method: valid methods are "raw" and "preproc"')
+    # pdb.set_trace()
     pnfn=exp_path.parent.joinpath(rawfn)
     print('Loading %s\n' % pnfn)
     a=pd.read_csv(pnfn,nrows=1)

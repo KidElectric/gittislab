@@ -46,6 +46,7 @@ def gen_paths_recurse(basepath,inc=[],exc = [],filetype = None):
         allhit=sum(cont_all)==len(str_to_contain)
         ex_all=[i in dirpath for i in str_to_exclude] #Boolean list of undesired target strings
         fa=sum(ex_all) > 0
+        # pdb.set_trace()
         if allhit==True and fa==False:
             if filetype != None:
                 if '*' in filetype: #If wildcard present
@@ -181,13 +182,12 @@ def experiment_selector(cell_str,behavior_str):
     general_exc = ['exclude','Bad','bad','Broken','Exclude','Other XLS',
                    '500ms_pulse','duty','15min','10hz','2s_on_8s_off',
                    '_pulsed','switch']
-    str_exc= general_exc + ['GPe','gpe','AG3233_5','AG3233_4',
-                            'AG3488_7',]
+    str_exc= general_exc + ['GPe','gpe',] #'AG3488_7',
     pharm_exc = ['muscimol','cno','hm4di','caspase'] 
     gpe_exc = general_exc + ['Str','d1r', 'str','SNr']
     # pdb.set_trace()
     # A2a ChR2 (Combines A2a x Ai32 and ChR2 injections):
-    if cell_str[0:12] == 'Str_A2a_ChR2':        
+    if (cell_str[0:12] == 'Str_A2a_ChR2') or (cell_str[0:12] == 'Str_A2A_ChR2'):        
         ex0 = str_exc + pharm_exc
         unique_base=[['AG','Str','A2A','ChR2'],
                      ['AG','Str','A2A','Ai32'] ]

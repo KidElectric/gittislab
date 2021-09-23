@@ -108,7 +108,7 @@ def mean_cont_plus_conf_clip(clip_ave,
     Parameters
     ----------
     clip_ave : DICT with fields:
-        'cont_y' Array of continous data (rows=samples,cols=trials) 
+        'cont_y' Array of continous data samples (mean of trace)
         'cont_x' Array of x-values matching rows in 'cont_y'
         'cont_y_conf' Array of y +/- confidence interval for 'cont_y', 
             col 0 = upper bound (y + conf)
@@ -123,6 +123,8 @@ def mean_cont_plus_conf_clip(clip_ave,
             E.g. [0,30,15] -- plot a rectangle from 0 to 30s, 15 high
     hl_color  : STR, optional
         string specifying color, default = 'b' (blue)
+    plot_each: Boolean
+        plot on each individual trace in addition to mean +/- conf. int.
     ax : matplotlib.pyplot.subplot axis handle if plotting in subplot
     Returns
     -------
@@ -144,7 +146,7 @@ def mean_cont_plus_conf_clip(clip_ave,
         ax.fill_between(highlight[0:2],[highlight[2],highlight[2]],y2=[0,0],
                         color=hl_color, alpha=0.3,edgecolor='none')
         
-
+        
     m,conf_int=clip_ave['cont_y_conf']
     ub = conf_int[:,0]  #Positive confidence interval
     lb = conf_int[:,1]  #Negative confidence interval
@@ -171,23 +173,66 @@ def mean_cont_plus_conf_clip(clip_ave,
     else:
         return ax
 
-def mean_cont_plus_conf_array(x,ymat,ax=None,confidence = 0.95):
+def mean_cont_plus_conf_array(x,
+                              ymat,
+                              ax=None,
+                              confidence = 0.95,
+                              plot_each=False,
+                              highlight=None,
+                              hl_color='b'):
     '''
-       x= array of x values
-       ymat = 2d array of y values, rows = samples, cols = replicates 
+      
+    Parameters
+    ----------       
+    'x' Array of x-values matching rows in 'ymat'
+    'y_mat' Array of continous data (rows=samples,cols=trials) 
+    confidence: float,
+            Represents confidence bounds to plot. e.g. 0.95 for 95% conf.
+    highlight : LIST, optional
+        3-value list describing rectangular patch to highlight on plot.
+            [start x, stop x, height y]. The default is None. (No patch)
+            E.g. [0,30,15] -- plot a rectangle from 0 to 30s, 15 high
+    hl_color  : STR, optional
+        string specifying color, default = 'b' (blue)
+    plot_each: Boolean
+        plot on each individual trace in addition to mean +/- conf. int.
+    ax : matplotlib.pyplot.subplot axis handle if plotting in subplot
+    Returns
+    -------
+    fig : matplotlib.pyplot.subplot figure handle
+        DESCRIPTION.
+    ax : matplotlib.pyplot.subplot axis handle
+        DESCRIPTION.
+
+       
     '''
     if ax == None: #If no axis provided, create a new plot
         fig,ax=plt.subplots()
     plt.sca(ax)
-    m = np.nanmean(ymat,axis=1)
-    conf_int=signals.conf_int_on_matrix(ymat)
+
+    #If highlight patch box specified, plot it first:
+    if highlight:
+        ax.fill_between(highlight[0:2],[highlight[2],highlight[2]],y2=[0,0],
+                        color=hl_color, alpha=0.3,edgecolor='none')
+    
+    if plot_each:
+        for y in ymat.T:
+            plt.plot(x,y,'k')
+            
+    m, conf_int=signals.conf_int_on_matrix(ymat)
     ub = conf_int[:,0]  #Positive confidence interval
     lb = conf_int[:,1]  #Negative confidence interval
     ax.fill_between(x, ub, y2=lb, color='k', alpha=0.3, edgecolor='none',
                     zorder=5)
     
     #Plot mean on top:
-    ax.plot(x,m,'k')
+    mean_color = 'k'
+    if plot_each:
+        mean_color = 'r'
+    
+    ax.plot(x,m,mean_color)
+    
+
     
     if ax == None:
         return fig,ax
@@ -419,7 +464,7 @@ def pre_dur_post_arena_plotter(xx,yy,ax,highlight=0,color='b',arena_size=23):
         plt.xlabel('cm')
         plt.ylabel('cm')    
         
-def plot_openloop_day(raw,meta,save=False, close=False):    
+def plot_openloop_day(raw,meta,save=False, close=False,save_dir=None):    
     '''
     
 
@@ -475,7 +520,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
                                        stim_dur=stim_dur,
                                        summarization_fun=percentage)
     
-        #### Row 1: Speed related
+        #### Row 0: Speed related
         ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
                                           xlim=[-stim_dur,stim_dur*2],
                                           highlight=[0,stim_dur,25],
@@ -487,7 +532,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         plt.ylabel('Speed (cm/s)')
         plt.xlabel('Time from stim (s)')
         
-        #### Row 2: % Time mobile & (Rearing?)
+        #### Row 1: % Time mobile & (Rearing?)
         ax_im = mean_bar_plus_conf_clip(m_clip,['Pre','Dur','Post'],ax=f_row[2][0])
         plt.ylabel('% Time Mobile')
         
@@ -508,7 +553,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
             mean_bar_plus_conf_clip(rear_clip,['Pre','Dur','Post'],ax=f_row[2][1])
             plt.ylabel('Rears / s (Hz)')
     
-        #### Row 3: Ambulation bout info
+        #### Row 2: Ambulation bout info
         #Rate
         ax_amb_bout_rate= mean_bar_plus_conf_clip(amb_bouts,['Pre','Dur','Post'],
                                                    use_key='rate',ax=f_row[3][0])
@@ -524,7 +569,7 @@ def plot_openloop_day(raw,meta,save=False, close=False):
                                                    use_key='speed',ax=f_row[3][2])
         plt.ylabel('Amb. speed (cm/s)')
         
-        #### Row 4: immobility bout info
+        #### Row 3: immobility bout info
         #Rate
         ax_im_bout_rate= mean_bar_plus_conf_clip(im_bouts,['Pre','Dur','Post'],
                                                    use_key='rate',ax=f_row[4][0])
@@ -539,7 +584,10 @@ def plot_openloop_day(raw,meta,save=False, close=False):
                                                    use_key='speed',ax=f_row[4][2])
         plt.ylabel('Im. speed (cm/s)')
         
-        #### Row 5: Meander/directedness (in progress)
+        #### Row 4: Unilateral bias
+        
+        
+        
         #Amb meander -- exclude for now
         # ax_amb_meander= mean_bar_plus_conf_clip(amb_bouts,
         #                                          ['Pre','Dur','Post'],
@@ -566,7 +614,10 @@ def plot_openloop_day(raw,meta,save=False, close=False):
         
         #### Save image option:
         if save == True:
-            path_dir = str(meta['pn'][0].parent)
+            if save_dir == None:
+                path_dir = str(meta['pn'][0].parent)
+            else:
+                path_dir = str(save_dir)
             anid= meta['anid'][0]
             proto=meta['etho_exp_type'][0]
             plt.show(block=False)
@@ -981,6 +1032,7 @@ def plot_openloop_mouse_summary(data,
             plt.xlabel('Time from stim (s)')
             cao=data['cell_area_opsin'][1]
             plt.title('%s 10x%ds (%s), n=%d' % (cao,dur,data['proto'][0],y.shape[0]))
+            rot_bias_dur=dur
             # mean_bar_plus_conf_clip(clip,xlabels,use_key='disc',ax=None,clip_method=True,
                            # color='')
     else: #Method is a list of how to make split axis plot
@@ -994,7 +1046,7 @@ def plot_openloop_mouse_summary(data,
         t2 = method[1]
         t1 = method[0]-method[1]
         t0 = method[0]
-        
+        rot_bias_dur=t0
         for x,y,dur in zip(datx,daty,datDur):
             ind1 = (x >= -t0) &  (x < t1)
             endT = dur - t2
@@ -1244,9 +1296,42 @@ def plot_openloop_mouse_summary(data,
         plt.sca(f_row[2][2])        
         plt.title('Rear scoring incomplete. Check summary["has_dlc"]')    
     
+    #### Row 4: Deg bias accumulation
+    datx = data.loc[:,'x_trace'].values
+
+
+    dat=np.stack(data.loc[:,'turn_trace'],axis=0)
+    u_mice = np.unique(data.anid)
+    temp=[]
+    for mouse in u_mice:
+        ind = np.argwhere(data.loc[:,'anid'].values == mouse)
+        d=[]
+        for i in ind:
+            t=dat[i[0],:]
+            if data.loc[i[0],'side']=='Right':
+                t=-t
+            d.append(t)
+        d = np.array(d)
+        temp.append(np.mean(d,axis=0))
+        y=np.array(temp)
+    # pdb.set_trace()
+    ax= f_row[4][0]
+    mean_cont_plus_conf_array(data.loc[0,'x_trace'],
+                                    y.T,
+                                    plot_each=True,
+                                    highlight=[0,rot_bias_dur,3000],
+                                    ax=ax)
+    ax.xaxis.set_major_locator(MultipleLocator(30))
+    ax.xaxis.set_minor_locator(MultipleLocator(10))
+    ax.yaxis.set_major_locator(MultipleLocator(360))
+
+
+    ax.set_ylabel('IPSI - CONTRA (deg)')
+    ax.set_xlabel('Time from stim (s)')
+   
 
             
-     ### Row 5 Middle: CW or Ipsi rotations:
+    ### Row 5 Middle: CW or Ipsi rotations:
     
     dat=np.stack(data.loc[:,'ipsi_rot_rate'],axis=0) * 10 #Per 10 seconds
     u_mice=np.unique(data['anid'])

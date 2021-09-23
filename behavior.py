@@ -437,33 +437,43 @@ def measure_crossings(in_zone_data,fs, binsize=1):
     min=0 #min cross duration
     all_cross=[]
     cross_t=[]
+    maxt = round((len(in_zone_data)/fs)/60)
+    t0=0
+    time_bins = np.array([x for x in range (t0,maxt+binsize,binsize)])
+    binned_counts=[]
+    med_dur=[]
+    keep_t=[]
     for on,off in zip(ac_on,ac_off):
         if (off-on) > min:
             all_cross.append([on,off])
             cross_t.append(on/fs)
-    durs = np.diff(np.array(all_cross),axis=1) / fs
+    if any(all_cross):
+        durs = np.diff(np.array(all_cross),axis=1) / fs
+
+        all_on=(np.array(all_cross)[:,0]/fs) / 60 #in minutes
+
+        
+        for t0,t1 in zip(time_bins[0:-1],time_bins[1:]):
+            ind = (all_on > t0) & (all_on <=t1)
+            binned_counts.append(np.sum(ind))
+            if any(ind):
+                med_dur.append(np.median(durs[ind]))
+            else:
+                med_dur.append(np.nan)
+            
+            keep_t.append(t0+((t1-t0)/2))
+    else:
+        for t0,t1 in zip(time_bins[0:-1],time_bins[1:]):
+            binned_counts.append(np.nan)
+            med_dur.append(np.nan)            
+            keep_t.append(t0+((t1-t0)/2))
+
     # print('%d crossings detected. Median dur: %1.2fs' % \
     #       (len(all_cross),np.median(durs)))
     
         
     
-    maxt = round((len(in_zone_data)/fs)/60)
-    t0=0
-    all_on=(np.array(all_cross)[:,0]/fs) / 60 #in minutes
-    time_bins = np.array([x for x in range (t0,maxt+binsize,binsize)])
-    binned_counts=[]
-    med_dur=[]
-    keep_t=[]
-    
-    for t0,t1 in zip(time_bins[0:-1],time_bins[1:]):
-        ind = (all_on > t0) & (all_on <=t1)
-        binned_counts.append(np.sum(ind))
-        if any(ind):
-            med_dur.append(np.median(durs[ind]))
-        else:
-            med_dur.append(np.nan)
-        
-        keep_t.append(t0+((t1-t0)/2))
+
     
 
     return np.array(binned_counts),np.array(med_dur),np.array(keep_t)
@@ -541,7 +551,7 @@ def measure_rotations(raw,meta, use_dlc=False,
     '''
     fs=meta['fs'][0]
     # pdb.set_trace()
-    if use_dlc == True:
+    if use_dlc == True and ('dlc_dir' in raw.columns):
          d = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dlc_dir'])))
     else:
         d = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dir'])))
@@ -884,6 +894,10 @@ def experiment_summary_helper(raw,
     temp['analysis_stim_dur'] = stim_analyze_dur
     temp['has_dlc']=meta['has_dlc'][0]
     fs=meta['fs'][0]
+    if temp['has_dlc'] == True and ('dlc_dir' in raw.columns):
+        uwd = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dlc_dir'])))
+    else:
+        uwd = np.rad2deg(np.unwrap(np.deg2rad(raw.loc[:,'dir'])))
     #### Calculate stim-triggered speed changes:
     if not free_running:        
         vel_clip=stim_clip_grab(raw,meta,
@@ -902,8 +916,23 @@ def experiment_summary_helper(raw,
         temp['vel_trace']=np.median(vel_clip['cont_y'],axis=1)
         temp['x_trace']=clip_ave['cont_x']
         
-
+       
+        raw['dir_unwrapped'] = uwd
+        turn_clip=stim_clip_grab(raw,meta,
+                                y_col='dir_unwrapped',
+                                stim_dur = stim_dur,
+                                baseline = baseline)
         
+        
+        tt=[]
+        for a in turn_clip['cont_y'].T:
+            base_ind=turn_clip['cont_x'] < 0
+            m=np.nanmean(a[base_ind])
+            tt.append(a-m)
+            # tt.append((a-m) / np.nanstd(a)) # Baseline sub, z-score to full
+        
+        temp['turn_trace']=np.mean(np.vstack(tt).T,axis=1)
+        # pdb.set_trace()
 
     else:
         # bin_size = 10 #seconds
@@ -922,6 +951,7 @@ def experiment_summary_helper(raw,
                           fun = percentage)
         temp['x_bin']=x
         temp['raw_per_mobile']=y
+        temp['turn_trace']= uwd #entire clip
         
  
     
