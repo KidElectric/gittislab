@@ -1152,8 +1152,8 @@ def experiment_summary_saver(data,path=[],use_cols=[],
     meta_cols=['anid','proto','cell_area_opsin','side','file_path',
                'stim_dur', 'analysis_stim_dur','has_dlc','zone_analyze_dur']
     pdp_labs = ['prestim','durstim','poststim']
-    pdp_cols = [ 'stim_speed', 'amb_speed', 'amb_bouts', 'per_mobile',
-                'amb_bout_rate', 'amb_cv','contra_rot_rate',
+    pdp_cols = [ 'stim_speed', 'amb_bout_speed', 'amb_bouts', 'per_mobile',
+                'amb_bout_rate','amb_bout_dur', 'amb_cv','contra_rot_rate',
                 'im_bout_rate', 'ipsi_rot_rate', 'per_time_z1', 
                 'per_time_z2','rear_bout_rate','prop_state',]
     
