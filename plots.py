@@ -504,7 +504,7 @@ def plot_openloop_day(raw,meta,save=False, close=False,save_dir=None):
     if meta['no_trial_structure'][0] == False:
         #### Set up figure axes in desired pattern
         plt_ver = 3
-        fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
+        fig = plt.figure(constrained_layout = False,figsize=(8.5,11))
         gs = fig.add_gridspec(6, 3)
         f_row=list(range(gs.get_geometry()[0]))
         f_row[0]=[fig.add_subplot(gs[0,i]) for i in range(3)]
@@ -563,7 +563,7 @@ def plot_openloop_day(raw,meta,save=False, close=False,save_dir=None):
         im_bouts=behavior.bout_analyze(raw,meta,'im',
                                        stim_dur=stim_dur,
                                        min_bout_dur_s=min_bout)
-        
+        # pdb.set_trace()
         #Rearing:
         if meta['has_dlc'][0] == True:
             rate = lambda x: len(signals.thresh(x,0.5)[0]) / stim_dur
@@ -996,7 +996,7 @@ def plot_openloop_mouse_summary(data,
     #### Set up figure axes in desired pattern
     plt_ver = 3
 
-    fig = plt.figure(constrained_layout = True,figsize=(8.5,11))
+    fig = plt.figure(constrained_layout = False,figsize=(8.5,11))
     gs = fig.add_gridspec(6, 3)
     f_row=list(range(gs.get_geometry()[0]))
     
@@ -1222,8 +1222,8 @@ def plot_openloop_mouse_summary(data,
                        use_key='rate',ax=ax,clip_method=False,
                        )
     ax.set_xlim([-1,3])
-    ax.set_ylabel('(bouts / s)')
-    ax.set_title('Ambulation bout rate')
+    ax.set_ylabel('bouts / s')
+    ax.set_title('Amb. bout rate')
     
     #### Row 2 Middle: Amb bout speed:
     dat= np.stack(data['amb_bout_speed'],axis=0)
@@ -1237,8 +1237,8 @@ def plot_openloop_mouse_summary(data,
                        use_key='rate',ax=ax,clip_method=False,
                        )
     ax.set_xlim([-1,3])
-    ax.set_ylabel('(cm/s)')
-    ax.set_title('Ambulation bout speed')
+    ax.set_ylabel('cm / s')
+    ax.set_title('Amb. bout speed')
     
     #### Row 2 Right: Amb bout duration
     dat= np.stack(data['amb_bout_dur'],axis=0)
@@ -1252,8 +1252,8 @@ def plot_openloop_mouse_summary(data,
                        use_key='rate',ax=ax,clip_method=False,
                        )
     ax.set_xlim([-1,3])
-    ax.set_ylabel('(s)')
-    ax.set_title('Ambulation bout dur.')
+    ax.set_ylabel('seconds')
+    ax.set_title('Amb. bout dur.')
     
 
     # pdb.set_trace()
@@ -1324,16 +1324,21 @@ def plot_openloop_mouse_summary(data,
     ys = []
     xs = []
     
-    t2 = method[1]
-    t1 = method[0]-method[1]
-    t0 = method[0]
-    rot_bias_dur=t0
-    
-    for x,y in zip(datx,daty):
-        ind1 = (x >= -t0) &  (x < t0)
-        ys.append(y[ind1])
-        xs.append(x[ind1])
-        
+    if data.side[0]=='Bilateral' and method == 'each_dur':
+        t0=np.min(data.stim_dur)
+        for x,y in zip(datx,daty):
+            ind1 = (x >= -t0) &  (x < t0)
+            ys.append(y[ind1])
+            xs.append(x[ind1]) 
+    else: #Assume they are all the same length (5x30)
+        t0= data.stim_dur[0]
+        for x,y in zip(datx,daty):
+            ind1 = (x >= -t0) &  (x < (t0*2))
+            ys.append(y[ind1])
+            xs.append(x[ind1]) 
+
+
+    rot_bias_dur=t0        
     ml= min([len(x) for x in ys])
     i=0
     for x,y in zip(xs,ys):
@@ -1807,7 +1812,7 @@ def plot_zone_day(raw,meta,save=False,close = False):
     # data=behavior.experiment_summary_helper(raw, meta)
     counts,durs,time= behavior.measure_crossings(raw[sz],fs=meta['fs'][0],
                                         binsize=width, 
-                                        analysis_dur=10)
+                                        ) #analysis_dur=10
     # for i in range(len(t)-1):
     #     ind=(( time >= t[i]) & (time < t[i+1]))
     #     sz_counts.append(counts[ind])

@@ -31,7 +31,7 @@ import pickle
 
 # %% 
 #Dial 740 Cal:
-fn = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/A2A/Ai32/2021-08-23-laser_cal/gpe_buttonB6_0-255_11mW_max_cal_cleaned.csv')
+fn = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/A2A/Ai32/Bilateral/50x2/exclude/2021-08-23-laser_cal/gpe_buttonB6_0-255_11mW_max_cal_cleaned.csv')
 df_cal=pd.read_csv(fn)
 plt.figure()
 y=df_cal.loc[:,' Power(W)'] *1000 # Put in mW
