@@ -41,7 +41,14 @@ exc=[ex0]
 # inc=[['AG','Str','A2A','Ai32','zone_2_0p5mw',]]
 # inc=[['AG','Str','A2A','Ai32','50x2_multi_mW',]]
 
-inc=[['AG','A2A','Ai32','GPe','10x']]
+# inc=[['AG','A2A','Ai32','GPe','10x']]
+
+# inc = [['AG','D1','DTR','Str','10x']]
+
+analysis='Str_D1_DTR_1mw'
+behavior_str = 'uni'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,
+                                                          behavior_str=behavior_str)
 ethovision_tools.unify_raw_to_csv(basepath,
                                   inc,exc,force_replace=False,
                                   win=10,make_preproc = make_preproc)
@@ -80,7 +87,7 @@ analysis = 'GPe_A2a_ChR2_0p25mw'
 behavior_str = 'zone_' #'10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
 inc[1] += ['AG7128']
-pns=dataloc.raw_csv(basepath,inc[1],exc[1])
+pns=dataloc.raw_csv(basepath,inc[0],exc[0])
 if not isinstance(pns,list):
     pns=[pns]
 saveit=True
@@ -116,7 +123,7 @@ b = '10x'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,
                                                           behavior_str=b)
 inc = inc[1] + ['AG7192']
-pns=dataloc.raw_csv(basepath,inc,exc[1])
+pns=dataloc.raw_csv(basepath,inc[0],exc[0])
 if not isinstance(pns,list):
     pns=[pns]
 saveit=True
