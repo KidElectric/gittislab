@@ -2,7 +2,7 @@ import pandas as pd
 from gittislab import dataloc
 from gittislab import signals
 from gittislab import behavior
-from gittislab import mat_file
+# from gittislab import mat_file
 
 import os #To help us check if a file exists
 from pathlib import Path
@@ -42,8 +42,9 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
     None.
 
     '''
-    version=3 #Version where versioning is formally implemented (all at version 3)
+    # version=3 #Version where versioning is formally implemented (all at version 3)
     # version = 4 #Change rear threshold to 0.6 and min thresh to 0.55
+    version = 5 # Fix bug in extracting stim intense for metadata
     for i,inc in enumerate(conds_inc):
         exc=conds_exc[i]
         xlsx_paths=dataloc.rawxlsx(basepath,inc,exc)
@@ -447,186 +448,6 @@ def h5_load_par(filename):
     store.close()
     return metadata
 
-def meta_from_mat(pn):
-    '''
-    Extract parameters from existing .mat file via scipy.io.loadmat output (dict of arrays)
-
-    Parameters
-    ----------
-    pn : path a matlab .mat file  
-        
-    Returns
-    meta : dict containing experiment information
-
-    '''
-    
-    mat=mat_file.load(pn,verbose=False)
-    anid=dataloc.path_to_animal_id(str(pn))
-    
-    #Organize parameters:
-    if 'fs' in mat:
-        fs=mat['fs'][0][0]
-    else:
-        fs=1/np.mean(np.diff(mat['time'][0:].flatten())) #usually ~29.97 fps
-    possible_retrack=0
-        
-    pars=mat_file.dtype_array_to_dict(mat,'meta')
-    nold = mat_file.dtype_array_to_dict(mat,'noldus')
-    
-    #Check if there is any ambiguity about which mouse is in the file:
-    if isinstance(nold['Mouse_ID'],str):
-        if (nold['Mouse_ID'] != pars['anID']) \
-            or (nold['Mouse_ID'] != anid):
-            anid_mismatch=1
-        else:
-            anid_mismatch=0
-    else:
-        anid_mismatch=np.nan
-        
-    #Examine tracking source to determine if video is retracked or which room is was likely filmed in:
-    if isinstance(nold['Tracking_source'],str):
-        track_source=nold['Tracking_source']
-        if 'Basler GenICam' in track_source:
-            room_num=216
-        elif 'Euresys PICOLO' in track_source:
-            room_num=228
-        else:
-            room_num=np.nan
-    else:
-        room_num=np.nan
-        possible_retrack=1
-        track_source=np.nan
-    
-    # Look for light information if available:
-    light_method='Stim_'
-    if 'LED_Dial' in nold:
-        light_method='LED_Dial'
-    elif 'Dial' in nold:
-        light_method='Dial'
-    
-    # Look for mouse sex information if available:
-    if 'Sex' in nold:
-        sex=nold['Sex']
-    elif 'Gender' in nold:
-        sex=nold['Gender'] # sex='Gender' #Older version
-    else:
-        sex=np.nan
-        
-    # Look for mouse depletion status if available:
-    if 'Days_after_Depletion' in nold:
-        dep_status=nold['Days_after_Depletion']
-    elif 'Days_after' in nold:
-        dep_status = nold['Days_after']
-    elif 'Depletion_Status' in nold:
-        dep_status = nold['Depletion_Status']
-    
-    if 'Test' in nold:
-        etho_exp=nold['Test']
-    else:
-        etho_exp=np.nan
-        
-    meta={
-        'etho_animal_id': nold['Mouse_ID'],
-        'etho_da_state':dep_status,
-        'etho_sex': sex,
-        'etho_treatment': nold['Treatment'],
-        'etho_video_file': nold['Video_file'],
-        'etho_exp_date':nold['Start_time'],
-        'etho_rec_dur':nold['Trial_duration'],
-        'etho_trial_control_settings':nold['Trial_Control_settings'],
-        'etho_trial_number': nold['Trial_name'].rsplit()[1],#'etho_experiment_file': mat['noldus'][0][0][0][0],
-        'etho_arena':nold['Arena_settings'], #Two zone arena
-        'etho_stim_info' :nold[light_method], #Green = Dial 768, etc.
-        'etho_exp_type' : etho_exp, # 10x30 etc.   
-        'etho_tracking_source' : track_source,
-        'exp_room_number': room_num,
-        'experimenter':pars['exp'].split('_')[-1][0:2],
-        'anid':pars['anID'],
-        'folder_date':pars['exp'].split('_')[-1][2:],
-        'folder_anid':anid,
-        'protocol': pars['protocol'],
-        'side': pars['side'],
-        'opsin_type':pars['opsin_type'],
-        'cell_type':pars['cell_type'],
-        'da_state':pars['da_state'],
-        'stim_area':pars['stim_area'],
-        'animal_id_mismatch':anid_mismatch,
-        'possible_retrack':possible_retrack,
-        'fs':fs, #Default frames / second but should confirm in each video if possible        
-        }
-    if 'Experiment' in nold:
-        meta['etho_experiment_file']=nold['Experiment']
-    else:
-        meta['etho_experiment_file']=np.nan
-        
-    inc=['task','exp_start','exp_end','task_start','task_stop','zone']
-    for f in inc:
-        if f in mat:
-            if mat[f].size > 0:
-                meta[f]=mat[f].flatten()[0]
-            else:
-                meta[f]=[]
-                
-    #Incorporate stimulus info into the meta dictionary:
-    use_keys=['laserOnTimes','laserOffTimes']
-    rename=['stim_on','stim_off']
-    meta['stim_amp_mw']=1 #By default, 1 mW
-    proto=str(pn).split(sep)[-3]
-    meta['stim_proto']=proto
-    if ('mw' in proto) or ('mW' in proto):
-        meta['stim_amp_mw']=int(proto.split('_')[-1].split('m')[0])
-    for i,key in enumerate(use_keys):
-        meta[rename[i]]=mat[key].flatten()
-    stim_dur=[]
-    for i,onset in enumerate(meta['stim_on']):
-        if i< len(meta['stim_off']):
-            stim_dur.append(meta['stim_off'][i]-onset)
-        else: #If recording ended before stimulus shut off for some reason
-            stim_dur.append(np.nan)
-    meta['stim_dur']=np.array(stim_dur)
-    
-    meta['stim_n']=np.nansum(not np.isnan(meta['stim_on']))
-    meta['stim_mean_dur']=meta['stim_dur'].mean()
-    return meta
-
-
-
-def raw_from_mat(pn):
-    '''
-    raw_df_from_mat(pn) - Import raw ethovision data as columns of a pandas dataframe.
-    Parameters
-    ----------
-    pn : Path (from pathlib import Path)
-        File path to a .mat file, e.g. 
-       '/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPi/Naive/CAG/Arch/Bilateral/10x30/AG6151_3_CS090720/Raw_AG6151_3_CS090720.mat'
-
-    Returns
-    -------
-    df : dataframe
-        Dataframe containing columns of raw data exported from ethovision.
-
-    '''
-    
-    mat=mat_file.load(pn)
-    
-    #Include only keys that are arrays of frame sample values:
-    use_keys=['time', 'x', 'y', 'x_nose', 'y_nose', 'x_tail', 'y_tail', 'area',
-       'delta_area', 'elon', 'dir', 'dist', 'vel', 'im', 'm', 'quarter_rot_cw',
-       'quarter_rot_ccw', 'iz1', 'iz2', 'laserOn', 'ambulation', 'fine_move',
-       'net_cw_rots']
-        
-    #Create new dict:
-    raw_dat={}
-    for key in use_keys:
-        if key in mat:
-            raw_dat[key]=mat[key].flatten()
-        else:
-            print('Warning: %s key not found, nan-filling' % key)
-            raw_dat[key]=np.full_like(mat['time'].flatten(),np.nan)
-    
-    #Create a dataframe from dict:
-    df=pd.DataFrame.from_dict(raw_dat)
-    return df
 
 def raw_meta_from_xlsx(pn):
     # Next, we will read in the data using the imported function, read_excel()
@@ -894,9 +715,10 @@ def stim_from_xlsx(df,pn):
     else:
         stim['n']=0
     if ('mw' in proto) or ('mW' in proto):
+        # pdb.set_trace()
         temp_amp=proto.split('_')[-1].split('m')[0]
         if 'p' in temp_amp:
-            use_amp = int(temp_amp.split('p')[1])/10
+            use_amp = int(temp_amp.split('p')[1])/100
         elif ('cno' in temp_amp) or ('sal' in temp_amp):
             use_amp=1
         elif 'multi' in proto:
