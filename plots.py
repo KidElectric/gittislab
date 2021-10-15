@@ -24,8 +24,13 @@ import matplotlib.patches as mpatches
 import matplotlib.gridspec as gridspec
 
 
-from gittislab import behavior, ethovision_tools,\
-    signals, dataloc, table_wrappers, model
+from gittislab import table_wrappers
+from gittislab import signals
+from gittislab import behavior
+from gittislab import dataloc
+from gittislab import ethovision_tools
+from gittislab import model
+
 from scipy import stats as scistats
 import statistics as pystats
 import statsmodels.api as sm
@@ -1862,7 +1867,11 @@ def plot_zone_day(raw,meta,save=False,close = False):
     else:
         return fig
 
-def plot_zone_mouse_summary(data, save=False,color='b', close=False, example_mouse=0):    
+def plot_zone_mouse_summary(data, 
+                            save=False,
+                            color='b',
+                            close=False,
+                            example_mouse=0):    
     '''
 
     Parameters

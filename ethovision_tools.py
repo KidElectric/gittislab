@@ -1,6 +1,9 @@
 import pandas as pd
-# import modin.pandas as pd
-from gittislab import dataloc, signals, behavior, mat_file
+from gittislab import dataloc
+from gittislab import signals
+from gittislab import behavior
+from gittislab import mat_file
+
 import os #To help us check if a file exists
 from pathlib import Path
 import numpy as np

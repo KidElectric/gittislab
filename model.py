@@ -9,7 +9,11 @@ import pandas as pd
 pd.options.mode.chained_assignment = None 
 import numpy as np
 from pathlib import Path
-from gittislab import dataloc, ethovision_tools, signals, plots, behavior
+from gittislab import dataloc
+from gittislab import ethovision_tools
+from gittislab import signals
+from gittislab import plots
+from gittislab import behavior
 import matplotlib.pyplot as plt
 import json 
 import pdb

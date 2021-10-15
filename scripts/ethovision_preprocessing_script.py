@@ -45,15 +45,24 @@ exc=[ex0]
 
 # inc = [['AG','D1','DTR','Str','10x']]
 
-analysis='Str_D1_DTR_1mw'
-behavior_str = 'uni'
+analysis='Str_D1_EYFP'
+behavior_str = 'zone_'
 inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,
                                                           behavior_str=behavior_str)
-ethovision_tools.unify_raw_to_csv(basepath,
-                                  inc,exc,force_replace=False,
-                                  win=10,make_preproc = make_preproc)
 
-ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,force_replace=False,win=10)
+basepath='/home/brian/Dropbox/Manuscripts/Isett_Gittis_2021/Figure 5_D1_arch/'
+# inc=[['Str','D1','EYFP','Unilateral','Left'],
+#      ['Str','D1','EYFP','Unilateral','Right']]
+# inc=[[]]
+exc=[[],[]]
+ethovision_tools.unify_raw_to_csv(basepath,
+                                  inc,exc,
+                                  force_replace=False,
+                                  win=10,)
+
+ethovision_tools.raw_csv_to_preprocessed_csv(basepath,inc,exc,
+                                             force_replace=False,
+                                             win=10)
 summary=ethovision_tools.meta_sum_csv(basepath,inc,exc)     
 print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
@@ -80,38 +89,6 @@ print(summary.stim_dur)
 print('Nan stim_durs: %d' % sum(np.isnan(summary.stim_dur)))
 print('negative stim durs: %d' % sum((summary.stim_dur<0)))
 
-# %% Plot zone day
-# inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
-
-analysis = 'GPe_A2a_ChR2_0p25mw'
-behavior_str = 'zone_' #'10x'
-inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
-inc[1] += ['AG7128']
-pns=dataloc.raw_csv(basepath,inc[0],exc[0])
-if not isinstance(pns,list):
-    pns=[pns]
-saveit=True
-closeit=False
-for pn in pns:
-    raw,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
-    plots.plot_zone_day(raw,meta,save=saveit, close=closeit)
-    
-# %% Plot zone day summary:   
-# inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
-
-# analysis = 'Str_A2a_ChR2_1mw'
-# analysis = 'Str_D1_Arch_30mw'
-# analysis = 'GPe_CAG_Arch_1mw'
-analysis = 'GPe_A2a_ChR2_0p25mw'
-behavior_str = 'zone_' #'10x'
-inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
-inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
-# inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
-data = behavior.zone_rtpp_summary_collect(basepath,inc,exc)
-
-
-plots.plot_zone_mouse_summary(data,color='k',example_mouse=example_mouse)
-
 # %% Plot 10x10 / openloop days:
 # ex0=['exclude','Bad','GPe','bad','Broken','15min', '10hz','grooming','Exclude','Other XLS']
 # exc=[ex0]
@@ -131,6 +108,44 @@ closeit=False
 for pn in pns:
     df,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
     plots.plot_openloop_day(df,meta,save=saveit, close=closeit)
+
+# %% Plot zone day
+# inc=[['AG','Str','A2A','Ai32','zone_2','_0p5mw']]
+
+analysis = 'GPe_A2a_ChR2_0p25mw'
+behavior_str = 'zone_' #'10x'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,behavior_str=behavior_str)
+inc[1] += ['AG7128']
+pns=dataloc.raw_csv(basepath,inc[0],exc[0])
+
+if not isinstance(pns,list):
+    pns=[pns]
+saveit=True
+closeit=False
+for pn in pns:
+    raw,meta=ethovision_tools.csv_load(pn,columns='All',method='preproc' )
+    plots.plot_zone_day(raw,meta,save=saveit, close=closeit)
+    
+# %% Plot zone day summary:   
+# inc=[['AG','Str','A2A','Ai32','zone','_0p5mw']]
+
+# analysis = 'Str_A2a_ChR2_1mw'
+# analysis = 'Str_D1_Arch_30mw'
+# analysis = 'GPe_CAG_Arch_1mw'
+analysis = 'GPe_A2a_ChR2_0p25mw'
+behavior_str = 'zone_' #'10x'
+inc,exc,color,example_mouse = dataloc.experiment_selector(analysis,'zone_1')
+inc= [inc[1] + ['AG7192'], inc[1] + ['AG7128']]
+# inc = [['AG','GPe','A2A','ChR2','zone_1','0p25mw']]
+data = behavior.zone_rtpp_summary_collect(basepath,inc,exc,
+                                          stim_analyze_dur=10,
+                                          zone_analyze_dur= 10 * 60)
+
+
+plots.plot_zone_mouse_summary(data,color='k',
+                              example_mouse=example_mouse)
+
+
 
 # %% Plot free-running / unstructured openfield data:
 pns=dataloc.raw_csv(basepath,inc[0],ex0)

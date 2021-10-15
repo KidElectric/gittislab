@@ -1,5 +1,10 @@
-from gittislab import dataloc, mat_file, signals, \
-                      ethovision_tools, table_wrappers, model
+from gittislab import table_wrappers
+from gittislab import signals
+from gittislab import dataloc
+from gittislab import ethovision_tools
+from gittislab import model
+from gittislab import mat_file
+
 import numpy as np
 import os
 import math
