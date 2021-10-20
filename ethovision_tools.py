@@ -108,7 +108,10 @@ def unify_raw_to_csv(basepath,conds_inc=[],conds_exc=[],
     print('Finished')   
 
 def raw_csv_to_preprocessed_csv(basepath, conds_inc=[], conds_exc=[],
-                                force_replace=False,win=10):
+                                force_replace=False,
+                                win=10,
+                                model_path='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/DLC Examples/train_rear_model/'
+                                ):
     '''
     raw_csv_to_preprocessed_csv(basepath,conds_inc=[],conds_exc=[],force_replace=False,win=10):
             Takes
@@ -156,7 +159,9 @@ def raw_csv_to_preprocessed_csv(basepath, conds_inc=[], conds_exc=[],
                     #Add DLC position columns into raw dataframe
                     raw, meta = add_dlc_helper(raw,meta,path.parent,inc,exc,
                                                force_replace=True)
-                    preproc,meta=behavior.preproc_raw(raw,meta,win=win) #Will add rearing data if deeplabcut analysis performed
+                    preproc,meta=behavior.preproc_raw(raw,meta,
+                                                      win=win,
+                                                      model_path=model_path) #Will add rearing data if deeplabcut analysis performed
                     
                     #Write raw and meta to .csv files:
                     pnfn=path.parent.joinpath(preproc_file_name)
