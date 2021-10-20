@@ -76,6 +76,7 @@ def common_paths(use_labels=[]):
             DESCRIPTION: 
                 Optional input list of labels to limit output to just those criteria
                 See: labels output of function without any input for full list.
+                
     Return an up-to-date list of commonly used experimental conditions and paths
         to be used for gen_paths_recurse() and other functions
         
@@ -146,14 +147,22 @@ def common_paths(use_labels=[]):
         exc=exc[0]
     return basepath,inc,exc,labels
 
-def experiment_selector(cell_str,behavior_str):
+def experiment_selector(cell_str,behavior_str,manuscript_ver=False):
     ''' Wrapper to take in simple data ID command and output inclusion and 
         exclusion criteria for finding relevant experiment files + pick relevant
         light sitmulus color for plotting
         
-        For example: cell_str ='Str_A2a_ChR2' collects all ChR2 & Ai32 experiments
+        cell_str = analysis string codem for example 'Str_A2a_ChR2_1mw' collects all ChR2 & Ai32 experiments at 1mw
                                 in Striatum in A2a cells
-                    behavior_str ='zone_1' --> collect bilateral zone 1 data
+        behavior_str = short handn strings for behavior types:
+                    'uni' --> Collect Left and Right 5x30 or 10x30 experiments
+                    '10x30' or '10x10' --> collect bilateral 10x30 or 10x10 experiments
+                    '10x'   --> collect bilateral 10x30 and 10x10 experiments                    
+                    'zone_1' or 'zone_2' --> collect bilateral zone 1 or zone 2 experiments
+                    'zone_' --> collect bilateral zone 1 and zone 2 experiments
+
+        manuscript_ver = dictates certain assumptions about folder structure for Dropbox/Server (==False)
+                        vs.  finalized manuscript directory (==True)
     '''
     
     if 'ChR2' in cell_str:
@@ -166,13 +175,20 @@ def experiment_selector(cell_str,behavior_str):
     inc=[]
     exc=[]
     bilateral_exp=['zone_1','zone_2','10x10','10x30','10x','zone_','trig_','trig_r','trig_l']
+
     uni_exp = ['5x30','10x30']
+
+
     if behavior_str in bilateral_exp:
         base=['Bilateral']
         behavior_list = [behavior_str] #
     elif behavior_str == 'uni':
-        base=[]
-        behavior_list = uni_exp
+        if manuscript_ver == False:
+            base=[]
+            behavior_list = uni_exp
+        else:
+            base=[]
+            behavior_list = ['Unilateral']
     all_intense=['0p25mw','0p5mw','1mw','2mw','3mw','20mw','30mw',]
     intensity=cell_str.split('_')[-1] #desired intensity
     exc_int = [a for a in all_intense if a != intensity] #exclude these 
@@ -228,8 +244,9 @@ def experiment_selector(cell_str,behavior_str):
         for behav in behavior_list:            
             inc.append(u + [behav] + base)         
             exc.append(ex0 + exc_int)  
-            
-    if behavior_str == 'uni':        
+           
+    if behavior_str == 'uni':   
+        # pdb.set_trace() 
         add=[['Left'],['Right']]
         inc_temp=[]
         exc_temp=[]
