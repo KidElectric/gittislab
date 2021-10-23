@@ -1975,7 +1975,8 @@ def plot_zone_mouse_summary(data,
     norm = True
     width=int(data.loc[0,'zone_1_cross_bin_size'])
     time = np.array([x for x in range(1,30+width,width)]) #Note: using first 10 minutes of pre,dur,post regardless of original duration
-    
+    # time = np.array([x for x in range(0,29+width,width)])
+    # pdb.set_trace()
     for anid in anids:
         row = data.loc[:,'anid'].values == anid
         zone = int(data.loc[row,'proto'].values[0].split('_')[1])
@@ -1988,15 +1989,22 @@ def plot_zone_mouse_summary(data,
             d=np.hstack(data.loc[row,'zone_2_cross_durs_binned'].values[0])
             # time=np.hstack(data.loc[row,'zone_2_cross_bin_times'].values[0])
         if norm == True:
-            c = c / np.nanmean(c[time < 10])
-            d = d /  np.nanmean(d[time < 10])
+            
+            if np.any(c[time < 10]):
+                c = c / np.nanmean(c[time < 10])
+                d = d /  np.nanmean(d[time < 10])
+            else:
+                c=np.ones(c.shape)
+                d=np.ones(d.shape)
             
         dat_dur.append(d)
         dat_cross.append(c)
+        
+        
     dat_dur=np.vstack(dat_dur)
     dat_cross=np.vstack(dat_cross)
-    mc=np.nanmean(dat_cross,axis=0)
-    md=np.nanmean(dat_dur,axis=0)
+    mc=np.nanmean(dat_cross,axis=0) #Add error bars?
+    md=np.nanmean(dat_dur,axis=0) #Add error bars?
         
     t=[0,10,20,30]
     # width=data.loc[0,'zone_1_cross_bin_size']
@@ -2004,13 +2012,13 @@ def plot_zone_mouse_summary(data,
     # time = range(0,30+width,width) #Note: using first 10 minutes of pre,dur,post regardless of original duration
     x = (time - t[1])
     pbins=mc
-    
+    pdb.set_trace()
     # baseline= np.nanmean(pbins[x<0])
     # pbins=pbins/baseline
     hl_color = 'b'
     f_row[3][0].fill_between([0,(t[2]-t[1])],[6,6],y2=[0,0],
                         color= hl_color, alpha=0.3,edgecolor='none')
-    f_row[3][0].bar(x,pbins,width-0.1,facecolor='k')
+    f_row[3][0].bar(x,pbins,width-0.1,facecolor='k',align='edge')
     f_row[3][0].set_ylabel('# SZ Crosses')
     f_row[3][0].set_xlabel('Time (m)')
 
@@ -2027,7 +2035,7 @@ def plot_zone_mouse_summary(data,
     hl_color = 'b'
     f_row[3][1].fill_between([0,(t[2]-t[1])],[70,70],y2=[0,0],
                         color= hl_color, alpha=0.3,edgecolor='none')
-    f_row[3][1].bar(x,pbins,width-0.1,facecolor='k')
+    f_row[3][1].bar(x,pbins,width-0.1,facecolor='k',align='edge')
     f_row[3][1].set_ylabel('SZ Cross Dur (s)')
     f_row[3][1].set_xlabel('Time (m)')
 
