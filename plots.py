@@ -1692,27 +1692,28 @@ def plot_zone_day(raw,meta,save=False,close = False):
     f_row[1][0].set_xlim([-0.5, 3])
     
     ### Calculate stim-triggered speed changes:
-    baseline= round(np.mean(meta['stim_dur']))
-    stim_dur= baseline
-    vel_clip=behavior.stim_clip_grab(raw,meta,y_col='vel',
-                                      stim_dur=stim_dur)
-    
-    clip_ave=behavior.stim_clip_average(vel_clip)
-    
-    #### Row 2: Speed related
-    ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
-                                      xlim=[-stim_dur,stim_dur*2],
-                                      highlight=[0,stim_dur,25],
-                                      ax=f_row[2][0])
-    plt.ylabel('Speed (cm/s)')
-    plt.xlabel('Time from stim (s)')
-    
-    ax_speed = mean_bar_plus_conf_clip(vel_clip,['Pre','Dur','Post'],
-                                  ax=f_row[2][1],
-                                  )
-    
-    plt.ylabel('Speed (cm/s)')
-    plt.xlabel('Time from stim (s)')
+    if (len(meta['stim_dur']) > 1) and (not np.isnan(meta['stim_dur'][0])):
+        baseline= round(np.mean(meta['stim_dur']))
+        stim_dur= baseline
+        vel_clip=behavior.stim_clip_grab(raw,meta,y_col='vel',
+                                          stim_dur=stim_dur)
+        
+        clip_ave=behavior.stim_clip_average(vel_clip)
+        
+        #### Row 2: Speed related
+        ax_speedbar = mean_cont_plus_conf_clip(clip_ave,
+                                          xlim=[-stim_dur,stim_dur*2],
+                                          highlight=[0,stim_dur,25],
+                                          ax=f_row[2][0])
+        plt.ylabel('Speed (cm/s)')
+        plt.xlabel('Time from stim (s)')
+        
+        ax_speed = mean_bar_plus_conf_clip(vel_clip,['Pre','Dur','Post'],
+                                      ax=f_row[2][1],
+                                      )
+        
+        plt.ylabel('Speed (cm/s)')
+        plt.xlabel('Time from stim (s)')
     
     
     #### Row 3: %time in SZ vs. time normalized to baseline
@@ -2012,7 +2013,7 @@ def plot_zone_mouse_summary(data,
     # time = range(0,30+width,width) #Note: using first 10 minutes of pre,dur,post regardless of original duration
     x = (time - t[1])
     pbins=mc
-    pdb.set_trace()
+    # pdb.set_trace()
     # baseline= np.nanmean(pbins[x<0])
     # pbins=pbins/baseline
     hl_color = 'b'
