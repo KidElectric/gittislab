@@ -230,7 +230,7 @@ def experiment_selector(cell_str,behavior_str,manuscript_ver=False):
         
     # Attempt to make a reasonable query based off cell_str alone:
     else:
-        area,cell,opsin = cell_str[0:12].split('_')[0:3]
+        area,cell,opsin = cell_str.split('_')[0:3]
         if area == 'GPe':
             ex0 = gpe_exc + pharm_exc
         else:
