@@ -2137,6 +2137,7 @@ def plot_light_curve_sigmoid(pns,laser_cal_fit,sum_fun, y_col='im',
         keep_x.append(xs)
         keep_y.append(ys)
         plt.xlabel('Power (mW)')
+        plt.ylabel('Speed (cm/s)')
         if y_col == 'im':
             plt.ylabel('% Time Immobile')
         

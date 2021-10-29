@@ -16,7 +16,9 @@ from gittislab import signals, plots, behavior, dataloc, ethovision_tools, model
 if ('COMPUTERNAME' in os.environ.keys()) \
     and (os.environ['COMPUTERNAME'] == 'DESKTOP-UR8URCE'):
         
-    basepath = 'F:\\Users\\Gittis\\Dropbox\\Gittis Lab Data\\OptoBehavior\\'
+    # basepath = 'F:\\Users\\Gittis\\Dropbox\\Gittis Lab Data\\OptoBehavior\\'
+    basepath=Path(r'F:\Users\Gittis\Dropbox\Manuscripts\Isett_Gittis_2021\Figure 6_a2a_GPe_term_behav_ephys\data\Behavior\raw\GPe_A2a_ChR2_light_curve')
+    button_base = basepath.joinpath(r'Bilateral\50x2\exclude\2021-08-23-laser_cal')
 else:
     basepath='/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/'
 
@@ -31,7 +33,10 @@ import pickle
 
 # %% 
 #Dial 740 Cal:
-fn = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/A2A/Ai32/Bilateral/50x2/exclude/2021-08-23-laser_cal/gpe_buttonB6_0-255_11mW_max_cal_cleaned.csv')
+
+
+# fn = Path('/home/brian/Dropbox/Gittis Lab Data/OptoBehavior/GPe/Naive/A2A/Ai32/Bilateral/50x2/exclude/2021-08-23-laser_cal/gpe_buttonB6_0-255_11mW_max_cal_cleaned.csv')
+fn=button_base.joinpath('gpe_buttonB6_0-255_11mW_max_cal_cleaned.csv')
 df_cal=pd.read_csv(fn)
 plt.figure()
 y=df_cal.loc[:,' Power(W)'] *1000 # Put in mW
@@ -84,7 +89,7 @@ ax.set_xlabel('Arduino PWM level')
 ex0=['exclude','Bad','Str','bad','Broken', 'grooming',
  'Exclude','Other XLS']
 exc=[ex0]
-save = True
+save = False
 plt.close('all')
 y_col = 'vel'
 load_method='preproc'
@@ -93,13 +98,12 @@ percentage = lambda x: (np.nansum(x)/len(x))*100
 rate = lambda x: len(signals.thresh(x,0.5)[0]) / stim_dur
 
 sum_fun = np.mean
-inc=[['AG','GPe','A2A','Ai32','50x2',]]
-
+# inc=[['AG','GPe','A2A','ChR2','light',''50x2',]]
+inc=['GPe','A2a','ChR2','50x2']
     
-pns=dataloc.raw_csv(basepath,inc[0],ex0)
+pns=dataloc.raw_csv(basepath.parent,inc,ex0)
 if not isinstance(pns,list):
     pns=[pns]
-button_base = Path(basepath).joinpath('GPe/Naive/A2A/Ai32/Bilateral/50x2/exclude/2021-08-23-laser_cal/')
 button_dict={'AG7128_4':button_base.joinpath('gpe_buttonB6_0-255_11mW_max_cal_cleaned_model.pkl'),
              'AG7128_5':button_base.joinpath('gpe_buttonB3_0-255_11mW_max_cal_cleaned_model.pkl'),
              'AG7192_2':button_base.joinpath('gpe_buttonB11_0-255_11mW_max_cal_cleaned_model.pkl'),
