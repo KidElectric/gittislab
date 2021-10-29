@@ -172,7 +172,7 @@ def add_amb_to_raw(raw,meta,amb_thresh=2, im_thresh=1, use_dlc=False):
         im2, amb2, fm2 = states calculated from mouse velocity & deeplabcut positional
                         markers if present
         amb_thresh = cm/s above which mouse is considered ambulating
-        im_thresh = cm/s below which mosue is considered immobile (for im2 calc only)
+        im_thresh = THSI IS NOT USED. DEFAULTS TO ETHOVISION % PIXEL CHANGE!!
         use_dlc = whether to use deeplabcut approach 
         return raw & meta
     '''
