@@ -1305,7 +1305,7 @@ def plot_openloop_mouse_summary(data,
         
     #### Row 3 Right: Rear bout rate
     if not any(data['has_dlc'] == False):
-        dat= np.stack(data['rear_bout_rate'],axis=0)
+        dat= np.stack([x.flatten() for x in data['rear_bout_rate']],axis=0) #np.stack(data['rear_bout_rate'],axis=0)
         labs= data['prop_labels'][0]
         labels=['Pre','Dur','Post']
         width = 0.4       # the width of the bars: can also be len(x) sequence
