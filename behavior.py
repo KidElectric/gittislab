@@ -356,6 +356,7 @@ def trial_part_position(raw,meta,chunk_method='task'):
     # x,y=norm_position(raw) #Already performed with preprocessed raw dataframe
     x=raw['x']
     y=raw['y']
+    speed=raw['vel']
     t=[i for i in range(4)]
     
     t[0]=0
@@ -384,11 +385,13 @@ def trial_part_position(raw,meta,chunk_method='task'):
               ]
     xx=[]
     yy=[]
+    ss=[]
     for win in wins:
         ind=(raw['time']>= win[0]) & (raw['time'] < win[1])
         xx.append(x[ind])
         yy.append(y[ind])
-    return xx,yy
+        ss.append(speed[ind])
+    return xx,yy,ss
 
 def stim_xy_loc(raw,meta):
     '''
@@ -1131,14 +1134,14 @@ def experiment_summary_helper(raw,
     #Chunk mouse locations:
     temp['zone_analyze_dur'] = zone_analyze_dur
     if zone_analyze_dur == 'mean':
-        xx,yy=trial_part_position(raw,meta, chunk_method='task')
+        xx,yy,ss=trial_part_position(raw,meta, chunk_method='task')
     else:
-        xx,yy=trial_part_position(raw,meta, chunk_method='10min') 
+        xx,yy,ss=trial_part_position(raw,meta, chunk_method='10min') 
         
     
     temp['x_task_position']=xx #Pre, during, post
     temp['y_task_position']=yy #Pre, during, post
-    
+    temp['speed_task_position']=ss #Pre, during, post mouse speed
     #Convert 2 2d histogram:
     
     hist=[]

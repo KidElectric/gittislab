@@ -43,6 +43,7 @@ import pdb
 from pathlib import Path
 import pandas as pd 
 import scipy
+from itertools import compress
 
 def get_subs(axes):
     dd=1
@@ -467,27 +468,59 @@ def trial_part_position(raw,meta,ax=None,highlight=0,hl_color='b',chunk_method='
     else:
         return ax
     
-def pre_dur_post_arena_plotter(xx,yy,ax,highlight=0,color='b',arena_size=23):
+def pre_dur_post_arena_plotter(xx,yy,ax,highlight=0,color='b',arena_size=23,speed=[]):
     
     if highlight == 1:
         #Highlight Zone 1
-        ax[1].fill_between([-arena_size,0],
-                           [-arena_size,-arena_size],
-                           y2=[arena_size,arena_size],
-                           facecolor = color, alpha=0.3,edgecolor='none')
+        ax[1].plot([-arena_size,0],[arena_size+1,arena_size+1],color)
+        # ax[1].fill_between([-arena_size,0],
+        #                    [-arena_size,-arena_size],
+        #                    y2=[arena_size,arena_size],
+        #                    facecolor = color, alpha=0.3,edgecolor='none')
     elif highlight ==2:
         #Highlight Zone 2
-        ax[1].fill_between([0,arena_size],
-                           [-arena_size,-arena_size],
-                           y2=[arena_size, arena_size],
-                           facecolor=color, alpha=0.3,edgecolor='none')
+        ax[1].plot([0,arena_size],[arena_size+1,arena_size+1],color)
+        # ax[1].fill_between([0,arena_size],
+        #                    [-arena_size,-arena_size],
+        #                    y2=[arena_size, arena_size],
+        #                    facecolor=color, alpha=0.3,edgecolor='none')
+    
+        
     for x,y,a in zip(xx,yy,ax):
         a.scatter(x,y,10,'k',marker='.',alpha=0.05,rasterized = True)
         a.plot([0,0],[-arena_size, arena_size],'--r')
         a.set_xlim([-arena_size, arena_size])
         plt.sca(a)
         plt.xlabel('cm')
-        plt.ylabel('cm')    
+        plt.ylabel('cm')  
+        
+    if len(speed)==3:
+        print('Do speed analysis here for slowdown')
+        offset=0
+        for s,x,y,a in zip(speed,xx,yy,ax):
+            slow = s < 0.1
+            # pdb.set_trace()
+            bout_onset = np.concatenate((np.array([0]),np.diff(slow.astype(int))>0))
+            onset_samps = list(list(compress(range(len(bout_onset)),bout_onset)))
+            bout_offset = np.concatenate((np.array([0]),np.diff(slow.astype(int))<0))
+            offset_samps= list(list(compress(range(len(bout_offset)),bout_offset)))
+            
+            
+            if onset_samps[0] > offset_samps[0]:
+                #Simplest solution, remove first offset, aligning with remaining onsets
+                #(Does not rule out other problems that may arise!)
+                offset_samps.pop(0)
+                
+            offset_samps=np.array(offset_samps)
+            onset_samps=np.array(onset_samps)
+            samp_durs=offset_samps- onset_samps
+            min_dur=15 #0.5 seconds
+            use = samp_durs > min_dur
+            onset_samps=onset_samps[use] + offset
+            offset_samps=offset_samps[use] + offset
+            for on in onset_samps:
+                a.plot(x[on],y[on],'ob',alpha=0.2,fillstyle = 'full')
+            offset = offset + len(x)
         
 def plot_openloop_day(raw,meta,save=False, close=False,save_dir=None):    
     '''
@@ -1907,7 +1940,13 @@ def plot_zone_mouse_summary(data,
     zone = int(data.loc[example_mouse,'proto'].split('_')[1])
     xx=data.loc[example_mouse,'x_task_position']
     yy=data.loc[example_mouse,'y_task_position']
-    pre_dur_post_arena_plotter(xx,yy,f_row[0],highlight=zone,color=color)
+    if 'speed_task_position' in data.columns:
+        ss = data.loc[example_mouse,'speed_task_position']
+    else:
+        print('data .pkl needs to be re-processed in order to plot periods of immobility!')
+        print('need to add speed_task_position field')
+        ss=[]
+    pre_dur_post_arena_plotter(xx,yy,f_row[0],highlight=zone,color=color,speed=ss)
     cao=data['cell_area_opsin'][example_mouse]
     f_row[0][0].set_title('%s RTPP (%s), n=%d' % (cao,
                                         data['proto'][example_mouse],
